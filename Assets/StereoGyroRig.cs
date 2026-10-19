@@ -10,6 +10,11 @@ using UnityEngine;
 ///   - Tocar con 2 dedos: alterna entre modo visor (2 ojos) y modo normal (pantalla completa).
 /// En el editor: tecla V alterna el modo, tecla R recentra.
 ///
+/// Celulares SIN giroscopio (ej. Samsung Galaxy A04): se usa el acelerometro.
+///   - Mirar arriba / abajo: funciona igual (inclinar la cabeza adelante / atras).
+///   - Girar a los costados: inclinar la cabeza hacia el hombro (como "manejar" la vista).
+///     El acelerometro solo mide la gravedad, asi que no puede detectar el giro horizontal directo.
+///
 /// Ponelo en un objeto vacio llamado "Rig". La cabeza gira, el Rig NO gira:
 /// las manos (objeto "Manos") van como hijas del Rig.
 /// </summary>
@@ -33,6 +38,20 @@ public class StereoGyroRig : MonoBehaviour
     [Tooltip("Segundos despues de empezar para fijar 'adelante' automaticamente")]
     public float recenterDelay = 2f;
 
+    [Header("Celular sin giroscopio (acelerometro)")]
+    [Tooltip("Usar el acelerometro si el celular no tiene giroscopio")]
+    public bool accelerometerFallback = true;
+    [Tooltip("Suavizado del acelerometro (mas alto = responde mas rapido, mas bajo = mas suave)")]
+    public float accelSmoothing = 8f;
+    [Tooltip("Grados de inclinacion lateral que se ignoran antes de empezar a girar")]
+    public float tiltDeadZone = 10f;
+    [Tooltip("Velocidad de giro (grados por segundo) con la cabeza inclinada 30 grados")]
+    public float tiltTurnSpeed = 60f;
+    [Tooltip("Tildar si al mirar arriba la vista baja (y al reves)")]
+    public bool invertPitch = false;
+    [Tooltip("Tildar si al inclinar la cabeza a la derecha la vista gira a la izquierda")]
+    public bool invertTurn = false;
+
     [Header("Editor (sin giroscopio)")]
     public float mouseSensitivity = 3f;
 
@@ -48,6 +67,9 @@ public class StereoGyroRig : MonoBehaviour
     float startTime;
     float lastToggle = -10f;
     float editorYaw, editorPitch;
+    bool useAccel;
+    Vector3 gravity = new Vector3(-1f, 0f, 0f);
+    float accelYaw;
 
     void Start()
     {
@@ -68,6 +90,8 @@ public class StereoGyroRig : MonoBehaviour
 
         useGyro = SystemInfo.supportsGyroscope;
         if (useGyro) Input.gyro.enabled = true;
+        useAccel = !useGyro && accelerometerFallback && !Application.isEditor && SystemInfo.supportsAccelerometer;
+        Debug.Log("[Visor] giroscopio: " + useGyro + " | acelerometro: " + useAccel);
 
         if (createDebugMarkers) CreateMarkers();
 
@@ -136,7 +160,37 @@ public class StereoGyroRig : MonoBehaviour
         }
 
         if (useGyro) UpdateGyro();
+        else if (useAccel) UpdateAccel();
         else UpdateMouse();
+    }
+
+    // Sin giroscopio: el acelerometro da la direccion de la gravedad.
+    // Con el celular acostado (LandscapeLeft) y la pantalla hacia la persona,
+    // la gravedad en coordenadas del celular queda cerca de (-1, 0, 0).
+    void UpdateAccel()
+    {
+        float dt = Time.deltaTime;
+        Vector3 a = Input.acceleration;
+        if (a.sqrMagnitude > 0.01f)
+            gravity = Vector3.Lerp(gravity, a, 1f - Mathf.Exp(-accelSmoothing * dt));
+
+        // Arriba / abajo: cuanto apunta la gravedad hacia la pantalla
+        float pitch = Mathf.Atan2(gravity.z, Mathf.Sqrt(gravity.x * gravity.x + gravity.y * gravity.y)) * Mathf.Rad2Deg;
+        // Inclinacion hacia el hombro (positivo = cabeza hacia la derecha)
+        float roll = Mathf.Atan2(gravity.y, -gravity.x) * Mathf.Rad2Deg;
+        if (invertPitch) pitch = -pitch;
+        if (invertTurn) roll = -roll;
+
+        // La inclinacion lateral hace girar la vista, como un volante
+        float extra = Mathf.Abs(roll) - tiltDeadZone;
+        if (extra > 0f)
+            accelYaw += Mathf.Sign(roll) * (extra / 30f) * tiltTurnSpeed * dt;
+
+        // 1 dedo (o el boton del Cardboard): volver a mirar adelante
+        if (Input.touchCount == 1 && Input.GetTouch(0).phase == TouchPhase.Began)
+            accelYaw = 0f;
+
+        head.localRotation = Quaternion.Euler(Mathf.Clamp(-pitch, -85f, 85f), accelYaw, 0f);
     }
 
     void UpdateGyro()
