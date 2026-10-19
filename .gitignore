@@ -1,0 +1,32 @@
+# Unity: carpetas que Unity regenera sola
+/[Ll]ibrary/
+/[Tt]emp/
+/[Oo]bj/
+/[Bb]uild/
+/[Bb]uilds/
+/[Ll]ogs/
+/[Uu]ser[Ss]ettings/
+/[Mm]emoryCaptures/
+/[Rr]ecordings/
+*.csproj
+*.sln
+*.slnx
+.vs/
+.vscode/
+.idea/
+*.apk
+*.aab
+
+# Blender: copias de respaldo
+*.blend1
+*.blend2
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Sistema
+.DS_Store
+._*
+Thumbs.db

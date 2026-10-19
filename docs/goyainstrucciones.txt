@@ -1,0 +1,9 @@
+Instalar Unity Hub y, desde ahí, Unity 6000.6.1f1 (tiene que ser la misma versión: con otra, Unity intenta convertir el proyecto y a veces se rompe). En la instalación, tildar Android Build Support (con OpenJDK y Android SDK & NDK Tools).
+Descomprimir el zip en una carpeta, por ejemplo C:\GoyaVR.
+En Unity Hub: Add → Add project from disk, elegir esa carpeta y abrirlo. La primera vez tarda varios minutos, porque reconstruye todo.
+Abrir la escena: en la ventana Project, dentro de Assets/Scenes, doble clic en SampleScene.
+File → Build Profiles → Android → Switch Platform.
+Python 3.10 a 3.12 y, en la carpeta de los archivos pruebagoya escribir powershell y en la terminal escribir: pip install -r requirements.txt.
+
+después en la misma terminal pones python hand_tracker.py --backend msmf y le das play en unity y ahí podes jugar. para bajarlo al celu tiene que ser un celular Android vas a file build profiles Android build and run y se descarga la app en el celu. en la misma teerminal de antes pones    python hand_tracker.py --backend msmf --ip 192.168.1.35 (y la ip q esten conectados el celu y la pc esa es una de ejemplo) y ahí lo probas. CUALQUIER COSA PREGUNTAME NO TENGO DRAMA  
+
