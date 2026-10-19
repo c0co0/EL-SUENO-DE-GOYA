@@ -27,6 +27,9 @@ public class StereoGyroRig : MonoBehaviour
     [Header("Estereo")]
     [Tooltip("Distancia entre ojos en metros")]
     public float ipd = 0.064f;
+    [Tooltip("Distancia entre los centros de las lentes del visor en metros (0 = usar mitades de pantalla). " +
+             "Si se ve doble, ajustar este valor: medir con una regla de centro a centro de las lentes.")]
+    public float lensSeparation = 0.062f;
     public float fieldOfView = 75f;
     [Tooltip("Campo de vision vertical en modo normal")]
     public float monoFieldOfView = 65f;
@@ -44,7 +47,7 @@ public class StereoGyroRig : MonoBehaviour
     [Tooltip("Suavizado del acelerometro (mas alto = responde mas rapido, mas bajo = mas suave)")]
     public float accelSmoothing = 8f;
     [Tooltip("Grados de inclinacion lateral que se ignoran antes de empezar a girar")]
-    public float tiltDeadZone = 15f;
+    public float tiltDeadZone = 12f;
     [Tooltip("Velocidad de giro (grados por segundo) con la cabeza inclinada 30 grados")]
     public float tiltTurnSpeed = 45f;
     [Tooltip("Tildar si al mirar arriba la vista baja (y al reves)")]
@@ -118,11 +121,18 @@ public class StereoGyroRig : MonoBehaviour
     {
         if (stereo)
         {
-            leftEye.rect = new Rect(0f, 0f, 0.5f, 1f);
+            // Centro de cada ojo en la pantalla (0..1). Por defecto, el centro de cada mitad.
+            float cx = 0.25f;
+            float screenWidthM = Screen.dpi > 0f ? Screen.width / Screen.dpi * 0.0254f : 0f;
+            if (lensSeparation > 0f && screenWidthM > 0f)
+                cx = Mathf.Clamp(0.5f - lensSeparation * 0.5f / screenWidthM, 0.05f, 0.25f);
+            // Cada vista se centra bajo su lente (si la pantalla es mas ancha que el visor, quedan bordes negros)
+            float hw = cx;
+            leftEye.rect = new Rect(cx - hw, 0f, 2f * hw, 1f);
             leftEye.fieldOfView = fieldOfView;
             leftEye.transform.localPosition = new Vector3(-ipd / 2f, 0f, 0f);
             rightEye.gameObject.SetActive(true);
-            rightEye.rect = new Rect(0.5f, 0f, 0.5f, 1f);
+            rightEye.rect = new Rect(1f - cx - hw, 0f, 2f * hw, 1f);
             rightEye.fieldOfView = fieldOfView;
         }
         else
@@ -177,11 +187,10 @@ public class StereoGyroRig : MonoBehaviour
         if (a.sqrMagnitude > 0.01f)
             gravity = Vector3.Lerp(gravity, a, 1f - Mathf.Exp(-accelSmoothing * dt));
 
-        float down = gravity.x >= 0f ? 1f : -1f;
         // Arriba / abajo: cuanto apunta la gravedad hacia la pantalla
         float pitch = Mathf.Atan2(gravity.z, Mathf.Sqrt(gravity.x * gravity.x + gravity.y * gravity.y)) * Mathf.Rad2Deg;
-        // Inclinacion hacia el hombro
-        float roll = Mathf.Atan2(gravity.y * -down, Mathf.Abs(gravity.x)) * Mathf.Rad2Deg;
+        // Inclinacion hacia el hombro: angulo de la gravedad en el plano de la pantalla
+        float roll = Mathf.Atan2(gravity.y, gravity.x) * Mathf.Rad2Deg;
 
         // Calibrar: la posicion actual pasa a ser "derecho y mirando adelante"
         bool tapped = Input.touchCount == 1 && Input.GetTouch(0).phase == TouchPhase.Began;
@@ -193,7 +202,7 @@ public class StereoGyroRig : MonoBehaviour
             accelCalibrated = true;
         }
         pitch -= pitchOffset;
-        roll -= rollOffset;
+        roll = Mathf.DeltaAngle(rollOffset, roll);
         if (invertPitch) pitch = -pitch;
         if (invertTurn) roll = -roll;
 
