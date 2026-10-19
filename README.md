@@ -45,3 +45,11 @@ python hand_tracker.py --backend msmf --ip 192.168.1.35
 - Antes de empezar: **Pull** (traer lo último).
 - Al terminar: **Commit** y **Push**.
 - Evitar editar la escena (`SampleScene.unity`) las dos al mismo tiempo: es el archivo que más conflictos genera. Los scripts `.cs` se pueden editar en paralelo sin problema.
+
+## Rama `mac-unity6000.0` (Mac con macOS Monterey)
+
+Unity 6000.6 necesita macOS Ventura 13 o más nuevo. Esta rama ajusta los paquetes para abrir el proyecto con **Unity 6000.0 LTS**, que corre en Monterey.
+- Instalar desde Unity Hub la última 6000.0.x LTS (pestaña Installs → Install Editor → LTS).
+- Abrir el proyecto con esa versión y aceptar el aviso de cambio de versión.
+- Si el Package Manager marca un error de versión en un paquete, actualizarlo a la versión que ofrece ahí.
+- No mezclar esta rama con `main` sin probar: los cambios de scripts se pueden pasar a mano o con cherry-pick.
