@@ -44,9 +44,9 @@ public class StereoGyroRig : MonoBehaviour
     [Tooltip("Suavizado del acelerometro (mas alto = responde mas rapido, mas bajo = mas suave)")]
     public float accelSmoothing = 8f;
     [Tooltip("Grados de inclinacion lateral que se ignoran antes de empezar a girar")]
-    public float tiltDeadZone = 10f;
+    public float tiltDeadZone = 15f;
     [Tooltip("Velocidad de giro (grados por segundo) con la cabeza inclinada 30 grados")]
-    public float tiltTurnSpeed = 60f;
+    public float tiltTurnSpeed = 45f;
     [Tooltip("Tildar si al mirar arriba la vista baja (y al reves)")]
     public bool invertPitch = false;
     [Tooltip("Tildar si al inclinar la cabeza a la derecha la vista gira a la izquierda")]
@@ -70,6 +70,8 @@ public class StereoGyroRig : MonoBehaviour
     bool useAccel;
     Vector3 gravity = new Vector3(-1f, 0f, 0f);
     float accelYaw;
+    float pitchOffset, rollOffset;
+    bool accelCalibrated;
 
     void Start()
     {
@@ -165,8 +167,9 @@ public class StereoGyroRig : MonoBehaviour
     }
 
     // Sin giroscopio: el acelerometro da la direccion de la gravedad.
-    // Con el celular acostado (LandscapeLeft) y la pantalla hacia la persona,
-    // la gravedad en coordenadas del celular queda cerca de (-1, 0, 0).
+    // Con el celular acostado y la pantalla hacia la persona, la gravedad queda
+    // casi toda sobre el eje x del celular (+x o -x segun para que lado se acueste).
+    // Al empezar (y al tocar la pantalla) se toma la posicion actual como "derecho".
     void UpdateAccel()
     {
         float dt = Time.deltaTime;
@@ -174,21 +177,30 @@ public class StereoGyroRig : MonoBehaviour
         if (a.sqrMagnitude > 0.01f)
             gravity = Vector3.Lerp(gravity, a, 1f - Mathf.Exp(-accelSmoothing * dt));
 
+        float down = gravity.x >= 0f ? 1f : -1f;
         // Arriba / abajo: cuanto apunta la gravedad hacia la pantalla
         float pitch = Mathf.Atan2(gravity.z, Mathf.Sqrt(gravity.x * gravity.x + gravity.y * gravity.y)) * Mathf.Rad2Deg;
-        // Inclinacion hacia el hombro (positivo = cabeza hacia la derecha)
-        float roll = Mathf.Atan2(gravity.y, -gravity.x) * Mathf.Rad2Deg;
+        // Inclinacion hacia el hombro
+        float roll = Mathf.Atan2(gravity.y * -down, Mathf.Abs(gravity.x)) * Mathf.Rad2Deg;
+
+        // Calibrar: la posicion actual pasa a ser "derecho y mirando adelante"
+        bool tapped = Input.touchCount == 1 && Input.GetTouch(0).phase == TouchPhase.Began;
+        if ((!accelCalibrated && Time.time - startTime > recenterDelay) || tapped)
+        {
+            pitchOffset = pitch;
+            rollOffset = roll;
+            accelYaw = 0f;
+            accelCalibrated = true;
+        }
+        pitch -= pitchOffset;
+        roll -= rollOffset;
         if (invertPitch) pitch = -pitch;
         if (invertTurn) roll = -roll;
 
-        // La inclinacion lateral hace girar la vista, como un volante
+        // La inclinacion lateral hace girar la vista, como un volante (solo despues de calibrar)
         float extra = Mathf.Abs(roll) - tiltDeadZone;
-        if (extra > 0f)
-            accelYaw += Mathf.Sign(roll) * (extra / 30f) * tiltTurnSpeed * dt;
-
-        // 1 dedo (o el boton del Cardboard): volver a mirar adelante
-        if (Input.touchCount == 1 && Input.GetTouch(0).phase == TouchPhase.Began)
-            accelYaw = 0f;
+        if (accelCalibrated && extra > 0f)
+            accelYaw += Mathf.Sign(roll) * Mathf.Min(extra / 30f, 1.5f) * tiltTurnSpeed * dt;
 
         head.localRotation = Quaternion.Euler(Mathf.Clamp(-pitch, -85f, 85f), accelYaw, 0f);
     }
