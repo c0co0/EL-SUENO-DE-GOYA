@@ -35,11 +35,23 @@ Si Pilar no tiene cuenta de GitHub, la crea gratis en https://github.com/signup.
    cd Proyectos
    git clone https://github.com/c0co0/EL-SUENO-DE-GOYA.git
    cd EL-SUENO-DE-GOYA
-   git config user.name "Pilar Gargiulo"
-   git config user.email "el-mail-de-su-cuenta-de-github"
    ```
 
 Queda el proyecto en `C:\Proyectos\EL-SUENO-DE-GOYA`.
+
+### 3b. Decirle a Git quién sos (una sola vez por computadora)
+Sin esto, `git commit` falla con *"Author identity unknown"* y el `push` dice *"Everything up-to-date"* sin subir nada. Para `pull` no hace falta, pero conviene hacerlo de entrada.
+
+En PowerShell, con **tus datos reales** (no copiar los ejemplos tal cual):
+```
+git config --global user.name "Pilar Gargiulo"
+git config --global user.email "el-mail-de-tu-cuenta-de-github"
+```
+- El repositorio es público: ese mail queda visible en el historial. Si preferís ocultarlo, usá el que aparece en GitHub → **Settings → Emails** (`...@users.noreply.github.com`).
+- Si te equivocaste, volvé a correr los dos comandos: el valor nuevo pisa al anterior.
+- Con GitHub Desktop se configura en **File → Options → Git**.
+
+**Importante para Unity:** la rama `cardboard-xr` baja el plugin de Cardboard con Git. Si instalaste Git con Unity Hub abierto, cerrá Unity Hub del todo (también el ícono al lado del reloj) o reiniciá la PC; si no, Unity dice *"No 'git' executable was found"*.
 
 ### 4. Pasar los cambios que Pilar hizo después de mandar el zip
 El repo tiene el zip que mandó Pilar hoy más los arreglos del visor (`StereoGyroRig.cs`). Si después de eso Pilar cambió algo en su carpeta vieja (por ejemplo, valores en el Inspector o un script), hay que copiar esos archivos a la carpeta nueva:
