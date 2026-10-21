@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.XR;
 
 /// <summary>
 /// Visor VR casero para celular: crea dos camaras (ojo izquierdo y derecho, pantalla dividida)
@@ -14,6 +15,11 @@ using UnityEngine;
 ///   - Mirar arriba / abajo: funciona igual (inclinar la cabeza adelante / atras).
 ///   - Girar a los costados: inclinar la cabeza hacia el hombro (como "manejar" la vista).
 ///     El acelerometro solo mide la gravedad, asi que no puede detectar el giro horizontal directo.
+///
+/// Con el plugin Google Cardboard XR activo (XR Plug-in Management), no se arman las dos camaras
+/// a mano: el plugin dibuja los dos ojos con la distorsion de las lentes del visor y la rotacion
+/// de la cabeza sale del seguimiento de Cardboard. Si el XR no esta activo (por ejemplo en el editor),
+/// se usa el visor casero de siempre.
 ///
 /// Ponelo en un objeto vacio llamado "Rig". La cabeza gira, el Rig NO gira:
 /// las manos (objeto "Manos") van como hijas del Rig.
@@ -71,6 +77,7 @@ public class StereoGyroRig : MonoBehaviour
     float lastToggle = -10f;
     float editorYaw, editorPitch;
     bool useAccel;
+    bool useXR;
     Vector3 gravity = new Vector3(-1f, 0f, 0f);
     float accelYaw;
     float pitchOffset, rollOffset;
@@ -89,14 +96,26 @@ public class StereoGyroRig : MonoBehaviour
         head.SetParent(transform, false);
         head.gameObject.AddComponent<AudioListener>();
 
-        leftEye = CreateEye("OjoIzquierdo", -ipd / 2f);
-        rightEye = CreateEye("OjoDerecho", ipd / 2f);
-        ApplyMode();
+        // Con Cardboard XR una sola camara alcanza: el plugin la renderiza para los dos ojos
+        useXR = XRSettings.isDeviceActive;
+        if (useXR)
+        {
+            leftEye = CreateEye("CamaraXR", 0f);
+            leftEye.gameObject.tag = "MainCamera";
+            stereo = true;
+        }
+        else
+        {
+            leftEye = CreateEye("OjoIzquierdo", -ipd / 2f);
+            rightEye = CreateEye("OjoDerecho", ipd / 2f);
+            ApplyMode();
+        }
 
         useGyro = SystemInfo.supportsGyroscope;
         if (useGyro) Input.gyro.enabled = true;
         useAccel = !useGyro && accelerometerFallback && !Application.isEditor && SystemInfo.supportsAccelerometer;
-        Debug.Log("[Visor] giroscopio: " + useGyro + " | acelerometro: " + useAccel);
+        Debug.Log("[Visor] XR: " + useXR + " (" + XRSettings.loadedDeviceName + ") | giroscopio: " + useGyro +
+                  " | acelerometro: " + useAccel);
 
         if (createDebugMarkers) CreateMarkers();
 
@@ -164,7 +183,7 @@ public class StereoGyroRig : MonoBehaviour
     {
         // Alternar visor / pantalla completa: 2 dedos en el celular, tecla V en el editor
         bool twoFingers = Input.touchCount >= 2 && Input.GetTouch(1).phase == TouchPhase.Began;
-        if ((twoFingers || Input.GetKeyDown(KeyCode.V)) && Time.time - lastToggle > 1f)
+        if (!useXR && (twoFingers || Input.GetKeyDown(KeyCode.V)) && Time.time - lastToggle > 1f)
         {
             stereo = !stereo;
             ApplyMode();
@@ -216,8 +235,12 @@ public class StereoGyroRig : MonoBehaviour
 
     void UpdateGyro()
     {
-        Quaternion q = Input.gyro.attitude;
-        Quaternion raw = Quaternion.Euler(90f, 0f, 0f) * new Quaternion(q.x, q.y, -q.z, -q.w);
+        Quaternion raw;
+        if (!useXR || !TryGetXRHeadRotation(out raw))
+        {
+            Quaternion q = Input.gyro.attitude;
+            raw = Quaternion.Euler(90f, 0f, 0f) * new Quaternion(q.x, q.y, -q.z, -q.w);
+        }
 
         // Fijar "adelante" automaticamente una vez, y de nuevo al tocar con 1 dedo
         bool tapped = Input.touchCount == 1 && Input.GetTouch(0).phase == TouchPhase.Began;
@@ -228,6 +251,19 @@ public class StereoGyroRig : MonoBehaviour
         }
 
         head.localRotation = Quaternion.Euler(0f, -yawOffset, 0f) * raw;
+    }
+
+    // Rotacion de la cabeza segun el seguimiento de Cardboard
+    static bool TryGetXRHeadRotation(out Quaternion rotation)
+    {
+        InputDevice device = InputDevices.GetDeviceAtXRNode(XRNode.CenterEye);
+        if (!device.isValid) device = InputDevices.GetDeviceAtXRNode(XRNode.Head);
+        if (device.isValid && device.TryGetFeatureValue(CommonUsages.centerEyeRotation, out rotation))
+            return true;
+        if (device.isValid && device.TryGetFeatureValue(CommonUsages.deviceRotation, out rotation))
+            return true;
+        rotation = Quaternion.identity;
+        return false;
     }
 
     void UpdateMouse()

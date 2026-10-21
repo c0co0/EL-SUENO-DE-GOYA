@@ -606,6 +606,7 @@ GameObject:
   m_Component:
   - component: {fileID: 787862492}
   - component: {fileID: 787862491}
+  - component: {fileID: 787862493}
   m_Layer: 0
   m_Name: Rig
   m_TagString: Untagged
@@ -635,6 +636,19 @@ MonoBehaviour:
   recenterDelay: 2
   mouseSensitivity: 3
   createDebugMarkers: 0
+--- !u!114 &787862493
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 787862490}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f08edcb8f4814b71af3765e25a736582, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CardboardSetup
+  scanOnStart: 1
 --- !u!4 &787862492
 Transform:
   m_ObjectHideFlags: 0
