@@ -574,8 +574,8 @@ MonoBehaviour:
   bobAmount: 0.04
   hands: {fileID: 0}
   gallery: {fileID: 0}
-  touchRadiusFactor: 0.7
-  touchHoldTime: 0.4
+  touchRadiusFactor: 0.45
+  touchHoldTime: 1.2
   reach: 1.6
   pointerLandmark: 9
   cursorSize: 0.14

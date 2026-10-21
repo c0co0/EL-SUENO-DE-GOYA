@@ -4,7 +4,9 @@ using UnityEngine;
 /// <summary>
 /// Introduccion de la experiencia:
 ///  1. Tu objeto de Blender flota delante de la persona (gira lento y respira).
-///  2. Al apuntarlo con la MANO ABIERTA un instante, el objeto se deshace en particulas.
+///  2. Gesto para deshacerlo: apuntarlo con el PUÑO CERRADO y despues ABRIR la mano,
+///     manteniendola abierta sobre el objeto un momento. Asi no se deshace con cualquier
+///     movimiento de manos. El objeto tiembla y crece mientras se carga el gesto.
 ///  3. Mientras las particulas se dispersan, la galeria de cuadros aparece de a poco.
 ///
 /// Ponelo en el objeto "Galeria". Arrastra tu modelo (ya puesto en la escena) en "Intro Object".
@@ -30,9 +32,13 @@ public class GoyaIntro : MonoBehaviour
 
     [Header("Toque")]
     [Tooltip("Que tan cerca del objeto tiene que apuntar la mano (multiplica el tamaño)")]
-    public float touchRadiusFactor = 0.7f;
-    [Tooltip("Segundos con la mano abierta apuntando al objeto")]
-    public float touchHoldTime = 0.4f;
+    public float touchRadiusFactor = 0.45f;
+    [Tooltip("Segundos con la mano abierta apuntando al objeto (despues de haberlo apuntado con el puño)")]
+    public float touchHoldTime = 1.2f;
+    [Tooltip("Exigir el puño cerrado antes de abrir la mano (si se apaga, alcanza con la mano abierta)")]
+    public bool requireFistFirst = true;
+    [Tooltip("Segundos al comienzo en los que el objeto no se puede deshacer")]
+    public float startGrace = 2f;
     public float reach = 1.6f;
     public int pointerLandmark = 9;
     public float cursorSize = 0.14f;
@@ -72,6 +78,8 @@ public class GoyaIntro : MonoBehaviour
     Transform rig, pivot;
     Vector3 basePos;
     float touch;
+    bool armedLeft, armedRight;   // la mano ya apunto al objeto con el puño cerrado
+    float waitingSince = -1f;
     SpriteRenderer cursorLeft, cursorRight;
     Texture2D softTex;
 
@@ -237,10 +245,19 @@ public class GoyaIntro : MonoBehaviour
         float dt = Time.deltaTime;
         if (pivot == null) return;
 
+        if (waitingSince < 0f) waitingSince = Time.time;
         bool leftOpen, rightOpen;
         bool nearL = ProcessHand(hands.Left, cursorLeft, hands.leftColor, out leftOpen);
         bool nearR = ProcessHand(hands.Right, cursorRight, hands.rightColor, out rightOpen);
-        bool touching = (nearL && leftOpen) || (nearR && rightOpen);
+
+        // Puño cerrado sobre el objeto = gesto "cargado"; se pierde si la mano sale de cuadro
+        armedLeft = Arm(armedLeft, hands.Left, nearL, leftOpen);
+        armedRight = Arm(armedRight, hands.Right, nearR, rightOpen);
+
+        bool allowed = Time.time - waitingSince >= startGrace;
+        bool touching = allowed &&
+                        ((nearL && leftOpen && (armedLeft || !requireFistFirst)) ||
+                         (nearR && rightOpen && (armedRight || !requireFistFirst)));
 
         touch = touching ? touch + dt : Mathf.Max(0f, touch - dt * 2f);
         float progress = Mathf.Clamp01(touch / touchHoldTime);
@@ -252,6 +269,13 @@ public class GoyaIntro : MonoBehaviour
         pivot.localScale = Vector3.one * (1f + 0.03f * Mathf.Sin(Time.time * 2f) + 0.08f * progress);
 
         if (progress >= 1f || Input.GetKeyDown(KeyCode.I)) BeginDissolve();
+    }
+
+    static bool Arm(bool armed, HandOSCReceiver.HandState hand, bool near, bool open)
+    {
+        if (!hand.visible) return false;
+        if (near && !open) return true;
+        return armed;
     }
 
     // ---------------------------------------------------------------- deshacer en particulas

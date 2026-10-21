@@ -12,10 +12,15 @@ using UnityEngine;
 /// Cada vez que un cuadro se rearma con las particulas, vuelve como la obra siguiente de
 /// "Obras mas oscuras" (cuanto mas oscuridad acumulada, mas adelante en la lista salta).
 ///
-/// Uso: objeto vacio "Galeria" con este script, y arrastrar las 3 imagenes (importadas
-/// como Sprite) en los casilleros. Las obras oscuras tambien se importan como Sprite
-/// (Texture Type: Sprite (2D and UI)), pero no hace falta tildarles Read/Write.
-/// En el editor: tecla O = sumar oscuridad (para probar sin manos).
+/// Galeria 360: si "Painting Sequence" tiene obras, los cuadros se reparten en un anillo
+/// alrededor de la persona. Las primeras de la lista llenan el anillo y cada cuadro que se
+/// desarma vuelve como la siguiente de la lista: ordenarla de lo cotidiano a lo mas oscuro.
+/// Si la lista esta vacia, se usan los 3 cuadros de siempre (y "Darker Paintings").
+///
+/// Uso: objeto vacio "Galeria" con este script. Las imagenes se importan como Sprite
+/// (Texture Type: Sprite (2D and UI)); no hace falta tildarles Read/Write.
+/// Moverse: un PUÑO CERRADO sostenido camina hacia donde miras; los DOS PUÑOS, hacia atras.
+/// En el editor: W / S = caminar adelante / atras, tecla O = sumar oscuridad (para probar sin manos).
 /// </summary>
 public class GoyaGallery : MonoBehaviour
 {
@@ -24,9 +29,29 @@ public class GoyaGallery : MonoBehaviour
     public Sprite leftPainting;
     public Sprite rightPainting;
 
+    [Header("Galeria 360 (si tiene obras, reemplaza a los 3 cuadros de arriba)")]
+    [Tooltip("Todas las obras en orden: primero las de la vida cotidiana, al final las mas oscuras. " +
+             "Las primeras llenan el anillo; cada cuadro que se desarma vuelve como la siguiente.")]
+    public Sprite[] paintingSequence;
+    [Tooltip("Cuantos cuadros hay alrededor (repartidos en 360 grados)")]
+    public int ringCount = 8;
+    [Tooltip("Cuantas obras de la lista puede saltear de golpe si las manos se mueven mucho")]
+    public int maxSkip = 1;
+
+    [Header("Moverse (acercarse y alejarse de las obras)")]
+    public bool allowMove = true;
+    [Tooltip("Velocidad al caminar (metros por segundo)")]
+    public float moveSpeed = 0.6f;
+    [Tooltip("Segundos con el puño cerrado antes de empezar a caminar (evita moverse sin querer)")]
+    public float fistHoldTime = 0.5f;
+    [Tooltip("Lo mas cerca que se puede llegar a los cuadros (metros)")]
+    public float minDistanceToPaintings = 0.7f;
+
     [Header("Referencias")]
     [Tooltip("Si queda vacio, lo busca solo")]
     public HandOSCReceiver hands;
+    [Tooltip("Las manos y el puntero giran hacia donde mira la cabeza (necesario para tocar los cuadros de atras)")]
+    public bool handsFollowHead = true;
 
     [Tooltip("Visibilidad general de los cuadros (0 a 1). Lo usa la introduccion para hacerlos aparecer de a poco.")]
     [Range(0f, 1f)] public float appear = 1f;
@@ -89,6 +114,7 @@ public class GoyaGallery : MonoBehaviour
         public float maxSize;      // lado mas largo en metros (se mantiene al cambiar de obra)
         public int darkIndex = -1; // -1 = obra original, si no posicion en darkerPaintings
         public Sprite original;
+        public int originalIndex = -1; // posicion de la obra original en la lista (galeria 360)
     }
 
     public List<Painting> paintings = new List<Painting>();
@@ -96,10 +122,20 @@ public class GoyaGallery : MonoBehaviour
     Transform rig;
     SpriteRenderer cursorLeft, cursorRight;
 
-    Sprite[] darkSprites;
-    int nextDark;
+    Sprite[] darkSprites;   // obras que pueden aparecer al rearmarse, en orden
+    int nextDark;           // primera obra de darkSprites que todavia no se mostro
+    int firstDark;          // valor inicial de nextDark (para reiniciar)
+    bool ringMode;
     Vector3 lastLeft, lastRight;
     bool hadLeft, hadRight;
+
+    Transform head;
+    Vector3 handsBaseLocal;
+    float handsYaw;
+
+    Vector3 center;      // centro del anillo (donde empieza la persona)
+    float fistTimer;
+    float walk;          // velocidad actual, suavizada (-1 atras, 1 adelante)
 
     void Start()
     {
@@ -111,22 +147,57 @@ public class GoyaGallery : MonoBehaviour
             return;
         }
         rig = hands.transform.parent != null ? hands.transform.parent : transform;
+        head = rig.Find("Head");
+        handsBaseLocal = hands.transform.localPosition;
+        center = rig.position;
 
-        CreatePainting(centerPainting, "Centro", 0f, centerScale);
-        CreatePainting(leftPainting, "Izquierda", -sideAngle, 1f);
-        CreatePainting(rightPainting, "Derecha", sideAngle, 1f);
+        var sequence = new List<Sprite>();
+        if (paintingSequence != null)
+            foreach (var sp in paintingSequence) if (sp != null) sequence.Add(sp);
+
+        ringMode = sequence.Count > 0;
+        if (ringMode) CreateRing(sequence);
+        else
+        {
+            CreatePainting(centerPainting, "Centro", 0f, centerScale);
+            CreatePainting(leftPainting, "Izquierda", -sideAngle, 1f);
+            CreatePainting(rightPainting, "Derecha", sideAngle, 1f);
+            BuildDarkSprites();
+        }
 
         var circle = MakeCircleSprite();
         cursorLeft = CreateCursor("CursorIzquierdo", circle);
         cursorRight = CreateCursor("CursorDerecho", circle);
     }
 
-    void CreatePainting(Sprite sprite, string label, float angle, float scaleMul)
+    // Anillo de 360: el primero adelante y los siguientes alternando derecha e izquierda,
+    // asi las primeras obras de la lista quedan mas cerca de la vista inicial
+    void CreateRing(List<Sprite> sequence)
+    {
+        int count = Mathf.Clamp(ringCount, 1, sequence.Count);
+        float step = 360f / count;
+        float spacing = 2f * Mathf.PI * distance / count;
+        float maxSize = Mathf.Min(paintingMaxSize, spacing * 0.85f);
+
+        for (int i = 0; i < count; i++)
+        {
+            int side = (i + 1) / 2;
+            float angle = (i % 2 == 1 ? 1f : -1f) * side * step;
+            float scale = (i == 0 ? centerScale : 1f) * maxSize / paintingMaxSize;
+            var p = CreatePainting(sequence[i], "Anillo" + i, angle, scale);
+            if (p != null) p.darkIndex = p.originalIndex = i;
+        }
+
+        darkSprites = sequence.ToArray();
+        nextDark = firstDark = count;
+    }
+
+    Painting CreatePainting(Sprite sprite, string label, float angle, float scaleMul)
     {
         if (sprite == null)
         {
             Debug.LogWarning("[Galeria] Falta la imagen del cuadro: " + label);
-            return;
+            return null;
         }
 
         Quaternion yaw = Quaternion.Euler(0f, angle, 0f);
@@ -150,6 +221,7 @@ public class GoyaGallery : MonoBehaviour
         p.original = sprite;
         SetSprite(p, sprite);
         paintings.Add(p);
+        return p;
     }
 
     /// <summary>Cambia la obra de un cuadro manteniendo su lugar y su tamano maximo.</summary>
@@ -170,11 +242,12 @@ public class GoyaGallery : MonoBehaviour
     /// </summary>
     public Sprite PickNextSprite(Painting p)
     {
-        if (darkSprites == null) BuildDarkSprites();
-        int n = darkSprites.Length;
+        int n = darkSprites != null ? darkSprites.Length : 0;
         if (n == 0) return null;
 
-        int start = Mathf.Max(nextDark, Mathf.FloorToInt(darkness * n), p.darkIndex + 1);
+        // La siguiente de la lista; si las manos se movieron mucho, saltea hasta "maxSkip" obras
+        int byDarkness = firstDark + Mathf.FloorToInt(darkness * (n - firstDark));
+        int start = Mathf.Max(nextDark, Mathf.Min(byDarkness, nextDark + maxSkip));
         if (start >= n) start = n - 1;
 
         // Buscar desde "start" hacia adelante y despues hacia atras una que no este en pantalla
@@ -201,6 +274,7 @@ public class GoyaGallery : MonoBehaviour
 
     void BuildDarkSprites()
     {
+        nextDark = firstDark = 0;
         var list = new List<Sprite>();
         if (darkerPaintings != null)
         {
@@ -247,11 +321,58 @@ public class GoyaGallery : MonoBehaviour
         dir = Vector3.forward;
         if (!hand.visible) return false;
 
-        // Posicion de la mano relativa al Rig (Manos es hijo del Rig, sin rotacion ni escala)
-        Vector3 local = hands.transform.localPosition + hand.points[pointerLandmark];
+        // Posicion de la mano relativa al Rig (Manos es hijo del Rig, sin escala),
+        // girada hacia donde mira la cabeza
+        Vector3 local = handsBaseLocal + hand.points[pointerLandmark];
         Vector3 amplified = new Vector3(local.x * reach, local.y * reach, local.z);
-        dir = rig.TransformDirection(amplified).normalized;
+        dir = rig.TransformDirection(Quaternion.Euler(0f, handsYaw, 0f) * amplified).normalized;
         return true;
+    }
+
+    // Caminar: un puño = adelante, dos puños = atras (siempre dentro del anillo de cuadros)
+    void UpdateWalk()
+    {
+        if (!allowMove) return;
+        float dt = Time.deltaTime;
+
+        bool fistL = hands.Left.visible && !hands.Left.open;
+        bool fistR = hands.Right.visible && !hands.Right.open;
+        fistTimer = (fistL || fistR) ? fistTimer + dt : 0f;
+
+        float wanted = 0f;
+        if (fistTimer >= fistHoldTime) wanted = (fistL && fistR) ? -1f : 1f;
+        if (Input.GetKey(KeyCode.W)) wanted = 1f;
+        if (Input.GetKey(KeyCode.S)) wanted = -1f;
+
+        walk = Mathf.Lerp(walk, wanted, 1f - Mathf.Exp(-4f * dt));
+        if (Mathf.Abs(walk) < 0.01f) return;
+
+        Vector3 forward = head != null ? head.forward : rig.forward;
+        forward.y = 0f;
+        if (forward.sqrMagnitude < 0.0001f) return;
+        forward.Normalize();
+
+        Vector3 pos = rig.position + forward * (walk * moveSpeed * dt);
+        Vector3 offset = pos - center;
+        offset.y = 0f;
+        float maxRadius = Mathf.Max(0f, distance - minDistanceToPaintings);
+        if (offset.magnitude > maxRadius) offset = offset.normalized * maxRadius;
+        rig.position = new Vector3(center.x + offset.x, rig.position.y, center.z + offset.z);
+    }
+
+    // Las manos se ubican adelante de la vista (solo el giro horizontal, suavizado)
+    void FollowHead()
+    {
+        if (!handsFollowHead || head == null)
+        {
+            handsYaw = 0f;
+            return;
+        }
+        float target = head.localEulerAngles.y;
+        handsYaw = Mathf.LerpAngle(handsYaw, target, 1f - Mathf.Exp(-8f * Time.deltaTime));
+        var rot = Quaternion.Euler(0f, handsYaw, 0f);
+        hands.transform.localPosition = rot * handsBaseLocal;
+        hands.transform.localRotation = rot;
     }
 
     void ProcessHand(HandOSCReceiver.HandState hand, SpriteRenderer cursor, Color baseColor)
@@ -304,6 +425,11 @@ public class GoyaGallery : MonoBehaviour
         darkness += counted * dt / Mathf.Max(0.01f, movementForFullDark);
         if (counted <= 0f) darkness -= darknessRecovery * dt;
         if (Input.GetKeyDown(KeyCode.O)) darkness += 0.25f;
+
+        // Lo que ya avanzo la lista tambien cuenta como oscuridad (no vuelve atras)
+        int total = darkSprites != null ? darkSprites.Length : 0;
+        if (total > firstDark)
+            darkness = Mathf.Max(darkness, (float)(nextDark - firstDark) / (total - firstDark));
         darkness = Mathf.Clamp01(darkness);
 
         float target = Mathf.Clamp01(speed / Mathf.Max(0.01f, agitationSpeed));
@@ -328,7 +454,9 @@ public class GoyaGallery : MonoBehaviour
             p.openHandOver = false;
         }
 
+        FollowHead();
         UpdateMovement();
+        UpdateWalk();
 
         ProcessHand(hands.Left, cursorLeft, hands.leftColor);
         ProcessHand(hands.Right, cursorRight, hands.rightColor);
@@ -367,10 +495,10 @@ public class GoyaGallery : MonoBehaviour
         {
             p.reveal = 0f;
             p.revealed = false;
-            p.darkIndex = -1;
+            p.darkIndex = p.originalIndex;
             SetSprite(p, p.original);
         }
         darkness = 0f;
-        nextDark = 0;
+        nextDark = firstDark;
     }
 }
