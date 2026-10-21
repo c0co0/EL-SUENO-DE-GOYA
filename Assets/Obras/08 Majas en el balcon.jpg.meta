@@ -1,7 +1,10 @@
 fileFormatVersion: 2
 guid: 9f488d6eec754c1b8bc1c45a128f439f
 TextureImporter:
-  internalIDToNameTable: []
+  internalIDToNameTable:
+  - first:
+      213: -2988671637281214631
+    second: 08 Majas en el balcon_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -136,12 +139,34 @@ TextureImporter:
     forceMaximumCompressionQuality_BC6H_BC7: 0
   spriteSheet:
     serializedVersion: 2
-    sprites: []
+    sprites:
+    - serializedVersion: 2
+      name: 08 Majas en el balcon_0
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 0
+        width: 1334
+        height: 2000
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 95f61950bfa1686d0800000000000000
+      internalID: -2988671637281214631
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
     outline: []
     customData: 
     physicsShape: []
     bones: []
-    spriteID: 
+    spriteID: 5e97eb03825dee720800000000000000
     internalID: 0
     vertices: []
     indices: 

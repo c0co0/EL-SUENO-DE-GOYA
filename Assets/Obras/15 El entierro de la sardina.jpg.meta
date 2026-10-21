@@ -1,7 +1,10 @@
 fileFormatVersion: 2
 guid: 09dc6b439b654a46a61ef726aab5dcf5
 TextureImporter:
-  internalIDToNameTable: []
+  internalIDToNameTable:
+  - first:
+      213: 7138501118213541514
+    second: 15 El entierro de la sardina_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -136,12 +139,34 @@ TextureImporter:
     forceMaximumCompressionQuality_BC6H_BC7: 0
   spriteSheet:
     serializedVersion: 2
-    sprites: []
+    sprites:
+    - serializedVersion: 2
+      name: 15 El entierro de la sardina_0
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 0
+        width: 1444
+        height: 2000
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: a8ec8d312fc011360800000000000000
+      internalID: 7138501118213541514
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
     outline: []
     customData: 
     physicsShape: []
     bones: []
-    spriteID: 
+    spriteID: 5e97eb03825dee720800000000000000
     internalID: 0
     vertices: []
     indices: 
