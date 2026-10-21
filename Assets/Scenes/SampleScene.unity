@@ -487,6 +487,35 @@ MonoBehaviour:
   revealTime: 1.2
   forgetSpeed: 0.25
   veilColor: {r: 0.35, g: 0.35, b: 0.5, a: 0.12}
+  paintingSequence:
+  - {fileID: 21300000, guid: 0f3328e1b78849b9b3c1bd68c8d7239f, type: 3}
+  - {fileID: 21300000, guid: 6009f98caecb4fab8701f00a22164e0c, type: 3}
+  - {fileID: 21300000, guid: e9fa2124a8de460aa871c693a33728bf, type: 3}
+  - {fileID: 21300000, guid: b164d1d8d1d84fa3b16572632d5469af, type: 3}
+  - {fileID: 21300000, guid: 5e288bec2d234d0f8fe97b82691177c3, type: 3}
+  - {fileID: 21300000, guid: e5744a1c458449f0967abec4fa031d1e, type: 3}
+  - {fileID: 21300000, guid: 68d87a2154744c439892ca2d36fe89bd, type: 3}
+  - {fileID: 21300000, guid: 9f488d6eec754c1b8bc1c45a128f439f, type: 3}
+  - {fileID: 21300000, guid: 66f4c8e36a6f4500af1ccc398da1ca4d, type: 3}
+  - {fileID: 21300000, guid: b6c4a15e2d544f93902863c8631c689f, type: 3}
+  - {fileID: 21300000, guid: a107348e5c1845f0bd2561cb0bffe482, type: 3}
+  - {fileID: 21300000, guid: a6cc7694c015435cb81b863751b3600b, type: 3}
+  - {fileID: 21300000, guid: 3a2fa7d128f842aeb2ff1628ef36d52a, type: 3}
+  - {fileID: 21300000, guid: 6cebb253cca446b5873e1b2d460edb78, type: 3}
+  - {fileID: 21300000, guid: 09dc6b439b654a46a61ef726aab5dcf5, type: 3}
+  - {fileID: 21300000, guid: adbebce64a5d4d6f8797c190393f47e0, type: 3}
+  - {fileID: 21300000, guid: 95f5a6fc95d544e5b7a2fec90508107d, type: 3}
+  - {fileID: 21300000, guid: 7aef1670c9b441c58b7b8d713a170d2b, type: 3}
+  - {fileID: 21300000, guid: 3e96963fafc749638dd2635511bfa36d, type: 3}
+  - {fileID: 21300000, guid: 88adf54d6fdb4b0bb324b6b2ec50455c, type: 3}
+  - {fileID: 21300000, guid: 5cf7cbff28d54943b3037b4e150a5ccb, type: 3}
+  - {fileID: 21300000, guid: aedc8a7d86af4bceb56a727570ded76b, type: 3}
+  - {fileID: 21300000, guid: 92a044a69e1b4e7ca106b4080ddb31c2, type: 3}
+  - {fileID: 21300000, guid: 78953b5401fa4bb4b5ee340e79097d1d, type: 3}
+  - {fileID: 21300000, guid: da69d1c77400495b95c0186ebd4bbdae, type: 3}
+  - {fileID: 21300000, guid: 3f1d5e4247b7419b93c03ead1d352f1c, type: 3}
+  - {fileID: 21300000, guid: 292826353d0a46c798b90ff562615192, type: 3}
+  - {fileID: 21300000, guid: 523801bb8f76495c85567fed7a8d6404, type: 3}
 --- !u!4 &531652564
 Transform:
   m_ObjectHideFlags: 0

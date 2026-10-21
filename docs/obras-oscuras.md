@@ -22,51 +22,28 @@ Rama: `obras-oscuras` (sale de `cardboard-xr`).
 
 Las manos y el puntero giran con la cabeza, así se pueden tocar las obras de atrás. No se puede salir del anillo ni acercarse a menos de 70 cm de las obras (*Min Distance To Paintings*).
 
-## Cómo ordenar las obras
+## Las obras ya cargadas
 
-1. Crear la carpeta `Assets/Obras` y arrastrar ahí todas las imágenes.
-2. Para que sea fácil, ponerles un número adelante del nombre según el orden: `01 El quitasol.jpg`, `02 La vendimia.jpg`, etc. Unity las muestra ordenadas por nombre.
-3. Seleccionarlas todas en la ventana Project → Inspector → **Texture Type: Sprite (2D and UI)** → **Apply**. (Read/Write no hace falta.)
-4. Seleccionar **Galeria** en la Hierarchy → componente **Goya Gallery** → **Painting Sequence**. Con la lista **cerrada** (flechita a la izquierda del nombre), seleccionar todas las imágenes en Project (clic en la primera, Shift + clic en la última) y arrastrarlas juntas sobre el nombre *Painting Sequence*. Se cargan en el orden del nombre.
-5. Para cambiar el orden después, arrastrar cada elemento de la lista desde las dos rayitas `=` que tiene a la izquierda.
-6. Guardar la escena (Ctrl+S) y hacer commit y push.
+Las 28 obras están en `Assets/Obras`, numeradas en el orden del recorrido y ya cargadas en **Galeria → Painting Sequence**. Las primeras 8 llenan el anillo al empezar.
 
-Si *Painting Sequence* queda vacía, la galería sigue como antes (los 3 cuadros de adelante).
+**Vida cotidiana:** 01 La gallina ciega · 02 La cometa · 03 El cacharrero · 04 Manuel Osorio Manrique de Zúñiga · 05 La nevada · 06 La lechera de Burdeos · 07 La maja vestida · 08 Majas en el balcón
 
-## Orden sugerido (todas son de dominio público)
+**Lo cortesano y lo inquietante:** 09 La maja desnuda · 10 La familia de Carlos IV · 11 Aníbal vencedor · 12 El pelele · 13 Riña de gatos · 14 Milagro de San Antonio · 15 El entierro de la sardina · 16 Ciudad sobre una roca
 
-**Vida cotidiana** (cartones para tapices, 1777–1792). Estas 8 llenan el anillo al empezar:
-1. *El quitasol*
-2. *La vendimia*
-3. *Las floreras*
-4. *La gallina ciega*
-5. *El cacharrero*
-6. *Niños inflando una vejiga*
-7. *La pradera de San Isidro*
-8. *El pelele* (ya tiene algo inquietante: la muñeca manteada)
+**Brujas y sueños:** 17 El aquelarre · 18 Vuelo de brujas · 19 Modo de volar (Disparates) · 20 Las viejas
 
-**Lo extraño** (1790s):
+**La guerra:** 21 El coloso · 22 El 3 de mayo de 1808 · 23 Tampoco (Desastres de la guerra)
 
-9. *Corral de locos*
-10. *El sueño de la razón produce monstruos* (Capricho 43)
-11. *El aquelarre* (1798, Museo Lázaro Galdiano)
-12. *El vuelo de las brujas* (ya está en el proyecto)
+**Pinturas Negras:** 24 Dos mujeres y un hombre · 25 Dos viejos comiendo sopa · 26 Duelo a garrotazos · 27 El perro · 28 Saturno devorando a su hijo
 
-**La guerra:**
+### Cambiar el orden o sumar obras
 
-13. *El 2 de mayo de 1808 en Madrid*
-14. *El 3 de mayo de 1808 en Madrid*
+- **Reordenar:** en *Painting Sequence*, arrastrar cada elemento desde las dos rayitas `=` de la izquierda.
+- **Sumar una obra:** ponerla en `Assets/Obras` → Inspector → **Texture Type: Sprite (2D and UI)** → **Apply**, y arrastrarla a la lista en el lugar que corresponda (Read/Write no hace falta).
+- **Sacar una:** clic derecho sobre el elemento de la lista → *Delete Array Element*.
+- Guardar la escena (Ctrl+S) y hacer commit y push.
 
-**Pinturas Negras** (1819–1823):
-
-15. *Dos viejos comiendo sopa*
-16. *Duelo a garrotazos*
-17. *El perro semihundido*
-18. *Átropos (Las Parcas)*
-19. *Una tercera de las Pinturas negras* (ya está en el proyecto)
-20. *Saturno devorando a su hijo* (ya está en el proyecto, el final)
-
-Se pueden bajar de Wikimedia Commons o del sitio del Museo del Prado. Con unas 20 obras, el recorrido completo lleva unas 12 desarmadas.
+Si *Painting Sequence* queda vacía, la galería vuelve a los 3 cuadros de adelante.
 
 ## Probar en el editor
 
