@@ -274,6 +274,9 @@ public class StereoGyroRig : MonoBehaviour
             editorPitch -= Input.GetAxis("Mouse Y") * mouseSensitivity;
             editorPitch = Mathf.Clamp(editorPitch, -85f, 85f);
         }
+        // Flechas izquierda / derecha: girar (adelante / atras camina, lo maneja GoyaGallery)
+        if (Input.GetKey(KeyCode.LeftArrow)) editorYaw -= 90f * Time.deltaTime;
+        if (Input.GetKey(KeyCode.RightArrow)) editorYaw += 90f * Time.deltaTime;
         if (Input.GetKeyDown(KeyCode.R))
         {
             editorYaw = 0f;

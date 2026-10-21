@@ -6,7 +6,7 @@ Rama: `obras-oscuras` (sale de `cardboard-xr`).
 
 - **Anillo de 360°:** las obras se reparten alrededor de la persona (8 por defecto, *Ring Count*). La primera queda adelante y las siguientes alternan derecha e izquierda, así las primeras de la lista quedan más cerca de la vista inicial.
 - **Una sola lista ordenada** (*Painting Sequence*, en el objeto **Galeria**): las primeras 8 llenan el anillo. Cada vez que una obra se desarma en partículas, se rearma como **la siguiente de la lista que todavía no apareció**. Así el anillo pasa de a poco de la vida cotidiana a las Pinturas Negras.
-- **El movimiento acelera la caída:** cuanto más se mueven las manos, sube la oscuridad. Con las manos muy agitadas puede saltear una obra de la lista (*Max Skip*), los cuadros se desarman con menos toque y, si la agitación sigue, se desarman solos.
+- **El movimiento acelera la caída:** cuanto más se mueven las manos, sube la oscuridad y el viento se lleva más fuerte las partículas. Con las manos muy agitadas puede saltear una obra de la lista (*Max Skip*).
 - **Todo se apaga con el recorrido:** a medida que avanza la lista (o con mucho movimiento), los cuadros se tiñen más oscuros, las auras pasan de dorado a rojo, el polvo se vuelve gris y el sonido ambiente se pone más grave.
 - **Cuando se termina la lista,** los cuadros siguen rotando entre las últimas (las más oscuras).
 
@@ -15,12 +15,14 @@ Rama: `obras-oscuras` (sale de `cardboard-xr`).
 | Gesto | Qué hace |
 |---|---|
 | Apuntar a la cabra con el **puño cerrado** y después **abrir la mano** sobre ella (un segundo) | Se deshace la cabra y aparecen las obras |
-| Pasar la mano (cualquier forma) por una obra | Se revela |
-| **Mano abierta** sobre una obra revelada | Se desarma y vuelve como la siguiente |
-| **Un puño cerrado** sostenido | Caminar hacia donde mirás |
+| **Apuntar** una obra con cualquier mano (un segundo) | Se revela |
+| **Barrer** una obra revelada con la **mano abierta** (moverla rápido de lado a lado, el cursor se pone naranja) | Se desarma y vuelve como la siguiente |
+| **Un puño cerrado** sostenido (casi un segundo) | Caminar hacia donde mirás |
 | **Dos puños cerrados** | Caminar hacia atrás |
 
 Las manos y el puntero giran con la cabeza, así se pueden tocar las obras de atrás. No se puede salir del anillo ni acercarse a menos de 70 cm de las obras (*Min Distance To Paintings*).
+
+Colores del cursor: blanco o color de la mano = apuntando, verde = mano abierta, naranja = barriendo.
 
 ## Las obras ya cargadas
 
@@ -51,9 +53,10 @@ Si *Painting Sequence* queda vacía, la galería vuelve a los 3 cuadros de adela
 |---|---|
 | **I** | Saltear la intro de la cabra |
 | **Clic derecho + mover el mouse** | Mirar alrededor |
-| **W / S** | Caminar adelante / atrás |
+| **W / S** o **flechas ↑ / ↓** | Caminar adelante / atrás |
+| **Flechas ← / →** | Girar |
 | **Mantener clic izquierdo** sobre una obra | Revelarla (apunta al centro de la pantalla) |
-| **Mantener E** sobre una obra revelada | Mano abierta: la desarma y vuelve como la siguiente |
+| **Mantener E** sobre una obra revelada | Barrerla: se desarma y vuelve como la siguiente |
 | **T** | Desarmar todas las obras reveladas a la vez |
 | **O** | Sumar oscuridad (+25 %) |
 | **V** | Cambiar entre pantalla partida (visor) y una sola cámara |
@@ -72,7 +75,8 @@ Con el tracker de Python corriendo, las manos funcionan además del mouse.
 | Move Speed, Fist Hold Time | Goya Gallery | Velocidad al caminar y cuánto hay que sostener el puño |
 | Movement For Full Dark, Dark Tint | Goya Gallery | Cuánto movimiento oscurece del todo y a qué color |
 | Touch Hold Time, Require Fist First | Goya Intro | Cuánto hay que sostener la mano abierta sobre la cabra, y si hace falta el puño antes |
-| Auto Break Agitation | Goya Particles | Más alto = cuesta más que se desarmen solos (1 = nunca) |
+| Swipe Speed, Swipe Time | Goya Gallery | Qué tan rápido y cuánto tiempo hay que barrer una obra para desarmarla |
+| Auto Break, Auto Break Agitation | Goya Particles | Que las obras se desarmen solas con las manos muy agitadas (apagado por defecto) |
 | Particle Count | Goya Particles | Bajarlo (por ejemplo a 4000) si el celular anda lento con 8 obras |
 
 ## Lo que no se pudo probar

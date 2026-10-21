@@ -19,10 +19,13 @@ using UnityEngine;
 ///
 /// Uso: objeto vacio "Galeria" con este script. Las imagenes se importan como Sprite
 /// (Texture Type: Sprite (2D and UI)); no hace falta tildarles Read/Write.
-/// Moverse: un PUÑO CERRADO sostenido camina hacia donde miras; los DOS PUÑOS, hacia atras.
-/// Sin tracker (en la PC): clic derecho + mouse = mirar, W / S = caminar, mantener clic izquierdo
-/// sobre una obra = revelarla (apunta al centro de la vista), mantener E = mano abierta (la desarma),
-/// O = sumar oscuridad.
+/// Gestos:
+///  - Apuntar una obra (cualquier mano): se revela.
+///  - BARRER una obra revelada con la mano abierta (moverla rapido de lado a lado): se desarma.
+///  - Un PUÑO CERRADO sostenido: caminar hacia donde miras. Los DOS PUÑOS: hacia atras.
+/// Sin tracker (en la PC): clic derecho + mouse o flechas = mirar / girar, W / S o flechas
+/// arriba / abajo = caminar, mantener clic izquierdo sobre una obra = revelarla (apunta al centro
+/// de la vista), mantener E = barrerla (la desarma), O = sumar oscuridad.
 /// </summary>
 public class GoyaGallery : MonoBehaviour
 {
@@ -45,7 +48,7 @@ public class GoyaGallery : MonoBehaviour
     [Tooltip("Velocidad al caminar (metros por segundo)")]
     public float moveSpeed = 0.6f;
     [Tooltip("Segundos con el puño cerrado antes de empezar a caminar (evita moverse sin querer)")]
-    public float fistHoldTime = 0.5f;
+    public float fistHoldTime = 0.8f;
     [Tooltip("Lo mas cerca que se puede llegar a los cuadros (metros)")]
     public float minDistanceToPaintings = 0.7f;
 
@@ -80,6 +83,10 @@ public class GoyaGallery : MonoBehaviour
     public float revealTime = 1.2f;
     [Tooltip("Que tan rapido se 'olvida' un revelado a medias (0 = nunca)")]
     public float forgetSpeed = 0.25f;
+    [Tooltip("Velocidad de la mano abierta (m/s) que cuenta como 'barrer' una obra para desarmarla")]
+    public float swipeSpeed = 1.2f;
+    [Tooltip("Segundos de barrido sobre la obra para que se desarme")]
+    public float swipeTime = 0.25f;
     [Tooltip("Color y transparencia del cuadro cubierto por el velo")]
     public Color veilColor = new Color(0.35f, 0.35f, 0.5f, 0.12f);
 
@@ -110,7 +117,9 @@ public class GoyaGallery : MonoBehaviour
         public float reveal;       // 0 = cubierto, 1 = revelado
         public bool revealed;
         public bool hovered;       // alguna mano esta encima este cuadro
-        public bool openHandOver;  // una mano ABIERTA esta encima (se usa en el paso de particulas)
+        public bool openHandOver;  // una mano ABIERTA esta encima
+        public bool swipedNow;     // una mano abierta la esta barriendo en este cuadro (frame)
+        public float swipe;        // segundos acumulados de barrido (GoyaParticles la desarma con swipeTime)
         public float phase;
         public Vector3 hitPoint;   // ultimo punto del cuadro tocado por una mano
         public float maxSize;      // lado mas largo en metros (se mantiene al cambiar de obra)
@@ -130,6 +139,7 @@ public class GoyaGallery : MonoBehaviour
     bool ringMode;
     Vector3 lastLeft, lastRight;
     bool hadLeft, hadRight;
+    float speedLeft, speedRight;
 
     Transform head;
     Vector3 handsBaseLocal;
@@ -344,8 +354,8 @@ public class GoyaGallery : MonoBehaviour
 
         float wanted = 0f;
         if (fistTimer >= fistHoldTime) wanted = (fistL && fistR) ? -1f : 1f;
-        if (Input.GetKey(KeyCode.W)) wanted = 1f;
-        if (Input.GetKey(KeyCode.S)) wanted = -1f;
+        if (Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.UpArrow)) wanted = 1f;
+        if (Input.GetKey(KeyCode.S) || Input.GetKey(KeyCode.DownArrow)) wanted = -1f;
 
         walk = Mathf.Lerp(walk, wanted, 1f - Mathf.Exp(-4f * dt));
         if (Mathf.Abs(walk) < 0.01f) return;
@@ -378,7 +388,7 @@ public class GoyaGallery : MonoBehaviour
         hands.transform.localRotation = rot;
     }
 
-    void ProcessHand(HandOSCReceiver.HandState hand, SpriteRenderer cursor, Color baseColor)
+    void ProcessHand(HandOSCReceiver.HandState hand, SpriteRenderer cursor, Color baseColor, float speed)
     {
         Vector3 dir;
         if (!GetRayDirection(hand, out dir))
@@ -386,11 +396,11 @@ public class GoyaGallery : MonoBehaviour
             cursor.enabled = false;
             return;
         }
-        PointAt(dir, hand.open, cursor, baseColor);
+        PointAt(dir, hand.open, hand.open && speed >= swipeSpeed, cursor, baseColor);
     }
 
     // Apunta un rayo desde la cabeza: revela lo que toca y, si la mano esta abierta, lo marca para desarmar
-    void PointAt(Vector3 dir, bool open, SpriteRenderer cursor, Color baseColor)
+    void PointAt(Vector3 dir, bool open, bool swiping, SpriteRenderer cursor, Color baseColor)
     {
         Vector3 origin = rig.position;
         Vector3 cursorPos = origin + dir * (distance * 0.96f);
@@ -411,6 +421,7 @@ public class GoyaGallery : MonoBehaviour
                 p.hovered = true;
                 p.hitPoint = hit;
                 if (open) p.openHandOver = true;
+                if (swiping) p.swipedNow = true;
                 cursorPos = hit - dir * 0.03f;
             }
         }
@@ -418,11 +429,11 @@ public class GoyaGallery : MonoBehaviour
         cursor.enabled = true;
         cursor.transform.position = cursorPos;
         cursor.transform.rotation = Quaternion.LookRotation(dir);
-        cursor.color = open ? Color.green : baseColor;
+        cursor.color = swiping ? new Color(1f, 0.4f, 0.2f) : (open ? Color.green : baseColor);
     }
 
     // Sin tracker (en la PC): clic izquierdo = apuntar con la mano cerrada al centro de la vista,
-    // E = apuntar con la mano abierta (desarma la obra revelada)
+    // E = barrer con la mano abierta (desarma la obra revelada)
     void ProcessMouse()
     {
         if (Application.isMobilePlatform) return; // en el celular tocar la pantalla es para recentrar
@@ -433,16 +444,16 @@ public class GoyaGallery : MonoBehaviour
             cursorMouse.enabled = false;
             return;
         }
-        PointAt(head.forward, open, cursorMouse, Color.white);
+        PointAt(head.forward, open, open, cursorMouse, Color.white);
     }
 
     // Mide cuanto se mueven las manos y lo convierte en oscuridad acumulada y agitacion
     void UpdateMovement()
     {
         float dt = Mathf.Max(Time.deltaTime, 0.0001f);
-        float speed = 0f;
-        speed += HandSpeed(hands.Left, ref lastLeft, ref hadLeft, dt);
-        speed += HandSpeed(hands.Right, ref lastRight, ref hadRight, dt);
+        speedLeft = HandSpeed(hands.Left, ref lastLeft, ref hadLeft, dt);
+        speedRight = HandSpeed(hands.Right, ref lastRight, ref hadRight, dt);
+        float speed = speedLeft + speedRight;
 
         float counted = Mathf.Max(0f, speed - minHandSpeed);
         darkness += counted * dt / Mathf.Max(0.01f, movementForFullDark);
@@ -475,15 +486,19 @@ public class GoyaGallery : MonoBehaviour
         {
             p.hovered = false;
             p.openHandOver = false;
+            p.swipedNow = false;
         }
 
         FollowHead();
         UpdateMovement();
         UpdateWalk();
 
-        ProcessHand(hands.Left, cursorLeft, hands.leftColor);
-        ProcessHand(hands.Right, cursorRight, hands.rightColor);
+        ProcessHand(hands.Left, cursorLeft, hands.leftColor, speedLeft);
+        ProcessHand(hands.Right, cursorRight, hands.rightColor, speedRight);
         ProcessMouse();
+
+        foreach (var p in paintings)
+            p.swipe = p.swipedNow && p.revealed ? p.swipe + Time.deltaTime : Mathf.Max(0f, p.swipe - Time.deltaTime * 2f);
 
         // Tecla Backspace (en el editor): vuelve a cubrir todos los cuadros para probar de nuevo
         if (Input.GetKeyDown(KeyCode.Backspace)) ResetAll();

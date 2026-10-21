@@ -3,13 +3,13 @@ using UnityEngine;
 
 /// <summary>
 /// Efecto de particulas para los cuadros de GoyaGallery.
-/// Cuando una MANO ABIERTA toca un cuadro ya revelado, el cuadro se deshace en particulas
+/// Cuando una MANO ABIERTA BARRE un cuadro ya revelado (se mueve rapido sobre el), el cuadro se deshace en particulas
 /// (que conservan los colores de la pintura), flotan llevadas por el viento y despues
 /// se rearman como la OBRA SIGUIENTE, mas oscura (ver "Obras mas oscuras" en GoyaGallery).
 /// Si no hay obras oscuras cargadas, vuelven a formar el mismo cuadro.
 ///
-/// Cuanto mas agitadas estan las manos, mas facil se deshacen los cuadros, mas fuerte
-/// sopla el viento y, por encima de cierta agitacion, se deshacen solos.
+/// Cuanto mas agitadas estan las manos, mas fuerte sopla el viento. Si se activa "Auto Break",
+/// con agitacion alta sostenida los cuadros se deshacen solos.
 ///
 /// Ponelo en el mismo objeto "Galeria".
 /// En el editor: tecla T = deshacer todos los cuadros ya revelados (para probar sin manos).
@@ -25,9 +25,7 @@ public class GoyaParticles : MonoBehaviour
     public int particleCount = 8000;
     public float particleScale = 1.8f;
 
-    [Header("Toque (mano abierta sobre un cuadro revelado)")]
-    [Tooltip("Segundos con la mano abierta sobre el cuadro para que se deshaga")]
-    public float touchHoldTime = 0.35f;
+    [Header("Toque (barrer con la mano abierta: la velocidad y el tiempo estan en GoyaGallery)")]
     [Tooltip("Segundos de espera antes de poder tocarlo de nuevo")]
     public float cooldown = 1f;
 
@@ -49,6 +47,8 @@ public class GoyaParticles : MonoBehaviour
     [Header("Agitacion (movimiento de las manos)")]
     [Tooltip("Con agitacion maxima, el viento sopla esta cantidad de veces mas fuerte")]
     public float agitationWind = 2.5f;
+    [Tooltip("Que los cuadros revelados se deshagan solos con las manos muy agitadas")]
+    public bool autoBreak = false;
     [Tooltip("Por encima de esta agitacion (0 a 1) los cuadros revelados se deshacen solos")]
     [Range(0f, 1f)] public float autoBreakAgitation = 0.75f;
     [Tooltip("Segundos de agitacion alta para que un cuadro se deshaga solo")]
@@ -99,8 +99,6 @@ public class GoyaParticles : MonoBehaviour
         float dt = Time.deltaTime;
         bool forceAll = Input.GetKeyDown(KeyCode.T);
         float agitation = gallery.agitation;
-        // Con las manos agitadas alcanza con menos tiempo de toque
-        float holdNeeded = touchHoldTime * (1f - 0.6f * agitation);
 
         foreach (var e in effects)
         {
@@ -111,19 +109,10 @@ public class GoyaParticles : MonoBehaviour
                     if (forceAll && p.revealed) { Begin(e); break; }
 
                     bool ready = p.revealed && Time.time >= e.nextAllowed;
-                    bool touching = ready && p.openHandOver;
-                    if (touching)
-                    {
-                        e.touch += dt;
-                        if (e.touch >= holdNeeded) { Begin(e); break; }
-                    }
-                    else
-                    {
-                        e.touch = Mathf.Max(0f, e.touch - dt * 2f);
-                    }
+                    if (ready && p.swipe >= gallery.swipeTime) { Begin(e); break; }
 
-                    // Agitacion alta sostenida: el cuadro se deshace solo
-                    if (ready && agitation >= autoBreakAgitation)
+                    // Agitacion alta sostenida: el cuadro se deshace solo (si esta activado)
+                    if (autoBreak && ready && agitation >= autoBreakAgitation)
                     {
                         e.agitated += dt * Random.Range(0.6f, 1.4f);
                         if (e.agitated >= autoBreakTime) Begin(e);
@@ -346,6 +335,7 @@ public class GoyaParticles : MonoBehaviour
         e.t = 0f;
         e.touch = 0f;
         e.agitated = 0f;
+        p.swipe = 0f;
     }
 
     void UpdateScatter(Effect e, float dt)
