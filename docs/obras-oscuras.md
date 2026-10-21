@@ -17,8 +17,8 @@ Rama: `obras-oscuras` (sale de `cardboard-xr`).
 | Apuntar a la cabra con el **puño cerrado** y después **abrir la mano** sobre ella (un segundo) | Se deshace la cabra y aparecen las obras |
 | **Apuntar** una obra con cualquier mano (un segundo) | Se revela |
 | **Barrer** una obra revelada con la **mano abierta** (moverla rápido de lado a lado, el cursor se pone naranja) | Se desarma y vuelve como la siguiente |
-| **Un puño cerrado** sostenido (casi un segundo) | Caminar hacia donde mirás |
-| **Dos puños cerrados** | Caminar hacia atrás |
+| **Apuntar una obra y cerrar el puño** (mantenerlo) | Te acercás a esa obra mientras el puño siga cerrado; al soltarlo te quedás ahí |
+| **Dos puños cerrados** | Te alejás |
 
 Las manos y el puntero giran con la cabeza, así se pueden tocar las obras de atrás. No se puede salir del anillo ni acercarse a menos de 70 cm de las obras (*Min Distance To Paintings*).
 
@@ -53,7 +53,7 @@ Si *Painting Sequence* queda vacía, la galería vuelve a los 3 cuadros de adela
 |---|---|
 | **I** | Saltear la intro de la cabra |
 | **Clic derecho + mover el mouse** | Mirar alrededor |
-| **W / S** o **flechas ↑ / ↓** | Caminar adelante / atrás |
+| **W / S** o **flechas ↑ / ↓** | Acercarse / alejarse (con clic izquierdo sobre una obra, ↑ va hacia esa obra) |
 | **Flechas ← / →** | Girar |
 | **Mantener clic izquierdo** sobre una obra | Revelarla (apunta al centro de la pantalla) |
 | **Mantener E** sobre una obra revelada | Barrerla: se desarma y vuelve como la siguiente |
@@ -72,7 +72,7 @@ Con el tracker de Python corriendo, las manos funcionan además del mouse.
 | Ring Count | Goya Gallery | Cuántas obras hay en el anillo |
 | Distance, Painting Max Size | Goya Gallery | Radio del anillo y tamaño de las obras |
 | Max Skip | Goya Gallery | Cuántas obras puede saltear si las manos se mueven mucho (0 = nunca) |
-| Move Speed, Fist Hold Time | Goya Gallery | Velocidad al caminar y cuánto hay que sostener el puño |
+| Move Speed, Fist Hold Time | Goya Gallery | Velocidad al acercarse y cuánto hay que sostener el puño antes de moverse |
 | Movement For Full Dark, Dark Tint | Goya Gallery | Cuánto movimiento oscurece del todo y a qué color |
 | Touch Hold Time, Require Fist First | Goya Intro | Cuánto hay que sostener la mano abierta sobre la cabra, y si hace falta el puño antes |
 | Swipe Speed, Swipe Time | Goya Gallery | Qué tan rápido y cuánto tiempo hay que barrer una obra para desarmarla |

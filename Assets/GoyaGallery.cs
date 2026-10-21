@@ -22,7 +22,8 @@ using UnityEngine;
 /// Gestos:
 ///  - Apuntar una obra (cualquier mano): se revela.
 ///  - BARRER una obra revelada con la mano abierta (moverla rapido de lado a lado): se desarma.
-///  - Un PUÑO CERRADO sostenido: caminar hacia donde miras. Los DOS PUÑOS: hacia atras.
+///  - Apuntar una obra y CERRAR EL PUÑO: te acercas a esa obra mientras mantengas el puño.
+///    Los DOS PUÑOS cerrados: te alejas.
 /// Sin tracker (en la PC): clic derecho + mouse o flechas = mirar / girar, W / S o flechas
 /// arriba / abajo = caminar, mantener clic izquierdo sobre una obra = revelarla (apunta al centro
 /// de la vista), mantener E = barrerla (la desarma), O = sumar oscuridad.
@@ -47,8 +48,8 @@ public class GoyaGallery : MonoBehaviour
     public bool allowMove = true;
     [Tooltip("Velocidad al caminar (metros por segundo)")]
     public float moveSpeed = 0.6f;
-    [Tooltip("Segundos con el puño cerrado antes de empezar a caminar (evita moverse sin querer)")]
-    public float fistHoldTime = 0.8f;
+    [Tooltip("Segundos con el puño cerrado antes de empezar a moverse (evita moverse sin querer)")]
+    public float fistHoldTime = 0.4f;
     [Tooltip("Lo mas cerca que se puede llegar a los cuadros (metros)")]
     public float minDistanceToPaintings = 0.7f;
 
@@ -147,7 +148,11 @@ public class GoyaGallery : MonoBehaviour
 
     Vector3 center;      // centro del anillo (donde empieza la persona)
     float fistTimer;
+    Painting pointedLeft, pointedRight; // obra que apunta cada mano en este cuadro
+    Painting walkTarget;                // obra hacia la que te acercas con el puño
+    Painting mousePointed;              // obra apuntada con el mouse (PC)
     float walk;          // velocidad actual, suavizada (-1 atras, 1 adelante)
+    Vector3 lastWalkDir = Vector3.forward;
 
     void Start()
     {
@@ -342,7 +347,8 @@ public class GoyaGallery : MonoBehaviour
         return true;
     }
 
-    // Caminar: un puño = adelante, dos puños = atras (siempre dentro del anillo de cuadros)
+    // Moverse: puño cerrado apuntando una obra = acercarse a esa obra; dos puños = alejarse.
+    // Siempre dentro del anillo de cuadros.
     void UpdateWalk()
     {
         if (!allowMove) return;
@@ -350,22 +356,46 @@ public class GoyaGallery : MonoBehaviour
 
         bool fistL = hands.Left.visible && !hands.Left.open;
         bool fistR = hands.Right.visible && !hands.Right.open;
+        bool both = fistL && fistR;
+
+        // La obra se elige al cerrar el puño y queda fija mientras siga cerrado
+        if (!fistL && !fistR) walkTarget = null;
+        else if (walkTarget == null && !both) walkTarget = fistL ? pointedLeft : pointedRight;
         fistTimer = (fistL || fistR) ? fistTimer + dt : 0f;
 
         float wanted = 0f;
-        if (fistTimer >= fistHoldTime) wanted = (fistL && fistR) ? -1f : 1f;
-        if (Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.UpArrow)) wanted = 1f;
-        if (Input.GetKey(KeyCode.S) || Input.GetKey(KeyCode.DownArrow)) wanted = -1f;
+        Painting target = null;
+        if (fistTimer >= fistHoldTime)
+        {
+            if (both) wanted = -1f;
+            else if (walkTarget != null) { wanted = 1f; target = walkTarget; }
+        }
+
+        // En la PC: flecha arriba (o W) = hacia la obra apuntada con el clic izquierdo, o hacia donde miras
+        if (Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.UpArrow)) { wanted = 1f; target = mousePointed; }
+        if (Input.GetKey(KeyCode.S) || Input.GetKey(KeyCode.DownArrow)) { wanted = -1f; target = null; }
+
+        Vector3 look = head != null ? head.forward : rig.forward;
+        look.y = 0f;
+        if (look.sqrMagnitude < 0.0001f) look = Vector3.forward;
+        look.Normalize();
+
+        Vector3 dir = look;  // hacia atras se mueve en sentido contrario (wanted < 0)
+        if (wanted > 0f && target != null)
+        {
+            // Hacia la obra, frenando al llegar cerca
+            Vector3 to = target.root.position - rig.position;
+            to.y = 0f;
+            float remaining = to.magnitude - minDistanceToPaintings;
+            wanted *= Mathf.Clamp01(remaining / 0.5f);
+            if (to.sqrMagnitude > 0.0001f) dir = to.normalized;
+        }
 
         walk = Mathf.Lerp(walk, wanted, 1f - Mathf.Exp(-4f * dt));
+        lastWalkDir = Vector3.Slerp(lastWalkDir, dir, 1f - Mathf.Exp(-6f * dt));
         if (Mathf.Abs(walk) < 0.01f) return;
 
-        Vector3 forward = head != null ? head.forward : rig.forward;
-        forward.y = 0f;
-        if (forward.sqrMagnitude < 0.0001f) return;
-        forward.Normalize();
-
-        Vector3 pos = rig.position + forward * (walk * moveSpeed * dt);
+        Vector3 pos = rig.position + lastWalkDir * (walk * moveSpeed * dt);
         Vector3 offset = pos - center;
         offset.y = 0f;
         float maxRadius = Mathf.Max(0f, distance - minDistanceToPaintings);
@@ -388,22 +418,25 @@ public class GoyaGallery : MonoBehaviour
         hands.transform.localRotation = rot;
     }
 
-    void ProcessHand(HandOSCReceiver.HandState hand, SpriteRenderer cursor, Color baseColor, float speed)
+    Painting ProcessHand(HandOSCReceiver.HandState hand, SpriteRenderer cursor, Color baseColor, float speed)
     {
         Vector3 dir;
         if (!GetRayDirection(hand, out dir))
         {
             cursor.enabled = false;
-            return;
+            return null;
         }
-        PointAt(dir, hand.open, hand.open && speed >= swipeSpeed, cursor, baseColor);
+        return PointAt(dir, hand.open, hand.open && speed >= swipeSpeed, cursor, baseColor);
     }
 
     // Apunta un rayo desde la cabeza: revela lo que toca y, si la mano esta abierta, lo marca para desarmar
-    void PointAt(Vector3 dir, bool open, bool swiping, SpriteRenderer cursor, Color baseColor)
+    // Devuelve la obra mas cercana que toca el rayo (o null)
+    Painting PointAt(Vector3 dir, bool open, bool swiping, SpriteRenderer cursor, Color baseColor)
     {
         Vector3 origin = rig.position;
         Vector3 cursorPos = origin + dir * (distance * 0.96f);
+        Painting nearest = null;
+        float nearestEnter = float.MaxValue;
 
         foreach (var p in paintings)
         {
@@ -416,20 +449,27 @@ public class GoyaGallery : MonoBehaviour
             float x = Vector3.Dot(offset, p.root.right);
             float y = Vector3.Dot(offset, p.root.up);
 
-            if (Mathf.Abs(x) <= p.halfW && Mathf.Abs(y) <= p.halfH)
+            if (Mathf.Abs(x) <= p.halfW && Mathf.Abs(y) <= p.halfH && enter < nearestEnter)
             {
-                p.hovered = true;
-                p.hitPoint = hit;
-                if (open) p.openHandOver = true;
-                if (swiping) p.swipedNow = true;
+                nearest = p;
+                nearestEnter = enter;
                 cursorPos = hit - dir * 0.03f;
             }
+        }
+
+        if (nearest != null)
+        {
+            nearest.hovered = true;
+            nearest.hitPoint = origin + dir * nearestEnter;
+            if (open) nearest.openHandOver = true;
+            if (swiping) nearest.swipedNow = true;
         }
 
         cursor.enabled = true;
         cursor.transform.position = cursorPos;
         cursor.transform.rotation = Quaternion.LookRotation(dir);
         cursor.color = swiping ? new Color(1f, 0.4f, 0.2f) : (open ? Color.green : baseColor);
+        return nearest;
     }
 
     // Sin tracker (en la PC): clic izquierdo = apuntar con la mano cerrada al centro de la vista,
@@ -439,12 +479,13 @@ public class GoyaGallery : MonoBehaviour
         if (Application.isMobilePlatform) return; // en el celular tocar la pantalla es para recentrar
         bool point = Input.GetMouseButton(0);
         bool open = Input.GetKey(KeyCode.E);
+        mousePointed = null;
         if (!(point || open) || head == null)
         {
             cursorMouse.enabled = false;
             return;
         }
-        PointAt(head.forward, open, open, cursorMouse, Color.white);
+        mousePointed = PointAt(head.forward, open, open, cursorMouse, Color.white);
     }
 
     // Mide cuanto se mueven las manos y lo convierte en oscuridad acumulada y agitacion
@@ -491,11 +532,11 @@ public class GoyaGallery : MonoBehaviour
 
         FollowHead();
         UpdateMovement();
-        UpdateWalk();
 
-        ProcessHand(hands.Left, cursorLeft, hands.leftColor, speedLeft);
-        ProcessHand(hands.Right, cursorRight, hands.rightColor, speedRight);
+        pointedLeft = ProcessHand(hands.Left, cursorLeft, hands.leftColor, speedLeft);
+        pointedRight = ProcessHand(hands.Right, cursorRight, hands.rightColor, speedRight);
         ProcessMouse();
+        UpdateWalk();
 
         foreach (var p in paintings)
             p.swipe = p.swipedNow && p.revealed ? p.swipe + Time.deltaTime : Mathf.Max(0f, p.swipe - Time.deltaTime * 2f);
