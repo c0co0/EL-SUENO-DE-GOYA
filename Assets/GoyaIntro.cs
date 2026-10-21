@@ -3,7 +3,8 @@ using UnityEngine;
 
 /// <summary>
 /// Introduccion de la experiencia:
-///  1. Tu objeto de Blender flota delante de la persona (gira lento y respira).
+///  1. Tu objeto de Blender flota delante de la persona (gira lento y respira) y la recibe:
+///     arriba de el aparecen, una por una, las reglas de la experiencia ("Rules").
 ///  2. Gesto para deshacerlo: apuntarlo con el PUÑO CERRADO y despues ABRIR la mano,
 ///     manteniendola abierta sobre el objeto un momento. Asi no se deshace con cualquier
 ///     movimiento de manos. El objeto tiembla y crece mientras se carga el gesto.
@@ -68,6 +69,31 @@ public class GoyaIntro : MonoBehaviour
     public AudioClip dissolveSound;
     [Range(0f, 1f)] public float soundVolume = 0.9f;
 
+    [Header("Bienvenida: el cabrio explica las reglas")]
+    public bool showRules = true;
+    [Tooltip("Frases que dice el cabrio, en orden. La ultima queda fija hasta que se haga el gesto. " +
+             "Usar \\n para cortar la linea.")]
+    [TextArea(2, 4)]
+    public string[] rules =
+    {
+        "Bienvenido al sueño de Goya.",
+        "Soy el Gran Cabrón.\nTe voy a mostrar sus visiones.",
+        "Las obras flotan en el aire como polvo.\nBarrelas con la mano abierta y se arman.",
+        "Barré una obra armada\ny se desarma en otra.",
+        "Apuntá una obra y cerrá el puño\npara acercarte. Con dos puños, te alejás.",
+        "Cuanto más te muevas,\nmás oscuro será el sueño.",
+        "Apuntame con el puño cerrado\ny abrí la mano para empezar."
+    };
+    [Tooltip("Segundos que se ve cada frase")]
+    public float ruleDuration = 4.5f;
+    [Tooltip("No se puede deshacer al cabrio hasta que termine de explicar (la tecla I siempre saltea)")]
+    public bool waitForRules = true;
+    public Color textColor = new Color(1f, 0.92f, 0.8f, 1f);
+    [Tooltip("Tamaño de las letras")]
+    public float textSize = 0.012f;
+    [Tooltip("Voz opcional para cada frase (mismo orden que Rules). Puede quedar vacio.")]
+    public AudioClip[] narration;
+
     [Header("Pruebas")]
     [Tooltip("Saltear la introduccion y mostrar la galeria directo")]
     public bool skipIntro = false;
@@ -80,6 +106,8 @@ public class GoyaIntro : MonoBehaviour
     float touch;
     bool armedLeft, armedRight;   // la mano ya apunto al objeto con el puño cerrado
     float waitingSince = -1f;
+    TextMesh rulesText;
+    int lastRule = -1;
     SpriteRenderer cursorLeft, cursorRight;
     Texture2D softTex;
 
@@ -136,6 +164,57 @@ public class GoyaIntro : MonoBehaviour
         cursorRight = CreateCursor("CursorIntroDer", circle);
 
         PlaceObject();
+        if (showRules && rules != null && rules.Length > 0) CreateRulesText();
+    }
+
+    // ---------------------------------------------------------------- reglas
+
+    void CreateRulesText()
+    {
+        var go = new GameObject("ReglasCabrio");
+        go.transform.SetParent(transform, false);
+        go.transform.position = basePos + Vector3.up * (targetSize * 0.6f + 0.12f);
+        // TextMesh se lee de frente cuando su eje "forward" apunta en contra de la camara
+        go.transform.rotation = Quaternion.LookRotation(go.transform.position - rig.position);
+
+        rulesText = go.AddComponent<TextMesh>();
+        var font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        rulesText.font = font;
+        go.GetComponent<MeshRenderer>().sharedMaterial = font.material;
+        rulesText.fontSize = 64;
+        rulesText.characterSize = textSize;
+        rulesText.anchor = TextAnchor.LowerCenter;
+        rulesText.alignment = TextAlignment.Center;
+        rulesText.color = new Color(textColor.r, textColor.g, textColor.b, 0f);
+        rulesText.text = "";
+    }
+
+    // Devuelve true cuando ya se mostraron todas las frases
+    bool UpdateRules()
+    {
+        if (rulesText == null) return true;
+
+        float elapsed = Time.time - waitingSince;
+        int last = rules.Length - 1;
+        int index = Mathf.Min(last, Mathf.FloorToInt(elapsed / Mathf.Max(0.5f, ruleDuration)));
+        float local = elapsed - index * ruleDuration;
+
+        if (index != lastRule)
+        {
+            lastRule = index;
+            rulesText.text = rules[index].Replace("\\n", "\n");
+            if (narration != null && index < narration.Length && narration[index] != null)
+                AudioSource.PlayClipAtPoint(narration[index], basePos, soundVolume);
+        }
+
+        // Aparece y se desvanece; la ultima frase queda fija
+        float fadeIn = Mathf.Clamp01(local / 0.6f);
+        float fadeOut = index == last ? 1f : Mathf.Clamp01((ruleDuration - local) / 0.6f);
+        Color c = textColor;
+        c.a = textColor.a * Mathf.Min(fadeIn, fadeOut);
+        rulesText.color = c;
+
+        return index == last && local >= 0.6f;
     }
 
     // ---------------------------------------------------------------- preparacion
@@ -254,7 +333,8 @@ public class GoyaIntro : MonoBehaviour
         armedLeft = Arm(armedLeft, hands.Left, nearL, leftOpen);
         armedRight = Arm(armedRight, hands.Right, nearR, rightOpen);
 
-        bool allowed = Time.time - waitingSince >= startGrace;
+        bool rulesDone = UpdateRules();
+        bool allowed = Time.time - waitingSince >= startGrace && (rulesDone || !waitForRules);
         bool touching = allowed &&
                         ((nearL && leftOpen && (armedLeft || !requireFistFirst)) ||
                          (nearR && rightOpen && (armedRight || !requireFistFirst)));
@@ -347,6 +427,7 @@ public class GoyaIntro : MonoBehaviour
         WriteParticles(1f);
 
         introObject.SetActive(false);
+        if (rulesText != null) Destroy(rulesText.gameObject);
         cursorLeft.enabled = false;
         cursorRight.enabled = false;
 

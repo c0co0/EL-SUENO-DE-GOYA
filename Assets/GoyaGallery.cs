@@ -80,6 +80,8 @@ public class GoyaGallery : MonoBehaviour
     public float cursorSize = 0.18f;
 
     [Header("Revelado")]
+    [Tooltip("Las obras empiezan como polvo en el aire y se arman al barrerlas (si se apaga: velo que se revela al apuntar)")]
+    public bool assembleFromDust = true;
     [Tooltip("Segundos de mano sobre el cuadro para revelarlo del todo")]
     public float revealTime = 1.2f;
     [Tooltip("Que tan rapido se 'olvida' un revelado a medias (0 = nunca)")]
@@ -549,7 +551,7 @@ public class GoyaGallery : MonoBehaviour
         foreach (var p in paintings)
         {
             // El recorrido se acumula mientras se barre y se va olvidando de a poco si se para
-            if (p.revealed && p.swipeNow > 0f) p.swipe += p.swipeNow;
+            if ((p.revealed || assembleFromDust) && p.swipeNow > 0f) p.swipe += p.swipeNow;
             else p.swipe = Mathf.Max(0f, p.swipe - swipeDistance * 0.5f * Time.deltaTime);
         }
 
@@ -558,7 +560,7 @@ public class GoyaGallery : MonoBehaviour
 
         foreach (var p in paintings)
         {
-            if (!p.revealed)
+            if (!p.revealed && !assembleFromDust)
             {
                 if (p.hovered) p.reveal += Time.deltaTime / revealTime;
                 else p.reveal -= Time.deltaTime / revealTime * forgetSpeed;
@@ -573,6 +575,13 @@ public class GoyaGallery : MonoBehaviour
             shown.a *= appear;
             p.renderer.color = shown;
         }
+    }
+
+    /// <summary>Lo llama GoyaParticles cuando una obra termina de armarse desde el polvo.</summary>
+    public void MarkRevealed(Painting p)
+    {
+        p.reveal = 1f;
+        p.revealed = true;
     }
 
     /// <summary>Color por el que se multiplica una obra revelada segun la oscuridad acumulada.</summary>

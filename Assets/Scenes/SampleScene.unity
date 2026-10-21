@@ -544,7 +544,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GoyaParticles
   gallery: {fileID: 0}
-  particleCount: 8000
+  particleCount: 4000
   particleScale: 1.8
   touchHoldTime: 0.35
   cooldown: 1

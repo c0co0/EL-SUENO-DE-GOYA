@@ -4,6 +4,9 @@ Rama: `obras-oscuras` (sale de `cardboard-xr`).
 
 ## Cómo funciona
 
+- **Bienvenida:** el cabrío flota adelante y arriba de él aparecen, una por una, las reglas (campo *Rules* de **Goya Intro**, se pueden editar en el Inspector). Hasta que no termina de explicar no se lo puede deshacer (*Wait For Rules*). Se le puede poner voz a cada frase en *Narration*. La tecla **I** saltea todo.
+- **Las obras empiezan como polvo:** después de la cabra, cada obra es una nube de partículas flotando en el aire, con los colores apagados de la pintura (*Assemble From Dust* en **Goya Gallery**). Al barrerla con la mano abierta se arma, al revés de cuando se desarma.
+
 - **Anillo de 360°:** las obras se reparten alrededor de la persona (8 por defecto, *Ring Count*). La primera queda adelante y las siguientes alternan derecha e izquierda, así las primeras de la lista quedan más cerca de la vista inicial.
 - **Una sola lista ordenada** (*Painting Sequence*, en el objeto **Galeria**): las primeras 8 llenan el anillo. Cada vez que una obra se desarma en partículas, se rearma como **la siguiente de la lista que todavía no apareció**. Así el anillo pasa de a poco de la vida cotidiana a las Pinturas Negras.
 - **El movimiento acelera la caída:** cuanto más se mueven las manos, sube la oscuridad y el viento se lleva más fuerte las partículas. Con las manos muy agitadas puede saltear una obra de la lista (*Max Skip*).
@@ -15,8 +18,8 @@ Rama: `obras-oscuras` (sale de `cardboard-xr`).
 | Gesto | Qué hace |
 |---|---|
 | Apuntar a la cabra con el **puño cerrado** y después **abrir la mano** sobre ella (un segundo) | Se deshace la cabra y aparecen las obras |
-| **Apuntar** una obra con cualquier mano (un segundo) | Se revela |
-| **Barrer** una obra revelada con la **mano abierta** (moverla rápido de lado a lado, el cursor se pone naranja) | Se desarma y vuelve como la siguiente |
+| **Barrer** el polvo de una obra con la **mano abierta** (moverla de lado a lado, el cursor se pone naranja) | El polvo se arma en la obra |
+| **Barrer** una obra armada | Se desarma y vuelve como la siguiente |
 | **Apuntar una obra y cerrar el puño** (mantenerlo) | Te acercás a esa obra mientras el puño siga cerrado; al soltarlo te quedás ahí |
 | **Dos puños cerrados** | Te alejás |
 
@@ -55,9 +58,9 @@ Si *Painting Sequence* queda vacía, la galería vuelve a los 3 cuadros de adela
 | **Clic derecho + mover el mouse** | Mirar alrededor |
 | **W / S** o **flechas ↑ / ↓** | Acercarse / alejarse (con clic izquierdo sobre una obra, ↑ va hacia esa obra) |
 | **Flechas ← / →** | Girar |
-| **Mantener clic izquierdo** sobre una obra | Revelarla (apunta al centro de la pantalla) |
-| **Mantener E** sobre una obra revelada | Barrerla: se desarma y vuelve como la siguiente |
-| **T** | Desarmar todas las obras reveladas a la vez |
+| **Mantener E** mirando una obra | Barrerla (apunta al centro de la pantalla): arma el polvo, o desarma la obra armada |
+| **Mantener clic izquierdo** sobre una obra + **↑** | Acercarse a esa obra |
+| **T** | Armar todo el polvo, o desarmar todas las obras armadas |
 | **O** | Sumar oscuridad (+25 %) |
 | **V** | Cambiar entre pantalla partida (visor) y una sola cámara |
 | **R** | Recentrar la vista |
@@ -77,7 +80,9 @@ Con el tracker de Python corriendo, las manos funcionan además del mouse.
 | Touch Hold Time, Require Fist First | Goya Intro | Cuánto hay que sostener la mano abierta sobre la cabra, y si hace falta el puño antes |
 | Swipe Speed, Swipe Distance | Goya Gallery | Qué tan rápido y cuánto recorrido de mano abierta hace falta para desarmar una obra (más bajo = más fácil) |
 | Auto Break, Auto Break Agitation | Goya Particles | Que las obras se desarmen solas con las manos muy agitadas (apagado por defecto) |
-| Particle Count | Goya Particles | Bajarlo (por ejemplo a 4000) si el celular anda lento con 8 obras |
+| Particle Count | Goya Particles | Partículas por obra (4000). Bajarlo (por ejemplo a 2500) si el celular anda lento con 8 obras flotando |
+| Dust Spread, Dust Depth, Dust Gray, Dust Alpha | Goya Particles | Qué tan desparramado, profundo, gris y transparente es el polvo antes de armarse |
+| Rules, Rule Duration, Wait For Rules | Goya Intro | Frases del cabrío, segundos por frase, y si hay que esperar a que termine |
 
 ## Lo que no se pudo probar
 

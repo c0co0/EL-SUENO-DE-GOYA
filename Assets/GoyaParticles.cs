@@ -11,6 +11,9 @@ using UnityEngine;
 /// Cuanto mas agitadas estan las manos, mas fuerte sopla el viento. Si se activa "Auto Break",
 /// con agitacion alta sostenida los cuadros se deshacen solos.
 ///
+/// Si la Galeria tiene "Assemble From Dust", las obras empiezan como polvo flotando en el aire
+/// (con los colores apagados de la pintura) y al BARRERLAS se arman, al reves que al desarmarse.
+///
 /// Ponelo en el mismo objeto "Galeria".
 /// En el editor: tecla T = deshacer todos los cuadros ya revelados (para probar sin manos).
 /// </summary>
@@ -21,8 +24,8 @@ public class GoyaParticles : MonoBehaviour
     public GoyaGallery gallery;
 
     [Header("Particulas")]
-    [Tooltip("Particulas por cuadro. Si el celular anda lento, bajalo (ej. 5000)")]
-    public int particleCount = 8000;
+    [Tooltip("Particulas por cuadro. Con 8 obras flotando como polvo, si el celular anda lento bajalo (ej. 2500)")]
+    public int particleCount = 4000;
     public float particleScale = 1.8f;
 
     [Header("Toque (barrer con la mano abierta: la velocidad y el tiempo estan en GoyaGallery)")]
@@ -54,7 +57,18 @@ public class GoyaParticles : MonoBehaviour
     [Tooltip("Segundos de agitacion alta para que un cuadro se deshaga solo")]
     public float autoBreakTime = 1.5f;
 
-    public enum EffectState { Idle, Scatter, Reform }
+    [Header("Polvo (obras sin armar)")]
+    [Tooltip("Que tan lejos del cuadro flota el polvo (multiplica el tamaño del cuadro)")]
+    public float dustSpread = 0.9f;
+    [Tooltip("Profundidad de la nube de polvo (metros, hacia adelante y atras del cuadro)")]
+    public float dustDepth = 0.9f;
+    [Tooltip("Cuanto se apagan los colores mientras es polvo (0 = colores de la obra, 1 = gris)")]
+    [Range(0f, 1f)] public float dustGray = 0.6f;
+    [Range(0f, 1f)] public float dustAlpha = 0.55f;
+    [Tooltip("Tamaño de las particulas mientras son polvo (multiplica el tamaño normal)")]
+    public float dustSize = 0.6f;
+
+    public enum EffectState { Idle, Scatter, Reform, Floating }
 
     class Effect
     {
@@ -64,7 +78,7 @@ public class GoyaParticles : MonoBehaviour
         public ParticleSystem.Particle[] parts;
         public int count;
         public float size;
-        public Vector3[] target, pos, vel, startPos;
+        public Vector3[] target, pos, vel, startPos, floatBase;
         public Color32[] fromColor, toColor;
         public Sprite sampled;     // obra con la que se calcularon target y toColor
         public float[] delay, seed;
@@ -74,6 +88,7 @@ public class GoyaParticles : MonoBehaviour
         public float touch;
         public float agitated;
         public float nextAllowed;
+        public bool assembling;    // el Reform actual es el primer armado desde el polvo
     }
 
     // Avisos para otros scripts (por ejemplo el sonido de GoyaAmbience)
@@ -106,6 +121,8 @@ public class GoyaParticles : MonoBehaviour
             switch (e.state)
             {
                 case EffectState.Idle:
+                    // Sin armar (al empezar, o despues de Backspace): vuelve a ser polvo
+                    if (gallery.assembleFromDust && !p.revealed) { StartFloating(e); break; }
                     if (forceAll && p.revealed) { Begin(e); break; }
 
                     bool ready = p.revealed && Time.time >= e.nextAllowed;
@@ -129,6 +146,11 @@ public class GoyaParticles : MonoBehaviour
 
                 case EffectState.Reform:
                     UpdateReform(e, dt);
+                    break;
+
+                case EffectState.Floating:
+                    if (forceAll || p.swipe >= gallery.swipeDistance) { BeginAssemble(e); break; }
+                    UpdateFloating(e);
                     break;
             }
         }
@@ -191,6 +213,7 @@ public class GoyaParticles : MonoBehaviour
             pos = new Vector3[n],
             vel = new Vector3[n],
             startPos = new Vector3[n],
+            floatBase = new Vector3[n],
             fromColor = new Color32[n],
             toColor = new Color32[n],
             delay = new float[n],
@@ -384,6 +407,64 @@ public class GoyaParticles : MonoBehaviour
         }
     }
 
+    // ---------------------------------------------------------------- polvo y armado
+
+    void StartFloating(Effect e)
+    {
+        var p = e.painting;
+        if (e.sampled != p.renderer.sprite && !Sample(e)) return;
+
+        Vector3 right = p.root.right, up = p.root.up, fwd = p.root.forward;
+        float w = p.halfW * 2f * dustSpread, h = p.halfH * 2f * dustSpread;
+        var gray = new Color32(150, 150, 160, 255);
+        byte a = (byte)(255 * dustAlpha);
+        for (int i = 0; i < e.count; i++)
+        {
+            e.floatBase[i] = e.target[i]
+                           + right * ((Random.value - 0.5f) * w)
+                           + up * ((Random.value - 0.5f) * h + 0.15f)
+                           + fwd * ((Random.value - 0.5f) * dustDepth);
+            Color32 c = Color32.Lerp(e.toColor[i], gray, dustGray);
+            c.a = a;
+            e.fromColor[i] = c;
+        }
+
+        p.renderer.enabled = false;
+        e.go.SetActive(true);
+        e.ps.Play();
+        e.t = Random.value * 10f;
+        e.state = EffectState.Floating;
+        UpdateFloating(e);
+    }
+
+    void UpdateFloating(Effect e)
+    {
+        e.t += Time.deltaTime;
+        float appear = gallery.appear;
+        for (int i = 0; i < e.count; i++)
+        {
+            float s = e.seed[i] * 20f;
+            float tt = e.t * (0.25f + 0.2f * e.seed[i]);
+            e.pos[i] = e.floatBase[i] + new Vector3(Mathf.Sin(tt + s),
+                                                    Mathf.Sin(tt * 0.8f + s * 0.7f),
+                                                    Mathf.Cos(tt * 0.6f + s * 0.4f)) * 0.18f;
+            Color32 c = e.fromColor[i];
+            c.a = (byte)(c.a * appear);
+            e.parts[i].startColor = c;
+        }
+        Write(e, dustSize);
+    }
+
+    void BeginAssemble(Effect e)
+    {
+        for (int i = 0; i < e.count; i++) e.startPos[i] = e.pos[i];
+        e.painting.swipe = 0f;
+        e.assembling = true;
+        e.state = EffectState.Reform;
+        if (OnReform != null) OnReform(e.painting);
+        e.t = 0f;
+    }
+
     static Color32 Tinted(Color32 c, Color tint)
     {
         return new Color32((byte)(c.r * tint.r), (byte)(c.g * tint.g), (byte)(c.b * tint.b), c.a);
@@ -408,11 +489,16 @@ public class GoyaParticles : MonoBehaviour
             e.parts[i].startColor = Color32.Lerp(e.fromColor[i], Tinted(e.toColor[i], tint), k);
         }
 
-        Write(e);
+        float progress = Mathf.Clamp01(e.t / (reformSpread + reformTime));
+        Write(e, e.assembling ? Mathf.Lerp(dustSize, 1f, progress) : 1f);
+        if (e.assembling) e.painting.reveal = progress;
 
         if (e.t >= reformSpread + reformTime)
         {
             // Termino: volver a mostrar el cuadro y apagar las particulas
+            if (e.assembling) gallery.MarkRevealed(e.painting);
+            e.painting.swipe = 0f;   // que el mismo barrido no la desarme apenas se arma
+            e.assembling = false;
             e.painting.renderer.enabled = true;
             e.ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
             e.go.SetActive(false);
@@ -422,7 +508,7 @@ public class GoyaParticles : MonoBehaviour
         }
     }
 
-    void Write(Effect e)
+    void Write(Effect e, float sizeMul = 1f)
     {
         for (int i = 0; i < e.count; i++)
         {
@@ -430,7 +516,7 @@ public class GoyaParticles : MonoBehaviour
             e.parts[i].velocity = Vector3.zero;
             e.parts[i].startLifetime = 1000f;
             e.parts[i].remainingLifetime = 1000f;
-            e.parts[i].startSize = e.size;
+            e.parts[i].startSize = e.size * sizeMul;
         }
         e.ps.SetParticles(e.parts, e.count);
     }
