@@ -45,13 +45,22 @@ Las 28 obras están en `Assets/Obras`, numeradas en el orden del recorrido y ya 
 
 Si *Painting Sequence* queda vacía, la galería vuelve a los 3 cuadros de adelante.
 
-## Probar en el editor
+## Probar en la PC (sin tracker ni celular)
 
-- **I**: saltear la intro de la cabra.
-- **Clic derecho + mouse**: mirar alrededor. **W / S**: caminar adelante / atrás.
-- **T**: desarmar todos los cuadros revelados (para revelarlos hace falta el tracker de Python).
-- **O**: sumar oscuridad (+25 %).
-- **Backspace**: volver todo al principio.
+| Tecla / mouse | Qué hace |
+|---|---|
+| **I** | Saltear la intro de la cabra |
+| **Clic derecho + mover el mouse** | Mirar alrededor |
+| **W / S** | Caminar adelante / atrás |
+| **Mantener clic izquierdo** sobre una obra | Revelarla (apunta al centro de la pantalla) |
+| **Mantener E** sobre una obra revelada | Mano abierta: la desarma y vuelve como la siguiente |
+| **T** | Desarmar todas las obras reveladas a la vez |
+| **O** | Sumar oscuridad (+25 %) |
+| **V** | Cambiar entre pantalla partida (visor) y una sola cámara |
+| **R** | Recentrar la vista |
+| **Backspace** | Volver todo al principio |
+
+Con el tracker de Python corriendo, las manos funcionan además del mouse.
 
 ## Valores para ajustar
 

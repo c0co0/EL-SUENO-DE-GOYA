@@ -20,7 +20,9 @@ using UnityEngine;
 /// Uso: objeto vacio "Galeria" con este script. Las imagenes se importan como Sprite
 /// (Texture Type: Sprite (2D and UI)); no hace falta tildarles Read/Write.
 /// Moverse: un PUÑO CERRADO sostenido camina hacia donde miras; los DOS PUÑOS, hacia atras.
-/// En el editor: W / S = caminar adelante / atras, tecla O = sumar oscuridad (para probar sin manos).
+/// Sin tracker (en la PC): clic derecho + mouse = mirar, W / S = caminar, mantener clic izquierdo
+/// sobre una obra = revelarla (apunta al centro de la vista), mantener E = mano abierta (la desarma),
+/// O = sumar oscuridad.
 /// </summary>
 public class GoyaGallery : MonoBehaviour
 {
@@ -120,7 +122,7 @@ public class GoyaGallery : MonoBehaviour
     public List<Painting> paintings = new List<Painting>();
 
     Transform rig;
-    SpriteRenderer cursorLeft, cursorRight;
+    SpriteRenderer cursorLeft, cursorRight, cursorMouse;
 
     Sprite[] darkSprites;   // obras que pueden aparecer al rearmarse, en orden
     int nextDark;           // primera obra de darkSprites que todavia no se mostro
@@ -168,6 +170,7 @@ public class GoyaGallery : MonoBehaviour
         var circle = MakeCircleSprite();
         cursorLeft = CreateCursor("CursorIzquierdo", circle);
         cursorRight = CreateCursor("CursorDerecho", circle);
+        cursorMouse = CreateCursor("CursorMouse", circle);
     }
 
     // Anillo de 360: el primero adelante y los siguientes alternando derecha e izquierda,
@@ -383,7 +386,12 @@ public class GoyaGallery : MonoBehaviour
             cursor.enabled = false;
             return;
         }
+        PointAt(dir, hand.open, cursor, baseColor);
+    }
 
+    // Apunta un rayo desde la cabeza: revela lo que toca y, si la mano esta abierta, lo marca para desarmar
+    void PointAt(Vector3 dir, bool open, SpriteRenderer cursor, Color baseColor)
+    {
         Vector3 origin = rig.position;
         Vector3 cursorPos = origin + dir * (distance * 0.96f);
 
@@ -402,7 +410,7 @@ public class GoyaGallery : MonoBehaviour
             {
                 p.hovered = true;
                 p.hitPoint = hit;
-                if (hand.open) p.openHandOver = true;
+                if (open) p.openHandOver = true;
                 cursorPos = hit - dir * 0.03f;
             }
         }
@@ -410,7 +418,22 @@ public class GoyaGallery : MonoBehaviour
         cursor.enabled = true;
         cursor.transform.position = cursorPos;
         cursor.transform.rotation = Quaternion.LookRotation(dir);
-        cursor.color = hand.open ? Color.green : baseColor;
+        cursor.color = open ? Color.green : baseColor;
+    }
+
+    // Sin tracker (en la PC): clic izquierdo = apuntar con la mano cerrada al centro de la vista,
+    // E = apuntar con la mano abierta (desarma la obra revelada)
+    void ProcessMouse()
+    {
+        if (Application.isMobilePlatform) return; // en el celular tocar la pantalla es para recentrar
+        bool point = Input.GetMouseButton(0);
+        bool open = Input.GetKey(KeyCode.E);
+        if (!(point || open) || head == null)
+        {
+            cursorMouse.enabled = false;
+            return;
+        }
+        PointAt(head.forward, open, cursorMouse, Color.white);
     }
 
     // Mide cuanto se mueven las manos y lo convierte en oscuridad acumulada y agitacion
@@ -460,6 +483,7 @@ public class GoyaGallery : MonoBehaviour
 
         ProcessHand(hands.Left, cursorLeft, hands.leftColor);
         ProcessHand(hands.Right, cursorRight, hands.rightColor);
+        ProcessMouse();
 
         // Tecla Backspace (en el editor): vuelve a cubrir todos los cuadros para probar de nuevo
         if (Input.GetKeyDown(KeyCode.Backspace)) ResetAll();
