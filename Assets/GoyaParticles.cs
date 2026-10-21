@@ -5,9 +5,13 @@ using UnityEngine;
 /// Efecto de particulas para los cuadros de GoyaGallery.
 /// Cuando una MANO ABIERTA toca un cuadro ya revelado, el cuadro se deshace en particulas
 /// (que conservan los colores de la pintura), flotan llevadas por el viento y despues
-/// vuelven a formar el cuadro.
+/// se rearman como la OBRA SIGUIENTE, mas oscura (ver "Obras mas oscuras" en GoyaGallery).
+/// Si no hay obras oscuras cargadas, vuelven a formar el mismo cuadro.
 ///
-/// Ponelo en el mismo objeto "Galeria". Las imagenes tienen que tener Read/Write activado.
+/// Cuanto mas agitadas estan las manos, mas facil se deshacen los cuadros, mas fuerte
+/// sopla el viento y, por encima de cierta agitacion, se deshacen solos.
+///
+/// Ponelo en el mismo objeto "Galeria".
 /// En el editor: tecla T = deshacer todos los cuadros ya revelados (para probar sin manos).
 /// </summary>
 public class GoyaParticles : MonoBehaviour
@@ -42,6 +46,14 @@ public class GoyaParticles : MonoBehaviour
     [Tooltip("Retraso aleatorio maximo: que no vuelvan todas al mismo tiempo")]
     public float reformSpread = 0.9f;
 
+    [Header("Agitacion (movimiento de las manos)")]
+    [Tooltip("Con agitacion maxima, el viento sopla esta cantidad de veces mas fuerte")]
+    public float agitationWind = 2.5f;
+    [Tooltip("Por encima de esta agitacion (0 a 1) los cuadros revelados se deshacen solos")]
+    [Range(0f, 1f)] public float autoBreakAgitation = 0.75f;
+    [Tooltip("Segundos de agitacion alta para que un cuadro se deshaga solo")]
+    public float autoBreakTime = 1.5f;
+
     public enum EffectState { Idle, Scatter, Reform }
 
     class Effect
@@ -53,11 +65,14 @@ public class GoyaParticles : MonoBehaviour
         public int count;
         public float size;
         public Vector3[] target, pos, vel, startPos;
+        public Color32[] fromColor, toColor;
+        public Sprite sampled;     // obra con la que se calcularon target y toColor
         public float[] delay, seed;
         public bool[] released;
         public EffectState state;
         public float t;
         public float touch;
+        public float agitated;
         public float nextAllowed;
     }
 
@@ -83,6 +98,9 @@ public class GoyaParticles : MonoBehaviour
 
         float dt = Time.deltaTime;
         bool forceAll = Input.GetKeyDown(KeyCode.T);
+        float agitation = gallery.agitation;
+        // Con las manos agitadas alcanza con menos tiempo de toque
+        float holdNeeded = touchHoldTime * (1f - 0.6f * agitation);
 
         foreach (var e in effects)
         {
@@ -92,15 +110,27 @@ public class GoyaParticles : MonoBehaviour
                 case EffectState.Idle:
                     if (forceAll && p.revealed) { Begin(e); break; }
 
-                    bool touching = p.revealed && p.openHandOver && Time.time >= e.nextAllowed;
+                    bool ready = p.revealed && Time.time >= e.nextAllowed;
+                    bool touching = ready && p.openHandOver;
                     if (touching)
                     {
                         e.touch += dt;
-                        if (e.touch >= touchHoldTime) Begin(e);
+                        if (e.touch >= holdNeeded) { Begin(e); break; }
                     }
                     else
                     {
                         e.touch = Mathf.Max(0f, e.touch - dt * 2f);
+                    }
+
+                    // Agitacion alta sostenida: el cuadro se deshace solo
+                    if (ready && agitation >= autoBreakAgitation)
+                    {
+                        e.agitated += dt * Random.Range(0.6f, 1.4f);
+                        if (e.agitated >= autoBreakTime) Begin(e);
+                    }
+                    else
+                    {
+                        e.agitated = Mathf.Max(0f, e.agitated - dt);
                     }
                     break;
 
@@ -161,20 +191,7 @@ public class GoyaParticles : MonoBehaviour
 
     Effect CreateEffect(GoyaGallery.Painting p)
     {
-        var sprite = p.renderer.sprite;
-        var tex = sprite.texture;
-        if (!tex.isReadable)
-        {
-            Debug.LogError("[Particulas] La imagen de '" + p.name + "' no tiene Read/Write activado. " +
-                           "Seleccionala en Project, abri 'Advanced', tilda 'Read/Write' y apreta Apply.");
-            return null;
-        }
-
-        float w = p.halfW * 2f;
-        float h = p.halfH * 2f;
-        int cols = Mathf.Max(1, Mathf.RoundToInt(Mathf.Sqrt(particleCount * (w / h))));
-        int rows = Mathf.Max(1, particleCount / cols);
-        int n = cols * rows;
+        int n = Mathf.Max(1, particleCount);
 
         var e = new Effect
         {
@@ -185,34 +202,15 @@ public class GoyaParticles : MonoBehaviour
             pos = new Vector3[n],
             vel = new Vector3[n],
             startPos = new Vector3[n],
+            fromColor = new Color32[n],
+            toColor = new Color32[n],
             delay = new float[n],
             seed = new float[n],
-            released = new bool[n],
-            size = Mathf.Max(0.008f, Mathf.Sqrt(w * h / n) * particleScale)
+            released = new bool[n]
         };
+        for (int i = 0; i < n; i++) e.seed[i] = Random.value;
 
-        Rect r = sprite.rect;
-        Vector3 center = p.root.position;
-        Vector3 right = p.root.right;
-        Vector3 up = p.root.up;
-
-        int i = 0;
-        for (int row = 0; row < rows; row++)
-        {
-            for (int col = 0; col < cols; col++)
-            {
-                float fu = (col + Random.value) / cols;
-                float fv = (row + Random.value) / rows;
-                Color c = tex.GetPixelBilinear((r.x + fu * r.width) / tex.width,
-                                               (r.y + fv * r.height) / tex.height);
-
-                e.target[i] = center + right * ((fu - 0.5f) * w) + up * ((fv - 0.5f) * h);
-                e.seed[i] = Random.value;
-                e.parts[i].startColor = c;
-                e.parts[i].startSize = e.size;
-                i++;
-            }
-        }
+        if (!Sample(e)) return null;
 
         // Sistema de particulas (solo se usa para dibujar: las posiciones las manejamos nosotros)
         e.go = new GameObject("Particulas_" + p.name);
@@ -243,11 +241,83 @@ public class GoyaParticles : MonoBehaviour
         return e;
     }
 
+    // Calcula donde va cada particula y de que color es, segun la obra que muestra el cuadro ahora
+    bool Sample(Effect e)
+    {
+        var p = e.painting;
+        var sprite = p.renderer.sprite;
+        var pixels = GetPixels(sprite);
+        if (pixels == null) return false;
+
+        int n = e.count;
+        float w = p.halfW * 2f;
+        float h = p.halfH * 2f;
+        int cols = Mathf.Max(1, Mathf.RoundToInt(Mathf.Sqrt(n * (w / h))));
+        int rows = Mathf.Max(1, Mathf.CeilToInt((float)n / cols));
+        e.size = Mathf.Max(0.008f, Mathf.Sqrt(w * h / n) * particleScale);
+
+        Vector3 center = p.root.position;
+        Vector3 right = p.root.right;
+        Vector3 up = p.root.up;
+
+        for (int i = 0; i < n; i++)
+        {
+            int col = i % cols;
+            int row = i / cols;
+            float fu = (col + Random.value) / cols;
+            float fv = Mathf.Clamp01((row + Random.value) / rows);
+            e.target[i] = center + right * ((fu - 0.5f) * w) + up * ((fv - 0.5f) * h);
+            e.toColor[i] = pixels.GetPixelBilinear(fu, fv);
+        }
+
+        e.sampled = sprite;
+        return true;
+    }
+
+    // Copia chica de cada obra para leer sus colores (asi no hace falta tildar Read/Write)
+    readonly Dictionary<Sprite, Texture2D> pixelCache = new Dictionary<Sprite, Texture2D>();
+
+    Texture2D GetPixels(Sprite sprite)
+    {
+        if (sprite == null) return null;
+        Texture2D cached;
+        if (pixelCache.TryGetValue(sprite, out cached)) return cached;
+
+        const int maxSide = 512;
+        Rect r = sprite.rect;
+        Texture2D src = sprite.texture;
+        float k = Mathf.Min(1f, maxSide / Mathf.Max(r.width, r.height));
+        int w = Mathf.Max(1, Mathf.RoundToInt(r.width * k));
+        int h = Mathf.Max(1, Mathf.RoundToInt(r.height * k));
+
+        var rt = RenderTexture.GetTemporary(w, h, 0, RenderTextureFormat.ARGB32, RenderTextureReadWrite.sRGB);
+        var scale = new Vector2(r.width / src.width, r.height / src.height);
+        var offset = new Vector2(r.x / src.width, r.y / src.height);
+        Graphics.Blit(src, rt, scale, offset);
+
+        var prev = RenderTexture.active;
+        RenderTexture.active = rt;
+        var copy = new Texture2D(w, h, TextureFormat.RGBA32, false, false);
+        copy.ReadPixels(new Rect(0, 0, w, h), 0, 0);
+        copy.Apply();
+        RenderTexture.active = prev;
+        RenderTexture.ReleaseTemporary(rt);
+
+        copy.wrapMode = TextureWrapMode.Clamp;
+        pixelCache[sprite] = copy;
+        return copy;
+    }
+
     // ---------------------------------------------------------------- efecto
 
     void Begin(Effect e)
     {
         var p = e.painting;
+        // Si la obra cambio por otro lado (por ejemplo al reiniciar con Backspace), recalcular
+        if (e.sampled != p.renderer.sprite && !Sample(e)) return;
+        Color tint = gallery.CurrentTint();
+        for (int i = 0; i < e.count; i++) e.fromColor[i] = Tinted(e.toColor[i], tint);
+
         Vector3 hit = p.hitPoint == Vector3.zero ? p.root.position : p.hitPoint;
 
         // La onda de desintegracion arranca donde se toco y se expande
@@ -265,6 +335,7 @@ public class GoyaParticles : MonoBehaviour
             e.released[i] = false;
         }
 
+        for (int i = 0; i < e.count; i++) e.parts[i].startColor = e.fromColor[i];
         p.renderer.enabled = false;   // el cuadro "real" se oculta: ahora son solo particulas
         e.go.SetActive(true);
         e.ps.Play();
@@ -274,12 +345,14 @@ public class GoyaParticles : MonoBehaviour
         if (OnBreak != null) OnBreak(p);
         e.t = 0f;
         e.touch = 0f;
+        e.agitated = 0f;
     }
 
     void UpdateScatter(Effect e, float dt)
     {
         e.t += dt;
         Vector3 towardViewer = -e.painting.root.forward;
+        Vector3 gust = wind * (agitationWind - 1f) * gallery.agitation * dt;
 
         for (int i = 0; i < e.count; i++)
         {
@@ -296,6 +369,7 @@ public class GoyaParticles : MonoBehaviour
             e.vel[i] += new Vector3(Mathf.Sin(e.t * 2f + s),
                                     Mathf.Cos(e.t * 1.7f + s * 0.7f),
                                     Mathf.Sin(e.t * 1.3f + s * 0.4f)) * (0.4f * dt);
+            e.vel[i] += gust * (0.5f + e.seed[i]);
             e.pos[i] += e.vel[i] * dt;
             e.vel[i] *= Mathf.Max(0f, 1f - drag * dt);
         }
@@ -305,15 +379,30 @@ public class GoyaParticles : MonoBehaviour
         if (e.t >= scatterTime)
         {
             for (int i = 0; i < e.count; i++) e.startPos[i] = e.pos[i];
+
+            // Elegir la obra con la que se rearma (mas oscura) y recalcular hacia donde van
+            var next = gallery.PickNextSprite(e.painting);
+            if (next != null)
+            {
+                gallery.SetSprite(e.painting, next);
+                Sample(e);
+            }
+
             e.state = EffectState.Reform;
             if (OnReform != null) OnReform(e.painting);
             e.t = 0f;
         }
     }
 
+    static Color32 Tinted(Color32 c, Color tint)
+    {
+        return new Color32((byte)(c.r * tint.r), (byte)(c.g * tint.g), (byte)(c.b * tint.b), c.a);
+    }
+
     void UpdateReform(Effect e, float dt)
     {
         e.t += dt;
+        Color tint = gallery.CurrentTint();
 
         for (int i = 0; i < e.count; i++)
         {
@@ -326,6 +415,7 @@ public class GoyaParticles : MonoBehaviour
                                          Mathf.Sin(e.t * 1.9f + s * 0.4f)) * (0.12f * (1f - k));
 
             e.pos[i] = Vector3.Lerp(e.startPos[i], e.target[i], k) + wobble;
+            e.parts[i].startColor = Color32.Lerp(e.fromColor[i], Tinted(e.toColor[i], tint), k);
         }
 
         Write(e);

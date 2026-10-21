@@ -38,6 +38,14 @@ public class GoyaAmbience : MonoBehaviour
     [Range(0f, 1f)] public float ambientVolume = 0.35f;
     [Range(0f, 1f)] public float effectsVolume = 0.8f;
 
+    [Header("Oscuridad (sigue a la oscuridad acumulada de la Galeria)")]
+    [Tooltip("Color del fondo con oscuridad total")]
+    public Color darkBackground = new Color(0.01f, 0.005f, 0.005f, 1f);
+    [Tooltip("Color de las auras con oscuridad total")]
+    public Color darkHaloColor = new Color(0.55f, 0.08f, 0.05f, 1f);
+    [Tooltip("Tono del sonido ambiente con oscuridad total (1 = normal, mas bajo = mas grave)")]
+    public float darkAmbientPitch = 0.8f;
+
     class Halo
     {
         public GoyaGallery.Painting painting;
@@ -52,6 +60,10 @@ public class GoyaAmbience : MonoBehaviour
     Sprite softSprite;
     bool halosBuilt;
     bool subscribed;
+    AudioSource ambientSource;
+    ParticleSystem dustSystem;
+    StereoGyroRig rigScript;
+    Camera[] cams = new Camera[8];
 
     void Start()
     {
@@ -75,6 +87,7 @@ public class GoyaAmbience : MonoBehaviour
             src.spatialBlend = 0f;
             src.volume = ambientVolume;
             src.Play();
+            ambientSource = src;
         }
     }
 
@@ -118,6 +131,7 @@ public class GoyaAmbience : MonoBehaviour
 
         var ps = go.AddComponent<ParticleSystem>();
         ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+        dustSystem = ps;
 
         var main = ps.main;
         main.loop = true;
@@ -235,16 +249,46 @@ public class GoyaAmbience : MonoBehaviour
             }
         }
 
-        // Auras
+        float dark = gallery.darkness;
+
+        // Auras (siguen el tamano del cuadro, que cambia al pasar a otra obra)
+        Color haloNow = Color.Lerp(haloColor, darkHaloColor, dark);
         foreach (var h in haloMap.Values)
         {
-            float target = haloStrength * Mathf.SmoothStep(0f, 1f, h.painting.reveal);
+            var p = h.painting;
+            h.sr.transform.localScale = new Vector3(p.halfW * 2f * haloSize, p.halfH * 2f * haloSize, 1f);
+            float target = haloStrength * Mathf.SmoothStep(0f, 1f, p.reveal);
             h.flash = Mathf.Max(0f, h.flash - Time.deltaTime / 1.8f);
             float a = target + haloStrength * 1.6f * h.flash;
-            float breathe = 1f + 0.15f * Mathf.Sin(Time.time * 1.2f + h.phase);
-            Color c = haloColor;
+            float breathe = 1f + 0.15f * Mathf.Sin(Time.time * (1.2f + 1.5f * gallery.agitation) + h.phase);
+            Color c = haloNow;
             c.a = Mathf.Clamp01(a * breathe);
             h.sr.color = c;
         }
+
+        UpdateDarkness(dark);
+    }
+
+    // Fondo, polvo y sonido ambiente se van apagando con la oscuridad acumulada
+    void UpdateDarkness(float dark)
+    {
+        if (rigScript == null) rigScript = FindFirstObjectByType<StereoGyroRig>();
+        if (rigScript != null)
+        {
+            Color bg = Color.Lerp(rigScript.background, darkBackground, dark);
+            if (cams.Length < Camera.allCamerasCount) cams = new Camera[Camera.allCamerasCount];
+            int n = Camera.GetAllCameras(cams);
+            for (int i = 0; i < n; i++) cams[i].backgroundColor = bg;
+        }
+
+        if (dustSystem != null)
+        {
+            var main = dustSystem.main;
+            Color dc = Color.Lerp(dustColor, new Color(0.35f, 0.3f, 0.3f, dustColor.a * 0.7f), dark);
+            main.startColor = dc;
+        }
+
+        if (ambientSource != null)
+            ambientSource.pitch = Mathf.Lerp(1f, darkAmbientPitch, dark);
     }
 }
