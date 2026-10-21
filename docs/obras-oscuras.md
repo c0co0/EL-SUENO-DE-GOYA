@@ -75,7 +75,7 @@ Con el tracker de Python corriendo, las manos funcionan además del mouse.
 | Move Speed, Fist Hold Time | Goya Gallery | Velocidad al acercarse y cuánto hay que sostener el puño antes de moverse |
 | Movement For Full Dark, Dark Tint | Goya Gallery | Cuánto movimiento oscurece del todo y a qué color |
 | Touch Hold Time, Require Fist First | Goya Intro | Cuánto hay que sostener la mano abierta sobre la cabra, y si hace falta el puño antes |
-| Swipe Speed, Swipe Time | Goya Gallery | Qué tan rápido y cuánto tiempo hay que barrer una obra para desarmarla |
+| Swipe Speed, Swipe Distance | Goya Gallery | Qué tan rápido y cuánto recorrido de mano abierta hace falta para desarmar una obra (más bajo = más fácil) |
 | Auto Break, Auto Break Agitation | Goya Particles | Que las obras se desarmen solas con las manos muy agitadas (apagado por defecto) |
 | Particle Count | Goya Particles | Bajarlo (por ejemplo a 4000) si el celular anda lento con 8 obras |
 

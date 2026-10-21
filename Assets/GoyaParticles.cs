@@ -109,7 +109,7 @@ public class GoyaParticles : MonoBehaviour
                     if (forceAll && p.revealed) { Begin(e); break; }
 
                     bool ready = p.revealed && Time.time >= e.nextAllowed;
-                    if (ready && p.swipe >= gallery.swipeTime) { Begin(e); break; }
+                    if (ready && p.swipe >= gallery.swipeDistance) { Begin(e); break; }
 
                     // Agitacion alta sostenida: el cuadro se deshace solo (si esta activado)
                     if (autoBreak && ready && agitation >= autoBreakAgitation)
