@@ -111,7 +111,9 @@ class Body:
     def __init__(self, smooth):
         self.smooth = smooth
         self.base_width = None     # ancho de hombros en la postura inicial
+        self.base_head = None      # distancia entre las orejas en la postura inicial
         self.samples = []
+        self.head_samples = []
         self.lean = 0.0
         self.tilt = 0.0
         self.arms = [0.0, 0.0]
@@ -119,7 +121,9 @@ class Body:
 
     def recalibrate(self):
         self.base_width = None
+        self.base_head = None
         self.samples = []
+        self.head_samples = []
 
     def update(self, lm, w, h):
         px = lambda i: (lm[i].x * w, lm[i].y * h)
@@ -129,25 +133,49 @@ class Body:
         if width < 1:
             return
 
+        # Ancho de la cabeza (entre las orejas): al levantar los brazos los hombros se juntan,
+        # asi que la inclinacion se mide con la cabeza cuando las orejas se ven
+        head = None
+        if lm[7].visibility > 0.5 and lm[8].visibility > 0.5:
+            head = math.dist(px(7), px(8))
+            if head < 1:
+                head = None
+
         if self.base_width is None:
             self.samples.append(width)
+            if head is not None:
+                self.head_samples.append(head)
             if len(self.samples) >= self.CALIBRATION_FRAMES:
                 self.samples.sort()
                 self.base_width = self.samples[len(self.samples) // 2]
-        lean = width / self.base_width - 1.0 if self.base_width else 0.0
+                if len(self.head_samples) >= self.CALIBRATION_FRAMES // 2:
+                    self.head_samples.sort()
+                    self.base_head = self.head_samples[len(self.head_samples) // 2]
+        if self.base_head and head is not None:
+            lean = head / self.base_head - 1.0
+        elif self.base_width:
+            lean = width / self.base_width - 1.0
+        else:
+            lean = 0.0
 
         # Inclinacion de costado: angulo de la linea de los hombros
         tilt = math.degrees(math.atan2(right_sh[1] - left_sh[1], right_sh[0] - left_sh[0]))
 
-        # Brazos: cuanto esta cada muñeca por encima de su hombro (en anchos de hombros)
-        wa, wb = 15, 16
-        wrists = sorted([wa, wb], key=lambda i: lm[i].x)
+        # Brazos: cuanto esta cada muñeca por encima de su hombro (en anchos de hombros).
+        # Con los brazos arriba las muñecas suelen salir de cuadro: entonces cuenta el codo.
+        # El ancho de referencia es el de la postura inicial (con los brazos arriba los hombros se juntan)
+        ref = self.base_width or width
+        pairs = sorted([(15, 13), (16, 14)], key=lambda p: lm[p[1]].x)   # (muñeca, codo) por lado
         arms = []
-        for sh, wr in zip((left_sh, right_sh), wrists):
-            if lm[wr].visibility < 0.5:
-                arms.append(-1.0)
-            else:
-                arms.append(max(-1.0, min(1.5, (sh[1] - lm[wr].y * h) / width)))
+        for sh, (wr, el) in zip((left_sh, right_sh), pairs):
+            score = -1.0
+            if lm[wr].visibility > 0.5:
+                score = (sh[1] - lm[wr].y * h) / ref
+            if lm[el].visibility > 0.5:
+                score = max(score, 1.5 * (sh[1] - lm[el].y * h) / ref)
+            elif lm[wr].visibility <= 0.5 and lm[el].y * h < sh[1]:
+                score = 1.0   # codo arriba del hombro aunque casi no se vea
+            arms.append(max(-1.0, min(1.5, score)))
 
         a = self.smooth
         self.lean = a * lean + (1 - a) * self.lean

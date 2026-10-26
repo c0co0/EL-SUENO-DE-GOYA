@@ -38,6 +38,8 @@ public class GoyaIntro : MonoBehaviour
     public float armsUpLevel = 0.6f;
     [Tooltip("Cuanto hay que inclinarse hacia adelante (0.05 = un poco)")]
     public float leanForward = 0.05f;
+    [Tooltip("Si no se detecta la inclinacion, alcanza con sostener los brazos arriba estos segundos (0 = siempre hace falta inclinarse)")]
+    public float armsOnlyTime = 3f;
 
     [Header("Toque con la mano")]
     [Tooltip("Deshacer al cabrio apuntandolo con la mano (ademas del gesto con el cuerpo)")]
@@ -126,6 +128,7 @@ public class GoyaIntro : MonoBehaviour
     Transform rig, pivot;
     Vector3 basePos;
     float touch;
+    float armsHeld;
     bool armedLeft, armedRight;   // la mano ya apunto al objeto con el puño cerrado
     float waitingSince = -1f;
     TextMesh rulesText;
@@ -366,8 +369,9 @@ public class GoyaIntro : MonoBehaviour
         bool rulesDone = UpdateRules();
         bool allowed = Time.time - waitingSince >= startGrace && (rulesDone || !waitForRules);
         var body = hands.Body;
-        bool bodyPose = bodyGesture && body.visible &&
-                        body.armLeft > armsUpLevel && body.armRight > armsUpLevel && body.lean > leanForward;
+        bool armsUp = bodyGesture && body.visible && body.armLeft > armsUpLevel && body.armRight > armsUpLevel;
+        armsHeld = armsUp ? armsHeld + dt : 0f;
+        bool bodyPose = armsUp && (body.lean > leanForward || (armsOnlyTime > 0f && armsHeld >= armsOnlyTime));
         bool handPose = handGesture &&
                         ((nearL && leftOpen && (armedLeft || !requireFistFirst)) ||
                          (nearR && rightOpen && (armedRight || !requireFistFirst)));
