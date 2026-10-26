@@ -80,7 +80,8 @@ public class GoyaIntro : MonoBehaviour
         "Soy el Gran Cabrón.\nTe voy a mostrar sus visiones.",
         "Sus visiones están en el aire.\nBarré con la mano abierta y aparecen.",
         "Barré otra vez y se desvanecen,\ny llegan las siguientes.",
-        "Apuntá una obra y cerrá el puño\npara acercarte. Con dos puños, te alejás.",
+        "Levantá los brazos para invocar\nlas visiones siguientes.",
+        "Inclinate hacia adelante para acercarte,\nhacia atrás para alejarte.",
         "Cuanto más te muevas,\nmás oscuro será el sueño.",
         "Apuntame con el puño cerrado\ny abrí la mano para empezar."
     };

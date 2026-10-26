@@ -1,10 +1,22 @@
 """
-hand_tracker.py - Detecta las dos manos con MediaPipe y las envia por OSC a Unity.
+hand_tracker.py - Detecta las dos manos y el cuerpo con MediaPipe y los envia por OSC a Unity.
 
 Mensajes OSC (por cada mano, <lado> = Left o Right):
     /hand/<lado>/present   int    1 si la mano esta detectada, 0 si se perdio
     /hand/<lado>/open      int    1 si la mano esta abierta, 0 si no
     /hand/<lado>/lm        63 floats  (21 landmarks x [x, y, z])
+
+Cuerpo (lado = como se ve en la pantalla, que es un espejo):
+    /body/present          int    1 si se ve el cuerpo
+    /body/lean             float  inclinacion hacia la camara (0 = postura inicial,
+                                  + = hacia adelante, - = hacia atras)
+    /body/tilt             float  inclinacion de costado en grados (+ = hacia la derecha)
+    /body/arms             2 floats  altura de cada brazo [izquierdo, derecho]:
+                                  0 = muñeca a la altura del hombro, 1 = bien arriba, negativo = abajo
+    /body/lm               99 floats  (33 puntos del cuerpo x [x, y, z])
+
+La postura inicial se toma sola en los primeros segundos en que se ve el cuerpo.
+Para volver a tomarla: pararse derecho y apretar C.
 
 Todos los mensajes de un cuadro viajan juntos en UN solo paquete (bundle OSC),
 lo que es mucho mas estable por wifi.
@@ -17,8 +29,9 @@ Opciones utiles:
     --smooth 0.6    suavizado (1.0 = sin suavizar, mas bajo = mas suave pero mas lento)
     --hold 0.25     segundos que se mantiene la mano si MediaPipe la pierde un instante
     --no-bundle     manda cada mensaje por separado (si algo no llega)
+    --no-body       solo manos (mas rapido en computadoras lentas)
 
-Teclas: Q = salir
+Teclas: Q = salir, C = tomar de nuevo la postura inicial del cuerpo
 """
 import argparse
 import math
@@ -90,6 +103,62 @@ def count_extended(lm, w, h):
     return n
 
 
+class Body:
+    """Postura del cuerpo: inclinacion hacia la camara, de costado y altura de los brazos."""
+
+    CALIBRATION_FRAMES = 45
+
+    def __init__(self, smooth):
+        self.smooth = smooth
+        self.base_width = None     # ancho de hombros en la postura inicial
+        self.samples = []
+        self.lean = 0.0
+        self.tilt = 0.0
+        self.arms = [0.0, 0.0]
+        self.pts = None
+
+    def recalibrate(self):
+        self.base_width = None
+        self.samples = []
+
+    def update(self, lm, w, h):
+        px = lambda i: (lm[i].x * w, lm[i].y * h)
+        a, b = px(11), px(12)
+        left_sh, right_sh = (a, b) if a[0] < b[0] else (b, a)
+        width = math.dist(left_sh, right_sh)
+        if width < 1:
+            return
+
+        if self.base_width is None:
+            self.samples.append(width)
+            if len(self.samples) >= self.CALIBRATION_FRAMES:
+                self.samples.sort()
+                self.base_width = self.samples[len(self.samples) // 2]
+        lean = width / self.base_width - 1.0 if self.base_width else 0.0
+
+        # Inclinacion de costado: angulo de la linea de los hombros
+        tilt = math.degrees(math.atan2(right_sh[1] - left_sh[1], right_sh[0] - left_sh[0]))
+
+        # Brazos: cuanto esta cada muñeca por encima de su hombro (en anchos de hombros)
+        wa, wb = 15, 16
+        wrists = sorted([wa, wb], key=lambda i: lm[i].x)
+        arms = []
+        for sh, wr in zip((left_sh, right_sh), wrists):
+            if lm[wr].visibility < 0.5:
+                arms.append(-1.0)
+            else:
+                arms.append(max(-1.0, min(1.5, (sh[1] - lm[wr].y * h) / width)))
+
+        a = self.smooth
+        self.lean = a * lean + (1 - a) * self.lean
+        self.tilt = a * tilt + (1 - a) * self.tilt
+        self.arms = [a * n + (1 - a) * o for n, o in zip(arms, self.arms)]
+        raw = []
+        for p in lm:
+            raw.extend((p.x, p.y, p.z))
+        self.pts = raw
+
+
 def assign_slots(dets, slots, now):
     """Decide si cada mano detectada es Left o Right.
     No usa la etiqueta de MediaPipe (poco confiable de lejos): usa la posicion
@@ -128,6 +197,7 @@ def main():
     ap.add_argument("--smooth", type=float, default=0.6)
     ap.add_argument("--hold", type=float, default=0.25)
     ap.add_argument("--no-bundle", action="store_true")
+    ap.add_argument("--no-body", action="store_true", help="No seguir el cuerpo, solo las manos")
     args = ap.parse_args()
 
     client = SimpleUDPClient(args.ip, args.port, allow_broadcast=True)
@@ -151,6 +221,17 @@ def main():
         min_tracking_confidence=0.5,
     )
 
+    pose = None
+    if not args.no_body:
+        pose = mp.solutions.pose.Pose(
+            static_image_mode=False,
+            model_complexity=0,
+            min_detection_confidence=0.5,
+            min_tracking_confidence=0.5,
+        )
+    body = Body(args.smooth)
+    body_sent = False
+
     slots = {n: Slot() for n in NAMES}
     mode = "1 paquete por cuadro" if sender.bundled else "mensajes sueltos"
     print(f"Enviando OSC a {args.ip}:{args.port} ({mode})  (Q para salir)")
@@ -165,7 +246,9 @@ def main():
         frame = cv2.flip(frame, 1)  # espejo
         h, w = frame.shape[:2]
         now = time.time()
-        result = hands.process(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        result = hands.process(rgb)
+        body_result = pose.process(rgb) if pose is not None else None
 
         dets = list(result.multi_hand_landmarks) if result.multi_hand_landmarks else []
         assigned = assign_slots(dets, slots, now)
@@ -229,6 +312,29 @@ def main():
                     slot.open = False
                     slot.counter = 0
 
+        # Cuerpo
+        if body_result is not None and body_result.pose_landmarks:
+            blm = body_result.pose_landmarks.landmark
+            body.update(blm, w, h)
+            sender.emit("/body/present", 1)
+            sender.emit("/body/lean", round(body.lean, 4))
+            sender.emit("/body/tilt", round(body.tilt, 2))
+            sender.emit("/body/arms", [round(v, 3) for v in body.arms])
+            if body.pts is not None:
+                sender.emit("/body/lm", [round(v, 4) for v in body.pts])
+            body_sent = True
+
+            mp_draw.draw_landmarks(frame, body_result.pose_landmarks, mp.solutions.pose.POSE_CONNECTIONS)
+            if body.base_width is None:
+                status = "cuerpo: quedate derecho, tomando postura..."
+            else:
+                arms_up = sum(1 for v in body.arms if v > 0.3)
+                status = f"cuerpo: inclinacion {body.lean:+.2f}  costado {body.tilt:+.0f}  brazos arriba {arms_up}"
+            cv2.putText(frame, status, (10, 65), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 200, 255), 2)
+        elif body_sent:
+            sender.emit("/body/present", 0)
+            body_sent = False
+
         sender.flush()
 
         fps = 0.9 * fps + 0.1 * (1.0 / max(now - last, 1e-6))
@@ -236,8 +342,12 @@ def main():
         cv2.putText(frame, f"manos: {len(assigned)}  fps: {fps:.0f}", (10, 30),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
         cv2.imshow("Hand tracker (Q para salir)", frame)
-        if cv2.waitKey(1) & 0xFF in (ord("q"), ord("Q")):
+        key = cv2.waitKey(1) & 0xFF
+        if key in (ord("q"), ord("Q")):
             break
+        if key in (ord("c"), ord("C")):
+            body.recalibrate()
+            print("Tomando de nuevo la postura inicial: quedate derecho")
 
     cap.release()
     cv2.destroyAllWindows()

@@ -20,6 +20,15 @@ Rama: `obras-oscuras` (sale de `cardboard-xr`).
 | **Barrer** una obra armada | Se desvanecen todas y se arma la tanda siguiente |
 | **Apuntar una obra y cerrar el puño** (mantenerlo) | Te acercás a esa obra mientras el puño siga cerrado; al soltarlo te quedás ahí |
 | **Dos puños cerrados** | Te alejás |
+| **Inclinarte hacia adelante** (hacia la cámara) | Avanzás hacia donde mirás; cuanto más te inclinás, más rápido |
+| **Echarte hacia atrás** | Retrocedés |
+| **Levantar los dos brazos** y sostenerlos un segundo | Conjuro: arma la tanda, o la desvanece y llega la siguiente (igual que barrer). Hay que bajarlos para hacer otro |
+
+### Cuerpo
+
+El tracker ahora sigue también el cuerpo con la misma cámara. Al arrancar, quedate derecho unos segundos frente a la cámara: toma esa postura como punto de partida (en la ventana dice "tomando postura..."). Si te movés de lugar, apretá **C** en la ventana del tracker para tomarla de nuevo. La inclinación se mide por cuánto más grandes se ven los hombros, así que la cámara tiene que verte por lo menos de la cintura para arriba.
+
+Si la computadora va lenta con manos y cuerpo, se puede correr solo con manos: `py -3.12 hand_tracker.py --no-body`.
 
 Las manos y el puntero giran con la cabeza, así se pueden tocar las obras de atrás. No se puede salir del anillo ni acercarse a menos de 70 cm de las obras (*Min Distance To Paintings*).
 
@@ -84,6 +93,8 @@ Con el tracker de Python corriendo, las manos funcionan además del mouse.
 | Auto Break, Auto Break Agitation | Goya Particles | Que las obras se desarmen solas con las manos muy agitadas (apagado por defecto) |
 | Particle Count | Goya Particles | Partículas por obra (4000). Bajarlo (por ejemplo a 2500) si el celular anda lento con 8 obras flotando |
 | Air Spread, Air Depth, Air Gray, Air Alpha, Air Size | Goya Particles | Qué tan desparramado, profundo, gris, visible y grande es el polvo antes de armarse (Air Alpha 0 = invisible) |
+| Lean To Walk, Lean Forward, Lean Back | Goya Gallery | Moverse inclinándose, y cuánto hay que inclinarse para avanzar o retroceder |
+| Arms Conjure, Arms Up Level, Arms Hold Time | Goya Gallery | Conjuro con los brazos, qué tan arriba y cuánto tiempo sostenerlos |
 | Rules, Rule Duration, Wait For Rules | Goya Intro | Frases del cabrío, segundos por frase, y si hay que esperar a que termine |
 
 ## Lo que no se pudo probar

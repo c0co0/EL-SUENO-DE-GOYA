@@ -61,6 +61,22 @@ public class GoyaGallery : MonoBehaviour
     [Tooltip("Lo mas cerca que se puede llegar a los cuadros (metros)")]
     public float minDistanceToPaintings = 0.7f;
 
+    [Header("Cuerpo (necesita el tracker con el cuerpo activado)")]
+    [Tooltip("Inclinarse hacia la camara para avanzar hacia donde se mira, y echarse atras para retroceder")]
+    public bool leanToWalk = true;
+    [Tooltip("Cuanto hay que inclinarse hacia adelante para empezar a avanzar (0.1 = hombros 10% mas grandes en la camara)")]
+    public float leanForward = 0.1f;
+    [Tooltip("Cuanto hay que echarse atras para retroceder (negativo)")]
+    public float leanBack = -0.08f;
+    [Tooltip("Levantar los dos brazos (sostenidos) hace el conjuro: arma la tanda o la cambia por la siguiente, igual que barrer")]
+    public bool armsConjure = true;
+    [Tooltip("Que tan arriba tienen que estar los brazos (0 = a la altura del hombro, 1 = bien arriba)")]
+    public float armsUpLevel = 0.6f;
+    [Tooltip("Segundos con los brazos arriba para que se haga el conjuro")]
+    public float armsHoldTime = 1f;
+    [Tooltip("Conjuro listo para que lo use GoyaParticles (solo lectura)")]
+    public bool conjure;
+
     [Header("Referencias")]
     [Tooltip("Si queda vacio, lo busca solo")]
     public HandOSCReceiver hands;
@@ -167,6 +183,8 @@ public class GoyaGallery : MonoBehaviour
     Painting mousePointed;              // obra apuntada con el mouse (PC)
     float walk;          // velocidad actual, suavizada (-1 atras, 1 adelante)
     Vector3 lastWalkDir = Vector3.forward;
+    float armsTimer;
+    bool armsUsed;      // hay que bajar los brazos antes de otro conjuro
 
     void Start()
     {
@@ -468,6 +486,14 @@ public class GoyaGallery : MonoBehaviour
             else if (walkTarget != null) { wanted = 1f; target = walkTarget; }
         }
 
+        // Cuerpo: inclinarse hacia adelante avanza hacia donde se mira, echarse atras retrocede
+        var body = hands.Body;
+        if (leanToWalk && body.visible && wanted == 0f)
+        {
+            if (body.lean > leanForward) wanted = Mathf.Clamp01((body.lean - leanForward) / Mathf.Max(0.01f, leanForward));
+            else if (body.lean < leanBack) wanted = -Mathf.Clamp01((body.lean - leanBack) / Mathf.Min(-0.01f, leanBack));
+        }
+
         // En la PC: flecha arriba (o W) = hacia la obra apuntada con el clic izquierdo, o hacia donde miras
         if (Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.UpArrow)) { wanted = 1f; target = mousePointed; }
         if (Input.GetKey(KeyCode.S) || Input.GetKey(KeyCode.DownArrow)) { wanted = -1f; target = null; }
@@ -642,6 +668,7 @@ public class GoyaGallery : MonoBehaviour
         pointedRight = ProcessHand(hands.Right, cursorRight, hands.rightColor, speedRight, travelRight);
         ProcessMouse();
         UpdateWalk();
+        UpdateArms();
 
         foreach (var p in paintings)
         {
@@ -670,6 +697,25 @@ public class GoyaGallery : MonoBehaviour
             shown.a *= appear;
             p.renderer.color = shown;
         }
+    }
+
+    // Los dos brazos arriba, sostenidos: conjuro (GoyaParticles lo usa como un barrido sobre toda la tanda)
+    void UpdateArms()
+    {
+        var body = hands.Body;
+        bool up = armsConjure && body.visible && body.armLeft > armsUpLevel && body.armRight > armsUpLevel;
+        if (!up) { armsTimer = 0f; armsUsed = false; return; }
+        if (armsUsed) return;
+        armsTimer += Time.deltaTime;
+        if (armsTimer >= armsHoldTime) { conjure = true; armsUsed = true; }
+    }
+
+    /// <summary>Devuelve true una sola vez por conjuro.</summary>
+    public bool ConsumeConjure()
+    {
+        bool c = conjure;
+        conjure = false;
+        return c;
     }
 
     /// <summary>Lo llama GoyaParticles cuando una obra termina de armarse desde el polvo.</summary>

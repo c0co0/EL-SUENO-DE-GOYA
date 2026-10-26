@@ -184,11 +184,12 @@ public class GoyaParticles : MonoBehaviour
         {
             // Cuando el humo ya se desvanecio y paso la pausa, se arma la tanda siguiente
             batchTimer += Time.deltaTime;
+            gallery.ConsumeConjure();   // un conjuro durante el cambio no queda guardado para despues
             if (batchTimer >= scatterTime + batchPause) SwapBatch();
             return;
         }
 
-        bool allFloating = true, allReady = true, swiped = forceAll;
+        bool allFloating = true, allReady = true, swiped = forceAll || gallery.ConsumeConjure();
         foreach (var e in effects)
         {
             var p = e.painting;

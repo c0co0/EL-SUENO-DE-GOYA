@@ -10,6 +10,11 @@ using extOSC;
 ///   /hand/Left|Right/present  int
 ///   /hand/Left|Right/open     int
 ///   /hand/Left|Right/lm       63 floats (21 puntos x,y,z)
+///   /body/present             int
+///   /body/lean                float (+ = inclinado hacia la camara, - = hacia atras)
+///   /body/tilt                float (grados de costado)
+///   /body/arms                2 floats (altura de cada brazo: 0 = hombro, 1 = bien arriba)
+///   /body/lm                  99 floats (33 puntos del cuerpo)
 /// </summary>
 public class HandOSCReceiver : MonoBehaviour
 {
@@ -43,6 +48,11 @@ public class HandOSCReceiver : MonoBehaviour
     public bool leftOpen;
     public bool rightVisible;
     public bool rightOpen;
+    public bool bodyVisible;
+    public float bodyLean;
+    public float bodyTilt;
+    public float armLeft;
+    public float armRight;
 
     public class HandState
     {
@@ -66,6 +76,19 @@ public class HandOSCReceiver : MonoBehaviour
     public HandState Left = new HandState();
     public HandState Right = new HandState();
 
+    public class BodyState
+    {
+        public bool present;
+        public bool visible;      // presente y con datos recientes
+        public float lean;        // + = hacia adelante, - = hacia atras
+        public float tilt;        // grados de costado
+        public float armLeft = -1f, armRight = -1f;  // 0 = a la altura del hombro, 1 = bien arriba
+        public float[] raw = new float[99];
+        public float lastDataTime = -10f;
+    }
+
+    public BodyState Body = new BodyState();
+
     OSCReceiver receiver;
     readonly object lockObj = new object();
 
@@ -78,6 +101,11 @@ public class HandOSCReceiver : MonoBehaviour
         receiver.Bind("/hand/*/lm", OnLandmarks);
         receiver.Bind("/hand/*/open", OnOpen);
         receiver.Bind("/hand/*/present", OnPresent);
+        receiver.Bind("/body/present", OnBodyPresent);
+        receiver.Bind("/body/lean", OnBodyLean);
+        receiver.Bind("/body/tilt", OnBodyTilt);
+        receiver.Bind("/body/arms", OnBodyArms);
+        receiver.Bind("/body/lm", OnBodyLandmarks);
 
         if (showDebugSpheres)
         {
@@ -164,10 +192,60 @@ public class HandOSCReceiver : MonoBehaviour
         lock (lockObj) hand.present = message.Values[0].IntValue != 0;
     }
 
+    float bodyPackets, bodyPacketsSeen;
+
+    void OnBodyPresent(OSCMessage message)
+    {
+        if (message.Values.Count == 0) return;
+        lock (lockObj) Body.present = message.Values[0].IntValue != 0;
+    }
+
+    void OnBodyLean(OSCMessage message)
+    {
+        if (message.Values.Count == 0) return;
+        lock (lockObj) { Body.lean = message.Values[0].FloatValue; bodyPackets++; }
+    }
+
+    void OnBodyTilt(OSCMessage message)
+    {
+        if (message.Values.Count == 0) return;
+        lock (lockObj) Body.tilt = message.Values[0].FloatValue;
+    }
+
+    void OnBodyArms(OSCMessage message)
+    {
+        if (message.Values.Count < 2) return;
+        lock (lockObj)
+        {
+            Body.armLeft = message.Values[0].FloatValue;
+            Body.armRight = message.Values[1].FloatValue;
+        }
+    }
+
+    void OnBodyLandmarks(OSCMessage message)
+    {
+        lock (lockObj)
+        {
+            int n = Mathf.Min(99, message.Values.Count);
+            for (int i = 0; i < n; i++) Body.raw[i] = message.Values[i].FloatValue;
+        }
+    }
+
     void Update()
     {
         UpdateHand(Left, leftColor);
         UpdateHand(Right, rightColor);
+
+        lock (lockObj)
+        {
+            if (bodyPackets != bodyPacketsSeen) { bodyPacketsSeen = bodyPackets; Body.lastDataTime = Time.time; }
+            Body.visible = Body.present && Time.time - Body.lastDataTime < dataTimeout;
+        }
+        bodyVisible = Body.visible;
+        bodyLean = Body.lean;
+        bodyTilt = Body.tilt;
+        armLeft = Body.armLeft;
+        armRight = Body.armRight;
 
         leftVisible = Left.visible;
         leftOpen = Left.open;
