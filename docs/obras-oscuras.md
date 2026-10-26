@@ -16,7 +16,7 @@ Rama: `obras-oscuras` (sale de `cardboard-xr`).
 
 | Gesto | Qué hace |
 |---|---|
-| **Levantar los dos brazos e inclinarse un poco hacia adelante** (sostenerlo un segundo), cuando el cabrío terminó de hablar | El cabrío se prende fuego, se carboniza y se dispersa en brasas; después aparece la primera obra |
+| **Extender las dos manos abiertas** hacia el cabrío (sostenerlo un segundo), cuando terminó de hablar. También sirve levantar los dos brazos (con una leve inclinación, o sostenidos unos 4 segundos) | El cabrío se prende fuego, se carboniza y se dispersa en brasas; después aparece la primera obra |
 | **Barrer** donde está la obra con la **mano abierta** (moverla de lado a lado, el cursor se pone naranja) | El polvo se arma en la obra |
 | **Barrer** la obra armada | Se hace brasa, viaja por el aire y se arma la siguiente en otro lugar |
 | **Apuntar una obra y cerrar el puño** (mantenerlo) | Te acercás a esa obra mientras el puño siga cerrado; al soltarlo te quedás ahí |

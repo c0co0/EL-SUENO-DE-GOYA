@@ -31,6 +31,10 @@ public class GoyaIntro : MonoBehaviour
     public HandOSCReceiver hands;
     public GoyaGallery gallery;
 
+    [Header("Gesto con las manos extendidas")]
+    [Tooltip("Deshacer al cabrio extendiendo las dos manos abiertas hacia el (no hace falta apuntar)")]
+    public bool openHandsGesture = true;
+
     [Header("Gesto con el cuerpo (necesita el tracker con el cuerpo)")]
     [Tooltip("Deshacer al cabrio levantando los dos brazos e inclinandose un poco hacia adelante")]
     public bool bodyGesture = true;
@@ -106,7 +110,7 @@ public class GoyaIntro : MonoBehaviour
         "Levantá los brazos para invocar\nla visión siguiente.",
         "Inclinate hacia adelante para acercarte,\nhacia atrás para alejarte.",
         "Cuanto más te muevas,\nmás oscuro será el sueño.",
-        "Levantá los brazos e inclinate\nhacia mí para empezar."
+        "Extendé las dos manos abiertas\nhacia mí para empezar."
     };
     [Tooltip("Segundos que se ve cada frase")]
     public float ruleDuration = 4.5f;
@@ -375,7 +379,8 @@ public class GoyaIntro : MonoBehaviour
         bool handPose = handGesture &&
                         ((nearL && leftOpen && (armedLeft || !requireFistFirst)) ||
                          (nearR && rightOpen && (armedRight || !requireFistFirst)));
-        bool touching = allowed && (bodyPose || handPose);
+        bool openHands = openHandsGesture && hands.Left.visible && hands.Right.visible && leftOpen && rightOpen;
+        bool touching = allowed && (openHands || bodyPose || handPose);
 
         touch = touching ? touch + dt : Mathf.Max(0f, touch - dt * 2f);
         float progress = Mathf.Clamp01(touch / touchHoldTime);
