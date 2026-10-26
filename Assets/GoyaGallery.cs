@@ -39,10 +39,16 @@ public class GoyaGallery : MonoBehaviour
     [Tooltip("Todas las obras en orden: primero las de la vida cotidiana, al final las mas oscuras. " +
              "Las primeras llenan el anillo; cada cuadro que se desarma vuelve como la siguiente.")]
     public Sprite[] paintingSequence;
-    [Tooltip("Cuantos cuadros hay alrededor a la vez (una tanda, repartida en 360 grados). Con 28 obras, 7 da 4 tandas justas")]
-    public int batchSize = 7;
-    [Tooltip("Un barrido cambia TODAS las obras juntas a la tanda siguiente. Si se apaga, cada obra cambia sola")]
+    [Tooltip("Un barrido cambia TODAS las obras juntas a la tanda siguiente. Si se apaga, cada obra cambia sola (anillo de 360)")]
     public bool changeAllTogether = true;
+    [Tooltip("Cuantas obras de la lista tiene cada epoca, en orden. Las tandas nunca mezclan epocas")]
+    public int[] epochSizes = { 6, 7, 5, 4, 5 };
+    [Tooltip("En cuantas tandas se reparte cada epoca")]
+    public int batchesPerEpoch = 2;
+    [Tooltip("Sin epocas cargadas: cuantas obras por tanda. Si se cambian de a una: cuantos cuadros hay en el anillo")]
+    public int batchSize = 7;
+    [Tooltip("Grados entre las obras de una tanda. Cada tanda aparece alrededor de donde se esta mirando")]
+    public float batchSpacing = 55f;
     [Tooltip("Cuantas obras de la lista puede saltear de golpe si las manos se mueven mucho")]
     public int maxSkip = 1;
 
@@ -131,6 +137,7 @@ public class GoyaGallery : MonoBehaviour
         public int darkIndex = -1; // -1 = obra original, si no posicion en darkerPaintings
         public Sprite original;
         public int originalIndex = -1; // posicion de la obra original en la lista (galeria 360)
+        public bool active = true; // en una tanda mas chica que la mas grande, los cuadros que sobran se apagan
     }
 
     public List<Painting> paintings = new List<Painting>();
@@ -142,6 +149,8 @@ public class GoyaGallery : MonoBehaviour
     int nextDark;           // primera obra de darkSprites que todavia no se mostro
     int firstDark;          // valor inicial de nextDark (para reiniciar)
     bool ringMode;
+    readonly List<Vector2Int> batches = new List<Vector2Int>(); // cada tanda: (primera obra, cantidad)
+    int currentBatch;
     Vector3 lastLeft, lastRight;
     bool hadLeft, hadRight;
     float speedLeft, speedRight;   // velocidad suavizada de cada mano
@@ -178,7 +187,8 @@ public class GoyaGallery : MonoBehaviour
             foreach (var sp in paintingSequence) if (sp != null) sequence.Add(sp);
 
         ringMode = sequence.Count > 0;
-        if (ringMode) CreateRing(sequence);
+        if (ringMode && changeAllTogether) CreateBatches(sequence);
+        else if (ringMode) CreateRing(sequence);
         else
         {
             CreatePainting(centerPainting, "Centro", 0f, centerScale);
@@ -213,6 +223,76 @@ public class GoyaGallery : MonoBehaviour
 
         darkSprites = sequence.ToArray();
         nextDark = firstDark = count;
+    }
+
+    // Tandas por epoca: cada epoca se reparte en "batchesPerEpoch" tandas, sin mezclarse con la siguiente
+    void CreateBatches(List<Sprite> sequence)
+    {
+        int n = sequence.Count, start = 0;
+        if (epochSizes != null)
+        {
+            foreach (int size in epochSizes)
+            {
+                int s = Mathf.Min(size, n - start);
+                if (s <= 0) continue;
+                int parts = Mathf.Clamp(batchesPerEpoch, 1, s);
+                for (int k = 0; k < parts; k++)
+                {
+                    int a = start + s * k / parts, b = start + s * (k + 1) / parts;
+                    batches.Add(new Vector2Int(a, b - a));
+                }
+                start += s;
+            }
+        }
+        // Obras que quedaron fuera de las epocas: tandas de "batchSize"
+        int chunk = Mathf.Max(1, batchSize);
+        for (; start < n; start += chunk) batches.Add(new Vector2Int(start, Mathf.Min(chunk, n - start)));
+
+        int slots = 0;
+        foreach (var b in batches) slots = Mathf.Max(slots, b.y);
+        for (int i = 0; i < slots; i++)
+        {
+            var p = CreatePainting(sequence[i], "Tanda" + i, 0f, 1f);
+            if (p != null) p.darkIndex = p.originalIndex = i;
+        }
+
+        darkSprites = sequence.ToArray();
+        ApplyBatch(0, 0f);
+        firstDark = nextDark;
+    }
+
+    // Pone la tanda "b" en los cuadros, repartida alrededor del angulo "yawCenter"
+    void ApplyBatch(int b, float yawCenter)
+    {
+        currentBatch = b;
+        var batch = batches[b];
+        for (int i = 0; i < paintings.Count; i++)
+        {
+            var p = paintings[i];
+            p.active = i < batch.y;
+            p.reveal = 0f;
+            p.revealed = false;
+            p.swipe = 0f;
+            if (!p.active)
+            {
+                p.renderer.enabled = false;
+                continue;
+            }
+            float angle = yawCenter + (i - (batch.y - 1) * 0.5f) * batchSpacing;
+            Quaternion yaw = Quaternion.Euler(0f, angle, 0f);
+            p.root.position = center + yaw * Vector3.forward * distance;
+            p.root.rotation = yaw;
+            p.darkIndex = batch.x + i;
+            SetSprite(p, darkSprites[batch.x + i]);
+        }
+        nextDark = batch.x + batch.y;
+    }
+
+    float ViewYaw()
+    {
+        Vector3 f = head != null ? head.forward : rig.forward;
+        f.y = 0f;
+        return f.sqrMagnitude < 1e-4f ? 0f : Mathf.Atan2(f.x, f.z) * Mathf.Rad2Deg;
     }
 
     Painting CreatePainting(Sprite sprite, string label, float angle, float scaleMul)
@@ -284,24 +364,13 @@ public class GoyaGallery : MonoBehaviour
     /// <summary>Hay otra tanda de obras despues de la que se ve ahora.</summary>
     public bool HasNextBatch()
     {
-        int n = darkSprites != null ? darkSprites.Length : 0;
-        return ringMode && nextDark < n;
+        return currentBatch + 1 < batches.Count;
     }
 
-    /// <summary>
-    /// Pone en todos los cuadros la tanda siguiente de la lista. Si la ultima tanda queda incompleta,
-    /// se completa con las anteriores (asi nunca queda un cuadro vacio).
-    /// </summary>
+    /// <summary>Pone la tanda siguiente, alrededor de donde se esta mirando. Los cuadros que sobran quedan apagados.</summary>
     public void NextBatch()
     {
-        int n = darkSprites.Length, count = paintings.Count;
-        int start = Mathf.Max(0, Mathf.Min(nextDark, n - count));
-        for (int i = 0; i < count; i++)
-        {
-            paintings[i].darkIndex = start + i;
-            SetSprite(paintings[i], darkSprites[start + i]);
-        }
-        nextDark = start + count;
+        if (HasNextBatch()) ApplyBatch(currentBatch + 1, ViewYaw());
     }
 
     bool TryTake(Painting p, int i)
@@ -469,6 +538,7 @@ public class GoyaGallery : MonoBehaviour
 
         foreach (var p in paintings)
         {
+            if (!p.active) continue;
             float enter;
             var plane = new Plane(p.root.forward, p.root.position);
             if (!plane.Raycast(new Ray(origin, dir), out enter)) continue;
@@ -617,6 +687,12 @@ public class GoyaGallery : MonoBehaviour
 
     public void ResetAll()
     {
+        if (batches.Count > 0)
+        {
+            ApplyBatch(0, ViewYaw());
+            darkness = 0f;
+            return;
+        }
         foreach (var p in paintings)
         {
             p.reveal = 0f;

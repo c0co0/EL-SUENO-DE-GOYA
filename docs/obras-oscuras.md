@@ -6,13 +6,10 @@ Rama: `obras-oscuras` (sale de `cardboard-xr`).
 
 - **Bienvenida:** el cabrío flota adelante y arriba de él aparecen, una por una, las reglas (campo *Rules* de **Goya Intro**, se pueden editar en el Inspector). Hasta que no termina de explicar no se lo puede deshacer (*Wait For Rules*). Se le puede poner voz a cada frase en *Narration*. La tecla **I** saltea todo.
 - **Las obras están en el aire:** después de la cabra, las obras son polvo casi invisible, desparramado y mezclado con el aire (*Assemble From Dust* en **Goya Gallery**). Al barrer cualquiera con la mano abierta, se arman todas, al revés de cuando se desarman.
-- **Tandas:** con las obras armadas, un barrido sobre cualquiera las desarma **todas juntas**: las partículas vuelan, se desvanecen, y la tanda siguiente se arma desde el aire (*Change All Together*). Con 28 obras y 7 por tanda (*Batch Size*) son 4 tandas, de la vida cotidiana a las Pinturas Negras. La última tanda ya no se desarma (Backspace vuelve a empezar).
-
-- **Anillo de 360°:** las obras se reparten alrededor de la persona (7 por defecto, *Batch Size*). La primera queda adelante y las siguientes alternan derecha e izquierda, así las primeras de la lista quedan más cerca de la vista inicial.
-- **Una sola lista ordenada** (*Painting Sequence*, en el objeto **Galeria**): se recorre de a una tanda. Si se apaga *Change All Together*, vuelve el modo anterior: cada obra se desarma sola y se rearma como la siguiente de la lista que todavía no apareció.
+- **Tandas por época:** con las obras armadas, un barrido sobre cualquiera las desarma **todas juntas**: se vuelven humo oscuro que gira y se desvanece, hay un momento de vacío, y la tanda siguiente se arma desde ese humo, alrededor de donde estás mirando (*Change All Together*). Cada época se reparte en 2 tandas (*Batches Per Epoch*) y las tandas nunca mezclan épocas. La última tanda ya no se desarma (Backspace vuelve a empezar).
+- **Una sola lista ordenada** (*Painting Sequence*, en el objeto **Galeria**), agrupada por época. *Epoch Sizes* dice cuántas obras tiene cada época, en orden. Si se apaga *Change All Together*, vuelve el modo anterior: anillo de 360° donde cada obra se desarma sola y se rearma como la siguiente.
 - **El movimiento acelera la caída:** cuanto más se mueven las manos, sube la oscuridad y el viento se lleva más fuerte las partículas. En el modo de a una obra, con las manos muy agitadas puede saltear una de la lista (*Max Skip*).
 - **Todo se apaga con el recorrido:** a medida que avanza la lista (o con mucho movimiento), los cuadros se tiñen más oscuros, las auras pasan de dorado a rojo, el polvo se vuelve gris y el sonido ambiente se pone más grave.
-- **Cuando se termina la lista,** los cuadros siguen rotando entre las últimas (las más oscuras).
 
 ## Gestos
 
@@ -30,21 +27,21 @@ Colores del cursor: blanco o color de la mano = apuntando, verde = mano abierta,
 
 ## Las obras ya cargadas
 
-Las 28 obras están en `Assets/Obras`, numeradas en el orden del recorrido y ya cargadas en **Galeria → Painting Sequence**. Van de a 7 por tanda: 1 a 7, 8 a 14, 15 a 21 y 22 a 28.
+Las obras están en `Assets/Obras` y ya cargadas en **Galeria → Painting Sequence**, agrupadas por época (*Epoch Sizes* = 6, 7, 5, 4, 5). Los números del archivo son de antes y no indican el orden.
 
-**Vida cotidiana:** 01 La gallina ciega · 02 La cometa · 03 El cacharrero · 04 Manuel Osorio Manrique de Zúñiga · 05 La nevada · 06 La lechera de Burdeos · 07 La maja vestida · 08 Majas en el balcón
+| Época | Tanda 1 | Tanda 2 |
+|---|---|---|
+| **Cartones para tapices** (1778-1792) | La gallina ciega · La cometa · El cacharrero | La nevada · El pelele · Riña de gatos |
+| **Pintor de la corte** (1771-1801) | Aníbal vencedor · Manuel Osorio · Milagro de San Antonio | Majas en el balcón · La maja vestida · La maja desnuda · La familia de Carlos IV |
+| **Brujas y disparates** (1797-1823) | El aquelarre · Vuelo de brujas | El entierro de la sardina · Modo de volar · Ciudad sobre una roca |
+| **La guerra** (1808-1814) | El coloso · El 3 de mayo de 1808 | Tampoco · Las viejas |
+| **Pinturas Negras** (1819-1823) | Dos mujeres y un hombre · Dos viejos comiendo sopa | Duelo a garrotazos · El perro · Saturno devorando a su hijo |
 
-**Lo cortesano y lo inquietante:** 09 La maja desnuda · 10 La familia de Carlos IV · 11 Aníbal vencedor · 12 El pelele · 13 Riña de gatos · 14 Milagro de San Antonio · 15 El entierro de la sardina · 16 Ciudad sobre una roca
-
-**Brujas y sueños:** 17 El aquelarre · 18 Vuelo de brujas · 19 Modo de volar (Disparates) · 20 Las viejas
-
-**La guerra:** 21 El coloso · 22 El 3 de mayo de 1808 · 23 Tampoco (Desastres de la guerra)
-
-**Pinturas Negras:** 24 Dos mujeres y un hombre · 25 Dos viejos comiendo sopa · 26 Duelo a garrotazos · 27 El perro · 28 Saturno devorando a su hijo
+*La lechera de Burdeos* (1827) quedó afuera porque no encaja en ninguna época: es luminosa pero posterior a las Pinturas Negras.
 
 ### Cambiar el orden o sumar obras
 
-- **Reordenar:** en *Painting Sequence*, arrastrar cada elemento desde las dos rayitas `=` de la izquierda.
+- **Reordenar:** en *Painting Sequence*, arrastrar cada elemento desde las dos rayitas `=` de la izquierda. Si cambia cuántas obras tiene una época, actualizar *Epoch Sizes*.
 - **Sumar una obra:** ponerla en `Assets/Obras` → Inspector → **Texture Type: Sprite (2D and UI)** → **Apply**, y arrastrarla a la lista en el lugar que corresponda (Read/Write no hace falta).
 - **Sacar una:** clic derecho sobre el elemento de la lista → *Delete Array Element*.
 - Guardar la escena (Ctrl+S) y hacer commit y push.
@@ -73,8 +70,11 @@ Con el tracker de Python corriendo, las manos funcionan además del mouse.
 
 | Valor | Componente | Qué hace |
 |---|---|---|
-| Batch Size | Goya Gallery | Cuántas obras hay en el anillo (una tanda) |
+| Epoch Sizes, Batches Per Epoch | Goya Gallery | Cuántas obras tiene cada época y en cuántas tandas se reparte |
+| Batch Spacing | Goya Gallery | Grados entre las obras de una tanda |
 | Change All Together | Goya Gallery | Si un barrido cambia todas las obras juntas o de a una |
+| Break Wave Time, Scatter Time, Reform Time, Reform Spread | Goya Particles | Qué tan lento se desarma, cuánto flota el humo y qué tan lento se arma la tanda siguiente |
+| Smoke Color, Swirl, Batch Pause | Goya Particles | Color del humo, cuánto gira, y segundos de vacío entre tandas |
 | Distance, Painting Max Size | Goya Gallery | Radio del anillo y tamaño de las obras |
 | Max Skip | Goya Gallery | Cuántas obras puede saltear si las manos se mueven mucho (0 = nunca) |
 | Move Speed, Fist Hold Time | Goya Gallery | Velocidad al acercarse y cuánto hay que sostener el puño antes de moverse |
