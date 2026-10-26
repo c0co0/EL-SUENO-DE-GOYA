@@ -699,6 +699,9 @@ public class GoyaGallery : MonoBehaviour
         }
     }
 
+    // Al aparecer la galeria (despues del cabrio) hay que bajar los brazos antes del primer conjuro
+    void OnEnable() { armsUsed = true; }
+
     // Los dos brazos arriba, sostenidos: conjuro (GoyaParticles lo usa como un barrido sobre toda la tanda)
     void UpdateArms()
     {

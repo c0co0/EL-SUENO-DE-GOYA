@@ -15,7 +15,7 @@ Rama: `obras-oscuras` (sale de `cardboard-xr`).
 
 | Gesto | Qué hace |
 |---|---|
-| Apuntar a la cabra con el **puño cerrado** y después **abrir la mano** sobre ella (un segundo) | Se deshace la cabra y aparecen las obras |
+| **Levantar los dos brazos e inclinarse un poco hacia adelante** (sostenerlo un segundo), cuando el cabrío terminó de hablar | Se deshace el cabrío y aparecen las obras |
 | **Barrer** donde está una obra con la **mano abierta** (moverla de lado a lado, el cursor se pone naranja) | Se arman todas las obras de la tanda |
 | **Barrer** una obra armada | Se desvanecen todas y se arma la tanda siguiente |
 | **Apuntar una obra y cerrar el puño** (mantenerlo) | Te acercás a esa obra mientras el puño siga cerrado; al soltarlo te quedás ahí |
@@ -88,7 +88,7 @@ Con el tracker de Python corriendo, las manos funcionan además del mouse.
 | Max Skip | Goya Gallery | Cuántas obras puede saltear si las manos se mueven mucho (0 = nunca) |
 | Move Speed, Fist Hold Time | Goya Gallery | Velocidad al acercarse y cuánto hay que sostener el puño antes de moverse |
 | Movement For Full Dark, Dark Tint | Goya Gallery | Cuánto movimiento oscurece del todo y a qué color |
-| Touch Hold Time, Require Fist First | Goya Intro | Cuánto hay que sostener la mano abierta sobre la cabra, y si hace falta el puño antes |
+| Body Gesture, Arms Up Level, Lean Forward, Touch Hold Time | Goya Intro | Gesto para deshacer al cabrío: qué tan arriba los brazos, cuánto inclinarse y cuánto sostenerlo. *Hand Gesture* vuelve a activar el gesto viejo del puño |
 | Swipe Speed, Swipe Distance | Goya Gallery | Qué tan rápido y cuánto recorrido de mano abierta hace falta para desarmar una obra (más bajo = más fácil) |
 | Auto Break, Auto Break Agitation | Goya Particles | Que las obras se desarmen solas con las manos muy agitadas (apagado por defecto) |
 | Particle Count | Goya Particles | Partículas por obra (4000). Bajarlo (por ejemplo a 2500) si el celular anda lento con 8 obras flotando |

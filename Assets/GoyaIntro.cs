@@ -31,7 +31,17 @@ public class GoyaIntro : MonoBehaviour
     public HandOSCReceiver hands;
     public GoyaGallery gallery;
 
-    [Header("Toque")]
+    [Header("Gesto con el cuerpo (necesita el tracker con el cuerpo)")]
+    [Tooltip("Deshacer al cabrio levantando los dos brazos e inclinandose un poco hacia adelante")]
+    public bool bodyGesture = true;
+    [Tooltip("Que tan arriba tienen que estar los brazos (0 = a la altura del hombro, 1 = bien arriba)")]
+    public float armsUpLevel = 0.6f;
+    [Tooltip("Cuanto hay que inclinarse hacia adelante (0.05 = un poco)")]
+    public float leanForward = 0.05f;
+
+    [Header("Toque con la mano")]
+    [Tooltip("Deshacer al cabrio apuntandolo con la mano (ademas del gesto con el cuerpo)")]
+    public bool handGesture = false;
     [Tooltip("Que tan cerca del objeto tiene que apuntar la mano (multiplica el tamaño)")]
     public float touchRadiusFactor = 0.45f;
     [Tooltip("Segundos con la mano abierta apuntando al objeto (despues de haberlo apuntado con el puño)")]
@@ -83,7 +93,7 @@ public class GoyaIntro : MonoBehaviour
         "Levantá los brazos para invocar\nlas visiones siguientes.",
         "Inclinate hacia adelante para acercarte,\nhacia atrás para alejarte.",
         "Cuanto más te muevas,\nmás oscuro será el sueño.",
-        "Apuntame con el puño cerrado\ny abrí la mano para empezar."
+        "Levantá los brazos e inclinate\nhacia mí para empezar."
     };
     [Tooltip("Segundos que se ve cada frase")]
     public float ruleDuration = 4.5f;
@@ -336,9 +346,13 @@ public class GoyaIntro : MonoBehaviour
 
         bool rulesDone = UpdateRules();
         bool allowed = Time.time - waitingSince >= startGrace && (rulesDone || !waitForRules);
-        bool touching = allowed &&
+        var body = hands.Body;
+        bool bodyPose = bodyGesture && body.visible &&
+                        body.armLeft > armsUpLevel && body.armRight > armsUpLevel && body.lean > leanForward;
+        bool handPose = handGesture &&
                         ((nearL && leftOpen && (armedLeft || !requireFistFirst)) ||
                          (nearR && rightOpen && (armedRight || !requireFistFirst)));
+        bool touching = allowed && (bodyPose || handPose);
 
         touch = touching ? touch + dt : Mathf.Max(0f, touch - dt * 2f);
         float progress = Mathf.Clamp01(touch / touchHoldTime);
