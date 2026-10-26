@@ -212,9 +212,15 @@ public class GoyaAmbience : MonoBehaviour
         PlayAt(reformSound, p.root.position);
     }
 
+    readonly Dictionary<AudioClip, float> lastPlayed = new Dictionary<AudioClip, float>();
+
     void PlayAt(AudioClip clip, Vector3 pos)
     {
         if (clip == null) return;
+        // Si todas las obras cambian juntas, que el sonido no se repita 7 veces encima
+        float last;
+        if (lastPlayed.TryGetValue(clip, out last) && Time.time - last < 0.3f) return;
+        lastPlayed[clip] = Time.time;
         AudioSource.PlayClipAtPoint(clip, pos, effectsVolume);
     }
 

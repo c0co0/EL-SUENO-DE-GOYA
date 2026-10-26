@@ -39,8 +39,10 @@ public class GoyaGallery : MonoBehaviour
     [Tooltip("Todas las obras en orden: primero las de la vida cotidiana, al final las mas oscuras. " +
              "Las primeras llenan el anillo; cada cuadro que se desarma vuelve como la siguiente.")]
     public Sprite[] paintingSequence;
-    [Tooltip("Cuantos cuadros hay alrededor (repartidos en 360 grados)")]
-    public int ringCount = 8;
+    [Tooltip("Cuantos cuadros hay alrededor a la vez (una tanda, repartida en 360 grados). Con 28 obras, 7 da 4 tandas justas")]
+    public int batchSize = 7;
+    [Tooltip("Un barrido cambia TODAS las obras juntas a la tanda siguiente. Si se apaga, cada obra cambia sola")]
+    public bool changeAllTogether = true;
     [Tooltip("Cuantas obras de la lista puede saltear de golpe si las manos se mueven mucho")]
     public int maxSkip = 1;
 
@@ -195,7 +197,7 @@ public class GoyaGallery : MonoBehaviour
     // asi las primeras obras de la lista quedan mas cerca de la vista inicial
     void CreateRing(List<Sprite> sequence)
     {
-        int count = Mathf.Clamp(ringCount, 1, sequence.Count);
+        int count = Mathf.Clamp(batchSize, 1, sequence.Count);
         float step = 360f / count;
         float spacing = 2f * Mathf.PI * distance / count;
         float maxSize = Mathf.Min(paintingMaxSize, spacing * 0.85f);
@@ -277,6 +279,29 @@ public class GoyaGallery : MonoBehaviour
         for (int i = start - 1; i >= 0; i--)
             if (TryTake(p, i)) return darkSprites[i];
         return null;
+    }
+
+    /// <summary>Hay otra tanda de obras despues de la que se ve ahora.</summary>
+    public bool HasNextBatch()
+    {
+        int n = darkSprites != null ? darkSprites.Length : 0;
+        return ringMode && nextDark < n;
+    }
+
+    /// <summary>
+    /// Pone en todos los cuadros la tanda siguiente de la lista. Si la ultima tanda queda incompleta,
+    /// se completa con las anteriores (asi nunca queda un cuadro vacio).
+    /// </summary>
+    public void NextBatch()
+    {
+        int n = darkSprites.Length, count = paintings.Count;
+        int start = Mathf.Max(0, Mathf.Min(nextDark, n - count));
+        for (int i = 0; i < count; i++)
+        {
+            paintings[i].darkIndex = start + i;
+            SetSprite(paintings[i], darkSprites[start + i]);
+        }
+        nextDark = start + count;
     }
 
     bool TryTake(Painting p, int i)

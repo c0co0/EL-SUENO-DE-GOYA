@@ -78,8 +78,8 @@ public class GoyaIntro : MonoBehaviour
     {
         "Bienvenido al sueño de Goya.",
         "Soy el Gran Cabrón.\nTe voy a mostrar sus visiones.",
-        "Las obras flotan en el aire como polvo.\nBarrelas con la mano abierta y se arman.",
-        "Barré una obra armada\ny se desarma en otra.",
+        "Sus visiones están en el aire.\nBarré con la mano abierta y aparecen.",
+        "Barré otra vez y se desvanecen,\ny llegan las siguientes.",
         "Apuntá una obra y cerrá el puño\npara acercarte. Con dos puños, te alejás.",
         "Cuanto más te muevas,\nmás oscuro será el sueño.",
         "Apuntame con el puño cerrado\ny abrí la mano para empezar."

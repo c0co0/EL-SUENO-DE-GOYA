@@ -11,8 +11,11 @@ using UnityEngine;
 /// Cuanto mas agitadas estan las manos, mas fuerte sopla el viento. Si se activa "Auto Break",
 /// con agitacion alta sostenida los cuadros se deshacen solos.
 ///
-/// Si la Galeria tiene "Assemble From Dust", las obras empiezan como polvo flotando en el aire
-/// (con los colores apagados de la pintura) y al BARRERLAS se arman, al reves que al desarmarse.
+/// Si la Galeria tiene "Assemble From Dust", las obras empiezan como polvo casi invisible en el aire
+/// y al BARRERLAS se arman, al reves que al desarmarse.
+///
+/// Si la Galeria tiene "Change All Together", un barrido sobre cualquier obra arma (o desarma) TODAS:
+/// sus particulas vuelan y se desvanecen, y la tanda siguiente se arma desde el aire.
 ///
 /// Ponelo en el mismo objeto "Galeria".
 /// En el editor: tecla T = deshacer todos los cuadros ya revelados (para probar sin manos).
@@ -57,16 +60,19 @@ public class GoyaParticles : MonoBehaviour
     [Tooltip("Segundos de agitacion alta para que un cuadro se deshaga solo")]
     public float autoBreakTime = 1.5f;
 
-    [Header("Polvo (obras sin armar)")]
-    [Tooltip("Que tan lejos del cuadro flota el polvo (multiplica el tamaño del cuadro)")]
-    public float dustSpread = 0.9f;
+    [Header("Polvo en el aire (obras sin armar)")]
+    [Tooltip("Que tan desparramado esta el polvo alrededor del cuadro (multiplica el tamaño del cuadro)")]
+    public float airSpread = 3f;
     [Tooltip("Profundidad de la nube de polvo (metros, hacia adelante y atras del cuadro)")]
-    public float dustDepth = 0.9f;
-    [Tooltip("Cuanto se apagan los colores mientras es polvo (0 = colores de la obra, 1 = gris)")]
-    [Range(0f, 1f)] public float dustGray = 0.6f;
-    [Range(0f, 1f)] public float dustAlpha = 0.55f;
+    public float airDepth = 3f;
+    [Tooltip("Cuanto se apagan los colores mientras es polvo (0 = colores de la obra, 1 = gris del aire)")]
+    [Range(0f, 1f)] public float airGray = 0.9f;
+    [Tooltip("Que tanto se ve el polvo antes de armarse (0 = invisible)")]
+    [Range(0f, 1f)] public float airAlpha = 0.1f;
     [Tooltip("Tamaño de las particulas mientras son polvo (multiplica el tamaño normal)")]
-    public float dustSize = 0.6f;
+    public float airSize = 0.4f;
+    [Tooltip("Cuanto se mece el polvo (metros)")]
+    public float airDrift = 0.35f;
 
     public enum EffectState { Idle, Scatter, Reform, Floating }
 
@@ -98,6 +104,7 @@ public class GoyaParticles : MonoBehaviour
     readonly List<Effect> effects = new List<Effect>();
     Material particleMat;
     bool built;
+    bool batchSwapped;   // en la desarmada de una tanda, ya se puso la tanda siguiente
 
     void Update()
     {
@@ -114,6 +121,8 @@ public class GoyaParticles : MonoBehaviour
         float dt = Time.deltaTime;
         bool forceAll = Input.GetKeyDown(KeyCode.T);
         float agitation = gallery.agitation;
+        bool together = gallery.changeAllTogether;
+        if (together) UpdateTogether(forceAll);
 
         foreach (var e in effects)
         {
@@ -123,6 +132,7 @@ public class GoyaParticles : MonoBehaviour
                 case EffectState.Idle:
                     // Sin armar (al empezar, o despues de Backspace): vuelve a ser polvo
                     if (gallery.assembleFromDust && !p.revealed) { StartFloating(e); break; }
+                    if (together) break;
                     if (forceAll && p.revealed) { Begin(e); break; }
 
                     bool ready = p.revealed && Time.time >= e.nextAllowed;
@@ -149,11 +159,37 @@ public class GoyaParticles : MonoBehaviour
                     break;
 
                 case EffectState.Floating:
-                    if (forceAll || p.swipe >= gallery.swipeDistance) { BeginAssemble(e); break; }
+                    if (!together && (forceAll || p.swipe >= gallery.swipeDistance)) { BeginAssemble(e); break; }
                     UpdateFloating(e);
                     break;
             }
         }
+    }
+
+    // Todas las obras juntas: un barrido sobre cualquiera arma todo el polvo,
+    // o desarma todas las obras armadas para que se arme la tanda siguiente
+    void UpdateTogether(bool forceAll)
+    {
+        bool allFloating = true, allReady = true, swiped = forceAll;
+        foreach (var e in effects)
+        {
+            var p = e.painting;
+            if (e.state != EffectState.Floating) allFloating = false;
+            if (e.state != EffectState.Idle || !p.revealed || Time.time < e.nextAllowed) allReady = false;
+            if (p.swipe >= gallery.swipeDistance) swiped = true;
+        }
+        if (!swiped || effects.Count == 0) return;
+
+        if (allFloating)
+        {
+            foreach (var e in effects) BeginAssemble(e);
+        }
+        else if (allReady && gallery.HasNextBatch())
+        {
+            batchSwapped = false;
+            foreach (var e in effects) Begin(e);
+        }
+        foreach (var e in effects) e.painting.swipe = 0f;
     }
 
     // ---------------------------------------------------------------- construccion
@@ -364,6 +400,10 @@ public class GoyaParticles : MonoBehaviour
     void UpdateScatter(Effect e, float dt)
     {
         e.t += dt;
+        // Toda la tanda junta: las particulas se desvanecen mientras vuelan
+        bool together = gallery.changeAllTogether;
+        float fadeStart = breakWaveTime * 0.5f;
+        float fade = together ? 1f - Mathf.Clamp01((e.t - fadeStart) / Mathf.Max(0.01f, scatterTime - fadeStart)) : 1f;
         Vector3 towardViewer = -e.painting.root.forward;
         Vector3 gust = wind * (agitationWind - 1f) * gallery.agitation * dt;
 
@@ -385,12 +425,32 @@ public class GoyaParticles : MonoBehaviour
             e.vel[i] += gust * (0.5f + e.seed[i]);
             e.pos[i] += e.vel[i] * dt;
             e.vel[i] *= Mathf.Max(0f, 1f - drag * dt);
+            if (together)
+            {
+                Color32 c = e.fromColor[i];
+                c.a = (byte)(c.a * fade);
+                e.parts[i].startColor = c;
+            }
         }
 
         Write(e);
 
         if (e.t >= scatterTime)
         {
+            if (together)
+            {
+                // La tanda siguiente se arma desde el aire, como al principio
+                if (!batchSwapped) { gallery.NextBatch(); batchSwapped = true; }
+                Sample(e);
+                AirPositions(e, e.startPos);
+                for (int i = 0; i < e.count; i++) { e.fromColor[i] = AirColor(e.toColor[i]); e.fromColor[i].a = 0; }
+                e.assembling = true;
+                e.state = EffectState.Reform;
+                if (OnReform != null) OnReform(e.painting);
+                e.t = 0f;
+                return;
+            }
+
             for (int i = 0; i < e.count; i++) e.startPos[i] = e.pos[i];
 
             // Elegir la obra con la que se rearma (mas oscura) y recalcular hacia donde van
@@ -414,20 +474,8 @@ public class GoyaParticles : MonoBehaviour
         var p = e.painting;
         if (e.sampled != p.renderer.sprite && !Sample(e)) return;
 
-        Vector3 right = p.root.right, up = p.root.up, fwd = p.root.forward;
-        float w = p.halfW * 2f * dustSpread, h = p.halfH * 2f * dustSpread;
-        var gray = new Color32(150, 150, 160, 255);
-        byte a = (byte)(255 * dustAlpha);
-        for (int i = 0; i < e.count; i++)
-        {
-            e.floatBase[i] = e.target[i]
-                           + right * ((Random.value - 0.5f) * w)
-                           + up * ((Random.value - 0.5f) * h + 0.15f)
-                           + fwd * ((Random.value - 0.5f) * dustDepth);
-            Color32 c = Color32.Lerp(e.toColor[i], gray, dustGray);
-            c.a = a;
-            e.fromColor[i] = c;
-        }
+        AirPositions(e, e.floatBase);
+        for (int i = 0; i < e.count; i++) e.fromColor[i] = AirColor(e.toColor[i]);
 
         p.renderer.enabled = false;
         e.go.SetActive(true);
@@ -435,6 +483,29 @@ public class GoyaParticles : MonoBehaviour
         e.t = Random.value * 10f;
         e.state = EffectState.Floating;
         UpdateFloating(e);
+    }
+
+    // Lugares al azar en una nube grande alrededor del cuadro: asi el polvo se mezcla con el aire
+    void AirPositions(Effect e, Vector3[] into)
+    {
+        var p = e.painting;
+        Vector3 right = p.root.right, up = p.root.up, fwd = p.root.forward;
+        float w = p.halfW * 2f * airSpread, h = p.halfH * 2f * airSpread;
+        for (int i = 0; i < e.count; i++)
+        {
+            into[i] = e.target[i]
+                    + right * ((Random.value - 0.5f) * w)
+                    + up * ((Random.value - 0.5f) * h + 0.15f)
+                    + fwd * ((Random.value - 0.5f) * airDepth);
+        }
+    }
+
+    Color32 AirColor(Color32 c)
+    {
+        var air = new Color32(200, 205, 225, 255);
+        Color32 r = Color32.Lerp(c, air, airGray);
+        r.a = (byte)(255 * airAlpha);
+        return r;
     }
 
     void UpdateFloating(Effect e)
@@ -447,12 +518,12 @@ public class GoyaParticles : MonoBehaviour
             float tt = e.t * (0.25f + 0.2f * e.seed[i]);
             e.pos[i] = e.floatBase[i] + new Vector3(Mathf.Sin(tt + s),
                                                     Mathf.Sin(tt * 0.8f + s * 0.7f),
-                                                    Mathf.Cos(tt * 0.6f + s * 0.4f)) * 0.18f;
+                                                    Mathf.Cos(tt * 0.6f + s * 0.4f)) * airDrift;
             Color32 c = e.fromColor[i];
             c.a = (byte)(c.a * appear);
             e.parts[i].startColor = c;
         }
-        Write(e, dustSize);
+        Write(e, airSize);
     }
 
     void BeginAssemble(Effect e)
@@ -490,7 +561,7 @@ public class GoyaParticles : MonoBehaviour
         }
 
         float progress = Mathf.Clamp01(e.t / (reformSpread + reformTime));
-        Write(e, e.assembling ? Mathf.Lerp(dustSize, 1f, progress) : 1f);
+        Write(e, e.assembling ? Mathf.Lerp(airSize, 1f, progress) : 1f);
         if (e.assembling) e.painting.reveal = progress;
 
         if (e.t >= reformSpread + reformTime)
