@@ -70,6 +70,17 @@ public class GoyaIntro : MonoBehaviour
     public float galleryDelay = 1.2f;
     public float galleryFadeTime = 3f;
 
+    [Header("Fuego (antes de deshacerse)")]
+    [Tooltip("El cabrio se prende fuego, se carboniza y despues se dispersa en brasas")]
+    public bool burn = true;
+    [Tooltip("Segundos que arde antes de dispersarse")]
+    public float burnTime = 2.5f;
+    [Tooltip("Llamas por segundo cuando el fuego esta al maximo")]
+    public float fireRate = 300f;
+    public Color fireColor = new Color(1f, 0.5f, 0.1f, 1f);
+    [Tooltip("Color de las brasas en que se deshace")]
+    public Color emberColor = new Color(1f, 0.3f, 0.05f, 1f);
+
     [Header("Niebla (afecta a objetos con iluminacion, como el tuyo)")]
     public bool fog = true;
     public Color fogColor = new Color(0.03f, 0.03f, 0.06f);
@@ -89,8 +100,8 @@ public class GoyaIntro : MonoBehaviour
         "Bienvenido al sueño de Goya.",
         "Soy el Gran Cabrón.\nTe voy a mostrar sus visiones.",
         "Sus visiones están en el aire.\nBarré con la mano abierta y aparecen.",
-        "Barré otra vez y se desvanecen,\ny llegan las siguientes.",
-        "Levantá los brazos para invocar\nlas visiones siguientes.",
+        "Barré una visión y se hará brasa,\nque viaja a otro lugar a tu alrededor.",
+        "Levantá los brazos para invocar\nla visión siguiente.",
         "Inclinate hacia adelante para acercarte,\nhacia atrás para alejarte.",
         "Cuanto más te muevas,\nmás oscuro será el sueño.",
         "Levantá los brazos e inclinate\nhacia mí para empezar."
@@ -109,7 +120,7 @@ public class GoyaIntro : MonoBehaviour
     [Tooltip("Saltear la introduccion y mostrar la galeria directo")]
     public bool skipIntro = false;
 
-    enum IntroState { Waiting, Dissolving, Done }
+    enum IntroState { Waiting, Burning, Dissolving, Done }
     IntroState state = IntroState.Waiting;
 
     Transform rig, pivot;
@@ -134,6 +145,13 @@ public class GoyaIntro : MonoBehaviour
     float t;
     Vector3 dissolveCenter;
     bool galleryStarted;
+
+    // fuego
+    ParticleSystem fire;
+    float burnT;
+    Material[] burnMats;
+    Color[] burnOriginal;
+    Color[] emberColors;
 
     void Awake()
     {
@@ -290,6 +308,7 @@ public class GoyaIntro : MonoBehaviour
     void Update()
     {
         if (state == IntroState.Waiting) UpdateWaiting();
+        else if (state == IntroState.Burning) UpdateBurning();
         else if (state == IntroState.Dissolving) UpdateDissolving();
     }
 
@@ -363,7 +382,144 @@ public class GoyaIntro : MonoBehaviour
         pivot.Rotate(0f, rotateSpeed * dt, 0f, Space.World);
         pivot.localScale = Vector3.one * (1f + 0.03f * Mathf.Sin(Time.time * 2f) + 0.08f * progress);
 
-        if (progress >= 1f || Input.GetKeyDown(KeyCode.I)) BeginDissolve();
+        if (progress >= 1f || Input.GetKeyDown(KeyCode.I))
+        {
+            if (burn) BeginBurn();
+            else BeginDissolve();
+        }
+    }
+
+    // ---------------------------------------------------------------- fuego
+
+    void BeginBurn()
+    {
+        if (rulesText != null) Destroy(rulesText.gameObject);
+        cursorLeft.enabled = false;
+        cursorRight.enabled = false;
+
+        // Materiales propios del modelo, para irlos carbonizando
+        var mats = new List<Material>();
+        foreach (var r in introObject.GetComponentsInChildren<Renderer>()) mats.AddRange(r.materials);
+        burnMats = mats.ToArray();
+        burnOriginal = new Color[burnMats.Length];
+        for (int i = 0; i < burnMats.Length; i++) burnOriginal[i] = GetColor(burnMats[i]);
+
+        fire = CreateFire();
+        burnT = 0f;
+        state = IntroState.Burning;
+    }
+
+    void UpdateBurning()
+    {
+        float dt = Time.deltaTime;
+        burnT += dt;
+        float k = Mathf.Clamp01(burnT / Mathf.Max(0.1f, burnTime));
+
+        // El fuego crece, el cabrio tiembla y se va poniendo negro, con destellos de brasa
+        var em = fire.emission;
+        em.rateOverTime = fireRate * Mathf.Clamp01(k * 2.5f);
+        float flicker = 0.5f + 0.5f * Mathf.PerlinNoise(Time.time * 8f, 0f);
+        Color charred = Color.Lerp(new Color(0.05f, 0.02f, 0.02f), emberColor, 0.35f * flicker * k);
+        for (int i = 0; i < burnMats.Length; i++)
+            SetColor(burnMats[i], Color.Lerp(burnOriginal[i], charred, Mathf.SmoothStep(0f, 1f, k)));
+
+        Vector3 tremble = Random.insideUnitSphere * (0.012f + 0.02f * k);
+        pivot.position = basePos + Vector3.up * (Mathf.Sin(Time.time * 1.1f) * bobAmount) + tremble;
+        pivot.Rotate(0f, rotateSpeed * (1f + k) * dt, 0f, Space.World);
+
+        if (burnT >= burnTime) BeginDissolve();
+    }
+
+    ParticleSystem CreateFire()
+    {
+        var go = new GameObject("Fuego_Cabrio");
+        go.transform.SetParent(transform, false);
+        go.transform.position = basePos;
+        var f = go.AddComponent<ParticleSystem>();
+        f.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+
+        var main = f.main;
+        main.loop = true;
+        main.playOnAwake = false;
+        main.maxParticles = 3000;
+        main.simulationSpace = ParticleSystemSimulationSpace.World;
+        main.startLifetime = new ParticleSystem.MinMaxCurve(0.6f, 1.4f);
+        main.startSpeed = new ParticleSystem.MinMaxCurve(0.05f, 0.25f);
+        main.startSize = new ParticleSystem.MinMaxCurve(targetSize * 0.08f, targetSize * 0.22f);
+        main.startColor = fireColor;
+        main.gravityModifier = -0.12f;   // las llamas suben
+
+        var emission = f.emission;
+        emission.rateOverTime = 0f;
+
+        // Las llamas salen de la superficie del modelo (si se puede leer), si no de una esfera
+        var shape = f.shape;
+        var mr = introObject.GetComponentInChildren<MeshRenderer>();
+        var mf = mr != null ? mr.GetComponent<MeshFilter>() : null;
+        if (mf != null && mf.sharedMesh != null && mf.sharedMesh.isReadable)
+        {
+            shape.shapeType = ParticleSystemShapeType.MeshRenderer;
+            shape.meshRenderer = mr;
+            go.transform.position = Vector3.zero;
+        }
+        else
+        {
+            shape.shapeType = ParticleSystemShapeType.Sphere;
+            shape.radius = targetSize * 0.35f;
+        }
+
+        // Amarillo al nacer, naranja, rojo oscuro y humo
+        var col = f.colorOverLifetime;
+        col.enabled = true;
+        var g = new Gradient();
+        g.SetKeys(
+            new[] {
+                new GradientColorKey(new Color(1f, 0.9f, 0.5f), 0f),
+                new GradientColorKey(fireColor, 0.3f),
+                new GradientColorKey(new Color(0.5f, 0.06f, 0.02f), 0.7f),
+                new GradientColorKey(new Color(0.08f, 0.06f, 0.06f), 1f)
+            },
+            new[] {
+                new GradientAlphaKey(0f, 0f),
+                new GradientAlphaKey(0.9f, 0.1f),
+                new GradientAlphaKey(0.6f, 0.6f),
+                new GradientAlphaKey(0f, 1f)
+            });
+        col.color = g;
+
+        var size = f.sizeOverLifetime;
+        size.enabled = true;
+        size.size = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.EaseInOut(0f, 0.6f, 1f, 1.4f));
+
+        var noise = f.noise;
+        noise.enabled = true;
+        noise.strength = 0.25f;
+        noise.frequency = 1.2f;
+
+        Shader sh = Shader.Find("Sprites/Default");
+        if (sh == null) sh = Shader.Find("Particles/Standard Unlit");
+        var mat = new Material(sh);
+        mat.mainTexture = softTex;
+        var rend = go.GetComponent<ParticleSystemRenderer>();
+        rend.sharedMaterial = mat;
+        rend.renderMode = ParticleSystemRenderMode.Billboard;
+        rend.sortingOrder = 7;
+
+        f.Play();
+        return f;
+    }
+
+    static Color GetColor(Material m)
+    {
+        if (m.HasProperty("_BaseColor")) return m.GetColor("_BaseColor");
+        if (m.HasProperty("_Color")) return m.GetColor("_Color");
+        return Color.white;
+    }
+
+    static void SetColor(Material m, Color c)
+    {
+        if (m.HasProperty("_BaseColor")) m.SetColor("_BaseColor", c);
+        if (m.HasProperty("_Color")) m.SetColor("_Color", c);
     }
 
     static bool Arm(bool armed, HandOSCReceiver.HandState hand, bool near, bool open)
@@ -438,6 +594,18 @@ public class GoyaIntro : MonoBehaviour
         rend.renderMode = ParticleSystemRenderMode.Billboard;
         rend.sortingOrder = 6;
 
+        // Despues del fuego se deshace en brasas: cada particula de un tono entre rojo y amarillo
+        emberColors = new Color[count];
+        for (int i = 0; i < count; i++)
+            emberColors[i] = Color.Lerp(emberColor, new Color(1f, 0.8f, 0.3f), seed[i] * seed[i]);
+        if (fire != null)
+        {
+            var em = fire.emission;
+            em.rateOverTime = 0f;
+            Destroy(fire.gameObject, 2f);
+            fire = null;
+        }
+
         ps.Play();
         WriteParticles(1f);
 
@@ -448,6 +616,7 @@ public class GoyaIntro : MonoBehaviour
 
         if (dissolveSound != null)
             AudioSource.PlayClipAtPoint(dissolveSound, dissolveCenter, soundVolume);
+
 
         t = 0f;
         state = IntroState.Dissolving;
@@ -530,6 +699,7 @@ public class GoyaIntro : MonoBehaviour
                                   Mathf.Sin(t * 1.3f + s * 0.4f)) * (0.4f * dt);
             pos[i] += vel[i] * dt;
             vel[i] *= Mathf.Max(0f, 1f - drag * dt);
+            if (burn) vel[i] += Vector3.up * (0.25f * dt);   // las brasas suben
         }
 
         // Se desvanecen hacia el final
@@ -560,11 +730,20 @@ public class GoyaIntro : MonoBehaviour
     {
         Color c = baseColor;
         c.a = alpha;
+        // Brasas: se van apagando de rojo encendido a ceniza
+        float cool = Mathf.Clamp01(t / Mathf.Max(0.1f, dissolveTime * 0.8f));
+        var ash = new Color(0.15f, 0.12f, 0.12f, alpha);
         for (int i = 0; i < count; i++)
         {
             parts[i].position = pos[i];
             parts[i].velocity = Vector3.zero;
-            parts[i].startColor = c;
+            if (burn && emberColors != null)
+            {
+                Color e = Color.Lerp(emberColors[i], ash, cool * (0.5f + 0.5f * seed[i]));
+                e.a = alpha;
+                parts[i].startColor = e;
+            }
+            else parts[i].startColor = c;
             parts[i].startSize = particleSize;
             parts[i].startLifetime = 1000f;
             parts[i].remainingLifetime = 1000f;

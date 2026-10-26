@@ -39,7 +39,7 @@ public class GoyaParticles : MonoBehaviour
     [Tooltip("Tiempo que tarda la onda de desintegracion en recorrer el cuadro")]
     public float breakWaveTime = 1.8f;
     [Tooltip("Tiempo total que las particulas flotan antes de volver")]
-    public float scatterTime = 4.5f;
+    public float scatterTime = 3.5f;
     public float scatterSpeed = 0.9f;
     [Tooltip("Direccion del viento que se lleva las particulas")]
     public Vector3 wind = new Vector3(0.5f, 0.35f, 0.2f);
@@ -50,13 +50,19 @@ public class GoyaParticles : MonoBehaviour
     [Tooltip("Retraso aleatorio maximo: que no vuelvan todas al mismo tiempo")]
     public float reformSpread = 1.5f;
 
-    [Header("Magia negra (cambio de tanda)")]
-    [Tooltip("Color del humo en que se convierten las obras al desarmarse")]
-    public Color smokeColor = new Color(0.12f, 0.03f, 0.04f, 1f);
-    [Tooltip("Que tan rapido gira el humo alrededor de cada obra")]
+    [Header("Magia negra (cambio de obra)")]
+    [Tooltip("Color de brasa en que se convierten las obras al desarmarse")]
+    public Color emberSmoke = new Color(0.9f, 0.16f, 0.05f, 1f);
+    [Tooltip("Que tan visible queda el remolino de brasas (0 a 1)")]
+    [Range(0f, 1f)] public float emberAlpha = 0.8f;
+    [Tooltip("Que tan rapido gira el remolino alrededor de cada obra")]
     public float swirl = 0.6f;
-    [Tooltip("Segundos de vacio, sin obras, antes de que se arme la tanda siguiente")]
-    public float batchPause = 1.2f;
+    [Tooltip("Segundos extra que gira el remolino antes de viajar hacia la obra siguiente")]
+    public float swirlPause = 0.6f;
+    [Tooltip("Las brasas viajan por el aire hasta donde aparece la obra siguiente (si se apaga: se desvanecen y la nueva se arma desde el aire)")]
+    public bool travel = true;
+    [Tooltip("Cuanto suben las brasas en el medio del viaje (metros)")]
+    public float travelArc = 0.4f;
 
     [Header("Agitacion (movimiento de las manos)")]
     [Tooltip("Con agitacion maxima, el viento sopla esta cantidad de veces mas fuerte")]
@@ -103,6 +109,7 @@ public class GoyaParticles : MonoBehaviour
         public float agitated;
         public float nextAllowed;
         public bool assembling;    // el Reform actual es el primer armado desde el polvo
+        public bool traveling;     // el Reform actual viaja en arco alrededor de la persona
     }
 
     // Avisos para otros scripts (por ejemplo el sonido de GoyaAmbience)
@@ -185,7 +192,7 @@ public class GoyaParticles : MonoBehaviour
             // Cuando el humo ya se desvanecio y paso la pausa, se arma la tanda siguiente
             batchTimer += Time.deltaTime;
             gallery.ConsumeConjure();   // un conjuro durante el cambio no queda guardado para despues
-            if (batchTimer >= scatterTime + batchPause) SwapBatch();
+            if (batchTimer >= scatterTime + swirlPause) SwapBatch();
             return;
         }
 
@@ -220,11 +227,23 @@ public class GoyaParticles : MonoBehaviour
         foreach (var e in effects)
         {
             if (!e.painting.active) { Hide(e); continue; }
-            // La obra nueva se arma desde el humo, dispersa en el aire
+            bool wasFlying = e.state == EffectState.Scatter;
             if (!Sample(e)) continue;
-            AirPositions(e, e.startPos);
-            Color32 smoke = smokeColor;
-            for (int i = 0; i < e.count; i++) { e.fromColor[i] = smoke; e.fromColor[i].a = 0; }
+            Color32 smoke = emberSmoke;
+            if (travel && wasFlying)
+            {
+                // Las brasas del remolino viajan hasta la obra nueva
+                for (int i = 0; i < e.count; i++) e.startPos[i] = e.pos[i];
+                smoke.a = (byte)(255 * emberAlpha);
+            }
+            else
+            {
+                // La obra nueva se arma desde el aire
+                AirPositions(e, e.startPos);
+                smoke.a = 0;
+            }
+            for (int i = 0; i < e.count; i++) e.fromColor[i] = smoke;
+            e.traveling = travel && wasFlying;
             e.painting.renderer.enabled = false;
             e.go.SetActive(true);
             e.ps.Play();
@@ -456,9 +475,9 @@ public class GoyaParticles : MonoBehaviour
         bool together = gallery.changeAllTogether;
         float fadeStart = breakWaveTime * 0.5f;
         float k = Mathf.Clamp01((e.t - fadeStart) / Mathf.Max(0.01f, scatterTime - fadeStart));
-        float fade = together ? 1f - k * k : 1f;
+        float fade = !together ? 1f : (travel ? Mathf.Lerp(1f, emberAlpha, k) : 1f - k * k);
         float dark = together ? Mathf.Clamp01(e.t / Mathf.Max(0.01f, scatterTime * 0.5f)) : 0f;
-        Color32 smoke = smokeColor;
+        Color32 smoke = emberSmoke;
         Vector3 axis = e.painting.root.position;
         Vector3 towardViewer = -e.painting.root.forward;
         Vector3 gust = wind * (agitationWind - 1f) * gallery.agitation * dt;
@@ -607,16 +626,17 @@ public class GoyaParticles : MonoBehaviour
                                          Mathf.Cos(e.t * 2.4f + s * 0.7f),
                                          Mathf.Sin(e.t * 1.9f + s * 0.4f)) * (0.12f * (1f - k));
 
-            e.pos[i] = Vector3.Lerp(e.startPos[i], e.target[i], k) + wobble;
+            e.pos[i] = (e.traveling ? ArcLerp(e.startPos[i], e.target[i], k) : Vector3.Lerp(e.startPos[i], e.target[i], k)) + wobble;
             e.parts[i].startColor = Color32.Lerp(e.fromColor[i], Tinted(e.toColor[i], tint), k);
         }
 
         float progress = Mathf.Clamp01(e.t / (reformSpread + reformTime));
-        Write(e, e.assembling ? Mathf.Lerp(airSize, 1f, progress) : 1f);
+        Write(e, e.assembling && !e.traveling ? Mathf.Lerp(airSize, 1f, progress) : 1f);
         if (e.assembling) e.painting.reveal = progress;
 
         if (e.t >= reformSpread + reformTime)
         {
+            e.traveling = false;
             // Termino: volver a mostrar el cuadro y apagar las particulas
             if (e.assembling) gallery.MarkRevealed(e.painting);
             e.painting.swipe = 0f;   // que el mismo barrido no la desarme apenas se arma
@@ -628,6 +648,19 @@ public class GoyaParticles : MonoBehaviour
             e.nextAllowed = Time.time + cooldown;
             e.touch = 0f;
         }
+    }
+
+    // Viaje en arco alrededor del centro del anillo (para no pasar a traves de la persona)
+    Vector3 ArcLerp(Vector3 a, Vector3 b, float k)
+    {
+        Vector3 c = gallery.Center;
+        Vector3 va = a - c, vb = b - c;
+        float ra = new Vector2(va.x, va.z).magnitude, rb = new Vector2(vb.x, vb.z).magnitude;
+        float angA = Mathf.Atan2(va.x, va.z) * Mathf.Rad2Deg, angB = Mathf.Atan2(vb.x, vb.z) * Mathf.Rad2Deg;
+        float ang = (angA + Mathf.DeltaAngle(angA, angB) * k) * Mathf.Deg2Rad;
+        float r = Mathf.Lerp(ra, rb, k);
+        float y = Mathf.Lerp(va.y, vb.y, k) + Mathf.Sin(k * Mathf.PI) * travelArc;
+        return c + new Vector3(Mathf.Sin(ang) * r, y, Mathf.Cos(ang) * r);
     }
 
     void Write(Effect e, float sizeMul = 1f)

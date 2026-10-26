@@ -49,6 +49,10 @@ public class GoyaGallery : MonoBehaviour
     public int batchSize = 7;
     [Tooltip("Grados entre las obras de una tanda. Cada tanda aparece alrededor de donde se esta mirando")]
     public float batchSpacing = 55f;
+    [Tooltip("Una obra a la vez, en orden, y cada una aparece en un lugar al azar del anillo de 360 (ignora las epocas por tanda)")]
+    public bool oneAtATime = true;
+    [Tooltip("Lugares posibles alrededor (repartidos en 360 grados) para la obra que aparece")]
+    public int ringSlots = 8;
     [Tooltip("Cuantas obras de la lista puede saltear de golpe si las manos se mueven mucho")]
     public int maxSkip = 1;
 
@@ -167,6 +171,10 @@ public class GoyaGallery : MonoBehaviour
     bool ringMode;
     readonly List<Vector2Int> batches = new List<Vector2Int>(); // cada tanda: (primera obra, cantidad)
     int currentBatch;
+    int currentSlot;     // lugar del anillo donde esta la obra (una a la vez)
+
+    /// <summary>Centro del anillo (donde empieza la persona).</summary>
+    public Vector3 Center { get { return center; } }
     Vector3 lastLeft, lastRight;
     bool hadLeft, hadRight;
     float speedLeft, speedRight;   // velocidad suavizada de cada mano
@@ -247,7 +255,11 @@ public class GoyaGallery : MonoBehaviour
     void CreateBatches(List<Sprite> sequence)
     {
         int n = sequence.Count, start = 0;
-        if (epochSizes != null)
+        if (oneAtATime)
+        {
+            for (; start < n; start++) batches.Add(new Vector2Int(start, 1));
+        }
+        else if (epochSizes != null)
         {
             foreach (int size in epochSizes)
             {
@@ -385,10 +397,22 @@ public class GoyaGallery : MonoBehaviour
         return currentBatch + 1 < batches.Count;
     }
 
-    /// <summary>Pone la tanda siguiente, alrededor de donde se esta mirando. Los cuadros que sobran quedan apagados.</summary>
+    /// <summary>
+    /// Pone la tanda siguiente: una sola obra en un lugar al azar del anillo, o la tanda entera
+    /// alrededor de donde se esta mirando. Los cuadros que sobran quedan apagados.
+    /// </summary>
     public void NextBatch()
     {
-        if (HasNextBatch()) ApplyBatch(currentBatch + 1, ViewYaw());
+        if (!HasNextBatch()) return;
+        ApplyBatch(currentBatch + 1, oneAtATime ? RandomSlotAngle() : ViewYaw());
+    }
+
+    float RandomSlotAngle()
+    {
+        int slots = Mathf.Max(2, ringSlots);
+        int next = Random.Range(1, slots);           // nunca el mismo lugar
+        currentSlot = (currentSlot + next) % slots;
+        return currentSlot * 360f / slots;
     }
 
     bool TryTake(Painting p, int i)
@@ -738,7 +762,8 @@ public class GoyaGallery : MonoBehaviour
     {
         if (batches.Count > 0)
         {
-            ApplyBatch(0, ViewYaw());
+            currentSlot = 0;
+            ApplyBatch(0, oneAtATime ? 0f : ViewYaw());
             darkness = 0f;
             return;
         }

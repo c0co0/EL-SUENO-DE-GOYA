@@ -548,7 +548,7 @@ MonoBehaviour:
   touchHoldTime: 0.35
   cooldown: 1
   breakWaveTime: 1.8
-  scatterTime: 4.5
+  scatterTime: 3.5
   scatterSpeed: 0.9
   wind: {x: 0.5, y: 0.35, z: 0.2}
   drag: 1.2
