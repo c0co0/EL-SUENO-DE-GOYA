@@ -241,6 +241,10 @@ public class GoyaAmbience : MonoBehaviour
 
         if (!halosBuilt && gallery.paintings.Count > 0 && softSprite != null) BuildHalos();
 
+        // En el camino, el polvo del aire acompaña a la persona mientras camina
+        if (dustSystem != null && gallery.pathMode && gallery.PathLength > 0f)
+            dustSystem.transform.position = gallery.RigPosition;
+
         // Sonido al revelar un cuadro
         foreach (var p in gallery.paintings)
         {

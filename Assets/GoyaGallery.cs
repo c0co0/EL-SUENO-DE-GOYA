@@ -35,6 +35,18 @@ public class GoyaGallery : MonoBehaviour
     public Sprite leftPainting;
     public Sprite rightPainting;
 
+    [Header("Camino: un recorrido con una zona por epoca")]
+    [Tooltip("Las obras se reparten a los costados de un camino que se recorre caminando; cada epoca es una zona con su propio ambiente (GoyaEnvironment)")]
+    public bool pathMode = true;
+    [Tooltip("Largo de cada zona (metros)")]
+    public float zoneLength = 9f;
+    [Tooltip("Medio ancho del camino por donde se puede caminar (metros)")]
+    public float corridorHalfWidth = 1.6f;
+    [Tooltip("Velocidad al caminar por el camino (metros por segundo)")]
+    public float pathMoveSpeed = 1.1f;
+    [Tooltip("Hasta que distancia (metros) los gestos de armar y desarmar alcanzan a la obra que se mira")]
+    public float gestureDistance = 7f;
+
     [Header("Galeria 360 (si tiene obras, reemplaza a los 3 cuadros de arriba)")]
     [Tooltip("Todas las obras en orden: primero las de la vida cotidiana, al final las mas oscuras. " +
              "Las primeras llenan el anillo; cada cuadro que se desarma vuelve como la siguiente.")]
@@ -166,6 +178,7 @@ public class GoyaGallery : MonoBehaviour
         public Sprite original;
         public int originalIndex = -1; // posicion de la obra original en la lista (galeria 360)
         public bool active = true; // en una tanda mas chica que la mas grande, los cuadros que sobran se apagan
+        public int zone;           // zona del camino (epoca)
     }
 
     public List<Painting> paintings = new List<Painting>();
@@ -183,6 +196,27 @@ public class GoyaGallery : MonoBehaviour
 
     /// <summary>Centro del anillo (donde empieza la persona).</summary>
     public Vector3 Center { get { return center; } }
+
+    /// <summary>Donde esta la persona ahora.</summary>
+    public Vector3 RigPosition { get { return rig != null ? rig.position : transform.position; } }
+
+    /// <summary>Largo total del camino (metros) y cantidad de zonas.</summary>
+    public float PathLength { get; private set; }
+    public int ZoneCount { get; private set; }
+
+    /// <summary>Zona del camino en un punto, como numero con decimales (0 = principio de la primera, 1.5 = mitad de la segunda).</summary>
+    public float ZoneAt(Vector3 pos)
+    {
+        return Mathf.Clamp((pos.z - center.z) / Mathf.Max(0.1f, zoneLength), 0f, Mathf.Max(0.001f, ZoneCount - 0.001f));
+    }
+
+    /// <summary>Cuanto se avanzo por el camino (0 a 1).</summary>
+    public float PathProgress
+    {
+        get { return PathLength > 0f ? Mathf.Clamp01((RigPosition.z - center.z) / PathLength) : 0f; }
+    }
+
+    GoyaEnvironment environment;
     Vector3 lastLeft, lastRight;
     bool hadLeft, hadRight;
     float speedLeft, speedRight;   // velocidad suavizada de cada mano
@@ -222,7 +256,8 @@ public class GoyaGallery : MonoBehaviour
             foreach (var sp in paintingSequence) if (sp != null) sequence.Add(sp);
 
         ringMode = sequence.Count > 0;
-        if (ringMode && changeAllTogether) CreateBatches(sequence);
+        if (ringMode && pathMode) CreatePath(sequence);
+        else if (ringMode && changeAllTogether) CreateBatches(sequence);
         else if (ringMode) CreateRing(sequence);
         else
         {
@@ -258,6 +293,54 @@ public class GoyaGallery : MonoBehaviour
 
         darkSprites = sequence.ToArray();
         nextDark = firstDark = count;
+    }
+
+    // Camino: cada epoca es una zona; sus obras quedan a los costados, alternando izquierda y derecha,
+    // algunas mas lejos que otras para que haya profundidad. Todas empiezan como polvo en el aire.
+    void CreatePath(List<Sprite> sequence)
+    {
+        var sizes = new List<int>();
+        int n = sequence.Count, used = 0;
+        if (epochSizes != null)
+            foreach (int size in epochSizes)
+            {
+                int s = Mathf.Min(size, n - used);
+                if (s <= 0) continue;
+                sizes.Add(s);
+                used += s;
+            }
+        if (used < n) sizes.Add(n - used);   // obras fuera de las epocas: una zona mas al final
+
+        int start = 0;
+        for (int zone = 0; zone < sizes.Count; zone++)
+        {
+            int count = sizes[zone];
+            for (int j = 0; j < count; j++)
+            {
+                int idx = start + j;
+                float side = j % 2 == 0 ? -1f : 1f;
+                float t = count == 1 ? 0.5f : (float)j / (count - 1);
+                float z = zone * zoneLength + 2f + t * (zoneLength - 3.5f);
+                float depth = (j / 2) % 2 == 0 ? 0f : 1.3f;     // una de cada dos parejas queda mas atras
+                float x = side * (corridorHalfWidth + 0.8f + depth);
+                Vector3 pos = center + new Vector3(x, 0.12f * ((j % 3) - 1), z);
+                // Mira hacia el camino y un poco hacia quien viene caminando
+                var rot = Quaternion.LookRotation(new Vector3(side, 0f, 0.45f).normalized);
+                var p = CreatePaintingAt(sequence[idx], "Obra" + idx, pos, rot, 1f + 0.3f * depth);
+                if (p == null) continue;
+                p.darkIndex = p.originalIndex = idx;
+                p.zone = zone;
+            }
+            start += count;
+        }
+
+        ZoneCount = sizes.Count;
+        PathLength = ZoneCount * zoneLength;
+        darkSprites = sequence.ToArray();
+        nextDark = firstDark = 0;
+
+        environment = GetComponent<GoyaEnvironment>();
+        if (environment == null) environment = gameObject.AddComponent<GoyaEnvironment>();
     }
 
     // Tandas por epoca: cada epoca se reparte en "batchesPerEpoch" tandas, sin mezclarse con la siguiente
@@ -344,10 +427,21 @@ public class GoyaGallery : MonoBehaviour
         }
 
         Quaternion yaw = Quaternion.Euler(0f, angle, 0f);
+        return CreatePaintingAt(sprite, label, rig.position + yaw * Vector3.forward * distance, yaw, scaleMul);
+    }
+
+    Painting CreatePaintingAt(Sprite sprite, string label, Vector3 position, Quaternion rotation, float scaleMul)
+    {
+        if (sprite == null)
+        {
+            Debug.LogWarning("[Galeria] Falta la imagen del cuadro: " + label);
+            return null;
+        }
+
         var root = new GameObject("Cuadro_" + label).transform;
         root.SetParent(transform, false);
-        root.position = rig.position + yaw * Vector3.forward * distance;
-        root.rotation = yaw;
+        root.position = position;
+        root.rotation = rotation;
 
         var sr = root.gameObject.AddComponent<SpriteRenderer>();
         sr.color = veilColor;
@@ -564,9 +658,17 @@ public class GoyaGallery : MonoBehaviour
         lastWalkDir = Vector3.Slerp(lastWalkDir, dir, 1f - Mathf.Exp(-6f * dt));
         if (Mathf.Abs(walk) < 0.01f) return;
 
-        Vector3 pos = rig.position + lastWalkDir * (walk * moveSpeed * dt);
+        Vector3 pos = rig.position + lastWalkDir * (walk * (pathMode && PathLength > 0f ? pathMoveSpeed : moveSpeed) * dt);
         Vector3 offset = pos - center;
         offset.y = 0f;
+        if (pathMode && PathLength > 0f)
+        {
+            // Dentro del camino: entre las obras de los costados, del principio al final
+            offset.x = Mathf.Clamp(offset.x, -corridorHalfWidth, corridorHalfWidth);
+            offset.z = Mathf.Clamp(offset.z, -1f, PathLength);
+            rig.position = new Vector3(center.x + offset.x, rig.position.y, center.z + offset.z);
+            return;
+        }
         float maxRadius = Mathf.Max(0f, distance - minDistanceToPaintings);
         if (offset.magnitude > maxRadius) offset = offset.normalized * maxRadius;
         rig.position = new Vector3(center.x + offset.x, rig.position.y, center.z + offset.z);
@@ -676,7 +778,8 @@ public class GoyaGallery : MonoBehaviour
 
         // Lo que ya avanzo la lista tambien cuenta como oscuridad (no vuelve atras)
         int total = darkSprites != null ? darkSprites.Length : 0;
-        if (total > firstDark)
+        if (pathMode && PathLength > 0f) darkness = Mathf.Max(darkness, PathProgress);   // en el camino: cuanto mas adentro, mas oscuro
+        else if (total > firstDark)
             darkness = Mathf.Max(darkness, (float)(nextDark - firstDark) / (total - firstDark));
         darkness = Mathf.Clamp01(darkness);
 
@@ -740,6 +843,7 @@ public class GoyaGallery : MonoBehaviour
             Color veil = veilColor;
             veil.a *= 1f + 0.5f * Mathf.Sin(Time.time * 1.5f + p.phase); // el velo "respira"
             Color shown = Color.Lerp(veil, CurrentTint(), t);
+            if (environment != null) shown = environment.Fogged(shown, p.root.position);
             shown.a *= appear;
             p.renderer.color = shown;
         }
@@ -781,15 +885,28 @@ public class GoyaGallery : MonoBehaviour
     // La obra activa mas cerca de donde se mira (o null si ninguna esta adelante)
     Painting PaintingInView()
     {
+        return PaintingInView(float.MaxValue);
+    }
+
+    /// <summary>
+    /// La obra que se esta mirando (dentro de unos 55 grados y a menos de maxDistance metros).
+    /// Si hay varias, gana la mas centrada en la vista, con algo de ventaja para la mas cercana.
+    /// </summary>
+    public Painting PaintingInView(float maxDistance)
+    {
         Vector3 look = head != null ? head.forward : rig.forward;
         Painting best = null;
-        float bestDot = 0.5f;   // dentro de unos 60 grados
+        float bestScore = float.MinValue;
         foreach (var p in paintings)
         {
             if (!p.active) continue;
-            Vector3 to = (p.root.position - rig.position).normalized;
-            float d = Vector3.Dot(look, to);
-            if (d > bestDot) { bestDot = d; best = p; }
+            Vector3 to = p.root.position - rig.position;
+            float dist = to.magnitude;
+            if (dist > maxDistance || dist < 0.01f) continue;
+            float dot = Vector3.Dot(look, to / dist);
+            if (dot < 0.57f) continue;
+            float score = dot - dist * 0.03f;
+            if (score > bestScore) { bestScore = score; best = p; }
         }
         return best;
     }

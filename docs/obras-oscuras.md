@@ -6,10 +6,11 @@ Rama: `obras-oscuras` (sale de `cardboard-xr`).
 
 - **Bienvenida:** el macho cabrío flota adelante con la frase "Levantá una mano para empezar" (*Start Line*), así nadie se pierde las reglas mientras se pone el visor. Al levantar una mano, arriba de él aparecen, una por una, frases cortas con las reglas (campo *Lines* de **Goya Intro**, se pueden editar en el Inspector). Hasta que no termina de explicar no se lo puede deshacer (*Wait For Rules*). Se le puede poner voz a cada frase en *Narration*.
 - **El cabrío arde:** con un brazo levantado y la mano abierta, se prende fuego, se carboniza y se dispersa en brasas.
-- **Una obra a la vez:** la obra empieza como polvo casi invisible en el aire. Con los dos brazos levantados y las manos abiertas, el polvo se arma. Con los dos puños cerrados, se desarma en un remolino de brasas que viaja hasta otro lugar al azar de la galería y se arma como la obra siguiente.
-- **Galería de 180°:** las obras aparecen solo adelante y a los costados, nunca atrás (*Arc Degrees*, 5 lugares posibles en *Arc Slots*). La primera aparece adelante.
-- **Lista ordenada por épocas** (*Painting Sequence*, en el objeto **Galeria**). La última obra ya no se desarma (Backspace vuelve a empezar).
-- **Todo se apaga con el recorrido:** a medida que avanza la lista (o con mucho movimiento de manos), los cuadros se tiñen más oscuros, las auras pasan de dorado a rojo y el sonido ambiente se pone más grave.
+- **Un camino para recorrer** (*Path Mode* en **Goya Gallery**): las obras están a los costados de un camino, alternando izquierda y derecha, algunas más cerca y otras más atrás. El camino tiene cinco zonas, una por época y en orden: cartones para tapices, la corte, brujas y disparates, la guerra y las Pinturas Negras (*Zone Length*, 9 m cada una). Caminar hacia adelante es adentrarse en lo oscuro.
+- **Cada zona tiene su ambiente** (**Goya Environment**, se agrega solo): color del cielo, niebla y una luz que salen de la paleta de esa época. A los costados hay paredes enormes y un suelo hechos con sus mismas pinturas, muy borrosas y teñidas, como si se caminara adentro de ellas. Al fondo del camino espera la última pintura, enorme, en la oscuridad. Al pasar de una zona a otra todo cambia de a poco, y lo lejano se pierde en la niebla.
+- **Las obras empiezan como polvo** en el aire. Mirando una obra, con los dos brazos levantados y las manos abiertas se arma. Con los dos puños cerrados se desarma en un remolino de brasas y vuelve a ser polvo, para armarla otra vez si se quiere.
+- **Todo se apaga al avanzar:** cuanto más adentro del camino, más oscuros se tiñen los cuadros, las auras pasan de dorado a rojo y el sonido ambiente se pone más grave.
+- Si se apaga *Path Mode*, vuelve la galería de 180° con una obra a la vez (*One At A Time*, *Arc Degrees*, *Arc Slots*).
 
 ## Gestos
 
@@ -17,10 +18,10 @@ Rama: `obras-oscuras` (sale de `cardboard-xr`).
 |---|---|
 | **Levantar una mano** al principio | El cabrío empieza a explicar las reglas |
 | **Un brazo levantado con la mano abierta** (sostenerlo un momento), cuando el cabrío terminó de hablar (si es la misma mano del principio, hay que bajarla antes) | El cabrío se prende fuego y aparece la galería |
-| **Los dos brazos levantados con las manos abiertas** | Se arma la obra |
-| **Los dos puños cerrados** (a cualquier altura) | Se desarma la obra y se arma la siguiente en otro lugar |
-| **Un dedo levantado** (cualquier mano) | Te acercás a la obra que estás mirando |
-| **Un dedo levantado en cada mano** | Te alejás |
+| **Los dos brazos levantados con las manos abiertas**, mirando una obra | Se arma esa obra |
+| **Los dos puños cerrados** (a cualquier altura), mirando una obra | Se desarma en brasas y vuelve a ser polvo |
+| **Un dedo levantado** (cualquier mano) | Caminás hacia adelante, hacia donde mirás |
+| **Un dedo levantado en cada mano** | Caminás hacia atrás |
 | **Cruzar los brazos en X** delante del pecho (sostenerlo un segundo y medio) | Vuelve todo a empezar, desde el cabrío. Necesita el tracker con el cuerpo; en la ventana dice "BRAZOS CRUZADOS" |
 
 Los gestos de armar y desarmar hay que sostenerlos un momento (*Gesture Hold Time*) y soltarlos antes de repetirlos. "Levantado" quiere decir que la mano está en la parte de arriba de la imagen de la cámara (*Hand High Y*); si el tracker también ve el cuerpo, alcanza con que el brazo esté arriba del hombro.
@@ -59,10 +60,9 @@ Si *Painting Sequence* queda vacía, la galería vuelve a los 3 cuadros de adela
 | **Espacio** | Que el cabrío empiece a explicar (en lugar de levantar la mano) |
 | **I** | Prender fuego al cabrío sin el gesto |
 | **Clic derecho + mover el mouse** | Mirar alrededor |
-| **W / S** o **flechas ↑ / ↓** | Acercarse / alejarse |
+| **W / S** o **flechas ↑ / ↓** | Caminar hacia adelante (hacia donde mirás) / hacia atrás |
 | **Flechas ← / →** | Girar |
-| **E** | Armar la obra, o desarmarla y pasar a la siguiente |
-| **T** | Lo mismo que E |
+| **E** o **T** | Armar la obra que estás mirando, o desarmarla si ya está armada |
 | **O** | Sumar oscuridad (+25 %) |
 | **V** | Cambiar entre pantalla partida (visor) y una sola cámara |
 | **R** | Recentrar la vista |
@@ -78,6 +78,9 @@ Con el tracker de Python corriendo, las manos funcionan además del teclado.
 | Batch Spacing | Goya Gallery | Grados entre las obras de una tanda |
 | Change All Together | Goya Gallery | Si un barrido cambia todas las obras juntas o de a una |
 | Break Wave Time, Scatter Time, Reform Time, Reform Spread | Goya Particles | Qué tan lento se desarma, cuánto flota el humo y qué tan lento se arma la tanda siguiente |
+| Path Mode, Zone Length, Corridor Half Width, Path Move Speed, Gesture Distance | Goya Gallery | El camino: largo de cada zona, ancho por donde se camina, velocidad y hasta qué distancia alcanzan los gestos |
+| Zones (Sky, Fog, Fog Density, Tint), Wall Distance, Wall Brightness, Ground Brightness, Blur Resolution | Goya Environment | El ambiente de cada zona y las paredes y suelo hechos con las pinturas. Se puede ajustar con Play y después copiar los valores |
+| Visible Distance | Goya Particles | El polvo de las obras más lejanas que esto no se dibuja (bajarlo si el celular anda lento) |
 | One At A Time, Arc Degrees, Arc Slots | Goya Gallery | Una obra a la vez, cuántos grados tiene la galería y en cuántos lugares puede aparecer |
 | Hand High Y, Gesture Hold Time | Goya Gallery | Qué tan arriba tiene que estar la mano para contar como levantada, y cuánto sostener los gestos |
 | Ember Smoke, Ember Alpha, Swirl, Swirl Pause | Goya Particles | Color y visibilidad de las brasas, cuánto gira el remolino y cuánto tiempo extra gira antes de viajar |

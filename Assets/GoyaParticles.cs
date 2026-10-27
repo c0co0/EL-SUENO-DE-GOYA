@@ -31,6 +31,9 @@ public class GoyaParticles : MonoBehaviour
     public int particleCount = 4000;
     public float particleScale = 1.8f;
 
+    [Tooltip("En el camino, el polvo de las obras mas lejanas que esto (metros) no se dibuja, para que ande fluido")]
+    public float visibleDistance = 10f;
+
     [Header("Toque (barrer con la mano abierta: la velocidad y el tiempo estan en GoyaGallery)")]
     [Tooltip("Segundos de espera antes de poder tocarlo de nuevo")]
     public float cooldown = 1f;
@@ -137,8 +140,10 @@ public class GoyaParticles : MonoBehaviour
         float dt = Time.deltaTime;
         bool forceAll = Input.GetKeyDown(KeyCode.T);
         float agitation = gallery.agitation;
-        bool together = gallery.changeAllTogether;
+        bool path = gallery.pathMode && gallery.PathLength > 0f;
+        bool together = gallery.changeAllTogether && !path;
         if (together) UpdateTogether(forceAll);
+        if (path) { UpdatePath(forceAll); forceAll = false; }
 
         foreach (var e in effects)
         {
@@ -153,7 +158,7 @@ public class GoyaParticles : MonoBehaviour
                     if (forceAll && p.revealed) { Begin(e); break; }
 
                     bool ready = p.revealed && Time.time >= e.nextAllowed;
-                    if (ready && p.swipe >= gallery.swipeDistance) { Begin(e); break; }
+                    if (ready && gallery.swipeGestures && p.swipe >= gallery.swipeDistance) { Begin(e); break; }
 
                     // Agitacion alta sostenida: el cuadro se deshace solo (si esta activado)
                     if (autoBreak && ready && agitation >= autoBreakAgitation)
@@ -176,10 +181,42 @@ public class GoyaParticles : MonoBehaviour
                     break;
 
                 case EffectState.Floating:
-                    if (!together && (forceAll || p.swipe >= gallery.swipeDistance)) { BeginAssemble(e); break; }
+                    if (!together && (forceAll || (gallery.swipeGestures && p.swipe >= gallery.swipeDistance))) { BeginAssemble(e); break; }
+                    // En el camino solo se anima el polvo de las obras cercanas (son muchas)
+                    if (path && Vector3.Distance(p.root.position, gallery.RigPosition) > visibleDistance)
+                    {
+                        if (e.go.activeSelf) e.go.SetActive(false);
+                        break;
+                    }
+                    if (!e.go.activeSelf) { e.go.SetActive(true); e.ps.Play(); }
                     UpdateFloating(e);
                     break;
             }
+        }
+    }
+
+    // Camino: los gestos actuan sobre la obra que se esta mirando.
+    // Dos brazos arriba arman su polvo; dos puños la desarman en brasas que vuelven a ser polvo.
+    void UpdatePath(bool forceAll)
+    {
+        bool form = gallery.ConsumeForm() || forceAll;
+        bool brk = gallery.ConsumeBreak() || forceAll;
+        foreach (var e in effects) e.painting.swipe = 0f;
+        if (!form && !brk) return;
+
+        var target = gallery.PaintingInView(gallery.gestureDistance);
+        if (target == null) return;
+        foreach (var e in effects)
+        {
+            if (e.painting != target) continue;
+            if (form && e.state == EffectState.Floating)
+            {
+                if (!e.go.activeSelf) { e.go.SetActive(true); e.ps.Play(); }
+                BeginAssemble(e);
+            }
+            else if (brk && e.state == EffectState.Idle && target.revealed && Time.time >= e.nextAllowed)
+                Begin(e);
+            return;
         }
     }
 
@@ -475,11 +512,13 @@ public class GoyaParticles : MonoBehaviour
     void UpdateScatter(Effect e, float dt)
     {
         e.t += dt;
-        // Toda la tanda junta: las particulas se vuelven humo oscuro, giran y se desvanecen
-        bool together = gallery.changeAllTogether;
+        // Toda la tanda junta (o en el camino): las particulas se vuelven humo de brasas, giran y se desvanecen
+        bool path = gallery.pathMode && gallery.PathLength > 0f;
+        bool travelNext = gallery.changeAllTogether && !path;   // las brasas viajan a la obra siguiente
+        bool together = travelNext || path;
         float fadeStart = breakWaveTime * 0.5f;
         float k = Mathf.Clamp01((e.t - fadeStart) / Mathf.Max(0.01f, scatterTime - fadeStart));
-        float fade = !together ? 1f : (travel ? Mathf.Lerp(1f, emberAlpha, k) : 1f - k * k);
+        float fade = !together ? 1f : (travelNext && travel ? Mathf.Lerp(1f, emberAlpha, k) : 1f - k * k);
         float dark = together ? Mathf.Clamp01(e.t / Mathf.Max(0.01f, scatterTime * 0.5f)) : 0f;
         Color32 smoke = emberSmoke;
         Vector3 axis = e.painting.root.position;
@@ -523,7 +562,17 @@ public class GoyaParticles : MonoBehaviour
         if (e.t >= scatterTime)
         {
             // Toda la tanda junta: el humo sigue flotando invisible hasta que UpdateTogether arma la siguiente
-            if (together) return;
+            if (travelNext) return;
+
+            // Camino: la obra vuelve a ser polvo en el aire, y se puede armar otra vez
+            if (path)
+            {
+                e.painting.revealed = false;
+                e.painting.reveal = 0f;
+                e.nextAllowed = Time.time + cooldown;
+                StartFloating(e);
+                return;
+            }
 
             for (int i = 0; i < e.count; i++) e.startPos[i] = e.pos[i];
 
