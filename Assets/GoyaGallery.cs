@@ -217,6 +217,13 @@ public class GoyaGallery : MonoBehaviour
     }
 
     GoyaEnvironment environment;
+    GoyaDiorama diorama;
+
+    /// <summary>Hasta donde se puede caminar: el camino de obras mas los dioramas del final.</summary>
+    public float WalkLength
+    {
+        get { return PathLength + (diorama != null ? Mathf.Max(0f, diorama.Length - diorama.minDistanceToLast) : 0f); }
+    }
     Vector3 lastLeft, lastRight;
     bool hadLeft, hadRight;
     float speedLeft, speedRight;   // velocidad suavizada de cada mano
@@ -299,6 +306,11 @@ public class GoyaGallery : MonoBehaviour
     // algunas mas lejos que otras para que haya profundidad. Todas empiezan como polvo en el aire.
     void CreatePath(List<Sprite> sequence)
     {
+        // Las pinturas negras que se recorren por dentro van al final, no planas en el camino
+        diorama = GetComponent<GoyaDiorama>();
+        if (diorama == null) diorama = gameObject.AddComponent<GoyaDiorama>();
+        sequence = sequence.FindAll(s => !diorama.Replaces(s));
+
         var sizes = new List<int>();
         int n = sequence.Count, used = 0;
         if (epochSizes != null)
@@ -341,6 +353,7 @@ public class GoyaGallery : MonoBehaviour
 
         environment = GetComponent<GoyaEnvironment>();
         if (environment == null) environment = gameObject.AddComponent<GoyaEnvironment>();
+        diorama.Build(this);
     }
 
     // Tandas por epoca: cada epoca se reparte en "batchesPerEpoch" tandas, sin mezclarse con la siguiente
@@ -665,7 +678,7 @@ public class GoyaGallery : MonoBehaviour
         {
             // Dentro del camino: entre las obras de los costados, del principio al final
             offset.x = Mathf.Clamp(offset.x, -corridorHalfWidth, corridorHalfWidth);
-            offset.z = Mathf.Clamp(offset.z, -1f, PathLength);
+            offset.z = Mathf.Clamp(offset.z, -1f, WalkLength);
             rig.position = new Vector3(center.x + offset.x, rig.position.y, center.z + offset.z);
             return;
         }

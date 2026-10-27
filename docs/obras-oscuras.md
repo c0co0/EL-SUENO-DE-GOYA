@@ -53,6 +53,14 @@ Las obras están en `Assets/Obras` y ya cargadas en **Galeria → Painting Seque
 
 Si *Painting Sequence* queda vacía, la galería vuelve a los 3 cuadros de adelante.
 
+## Pinturas negras por dentro (dioramas)
+
+Al final del camino, *Saturno devorando a su hijo* ya no está colgada plana: está separada en capas (el fondo oscuro lejos, a 16 m, y Saturno adelante, a 8 m). Desde la entrada se ve como la pintura; al caminar con ↑ las capas se separan y podés llegar hasta al lado de la figura, que respira apenas.
+
+- Las capas están en `Assets/Resources/Dioramas/` (`saturno_fondo.jpg` y `saturno_figura.png`, del mismo tamaño que la pintura).
+- `GoyaDiorama` (lo agrega solo `GoyaGallery`) tiene la lista: nombre, obra que reemplaza, alto, y cada capa con su imagen y distancia.
+- Para sumar otra pintura negra: recortar sus capas con el mismo tamaño, ponerlas en esa carpeta y agregar una entrada a la lista.
+
 ## Probar en la PC (sin tracker ni celular)
 
 | Tecla / mouse | Qué hace |
