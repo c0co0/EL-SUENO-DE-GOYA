@@ -17,7 +17,7 @@ public class GoyaAmbience : MonoBehaviour
     public GoyaParticles particles;
 
     [Header("Polvo flotante")]
-    public bool dust = true;
+    public bool dust = false;
     public int dustMax = 400;
     public Vector3 dustArea = new Vector3(8f, 3.5f, 8f);
     public Color dustColor = new Color(0.8f, 0.85f, 1f, 0.45f);

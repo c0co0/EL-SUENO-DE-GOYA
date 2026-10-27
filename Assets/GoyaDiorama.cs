@@ -19,6 +19,8 @@ public class GoyaDiorama : MonoBehaviour
         public string image;
         [Tooltip("Distancia desde la entrada del diorama (metros)")]
         public float distance;
+        [Tooltip("Que parte del alto de la imagen es la pintura (el fondo se extiende mas alla del cuadro para llenar el ambiente)")]
+        public float frame = 1f;
         [Tooltip("Cuanto respira (se agranda y achica apenas), para que la figura parezca viva")]
         public float breathe;
     }
@@ -46,14 +48,18 @@ public class GoyaDiorama : MonoBehaviour
             centerOffset = 1.2f,
             layers = new[]
             {
-                new Layer { image = "Dioramas/saturno_fondo", distance = 16f },
-                new Layer { image = "Dioramas/saturno_figura", distance = 8f, breathe = 0.012f },
+                new Layer { image = "Dioramas/saturno_fondo", distance = 16f, frame = 0.4168f },
+                new Layer { image = "Dioramas/saturno_figura", distance = 8f, frame = 1f, breathe = 0.012f },
             }
         },
     };
 
     [Tooltip("Distancia entre la entrada de un diorama y el siguiente (metros)")]
     public float spacing = 20f;
+    [Tooltip("Metros antes del final del camino donde empieza a aparecer (antes no se ve, para que sea sorpresa)")]
+    public float revealBefore = 4f;
+    [Tooltip("Metros que tarda en aparecer del todo")]
+    public float revealLength = 5f;
     [Range(0f, 1f), Tooltip("Cuanto le afecta la niebla del ambiente")]
     public float fog = 0.6f;
     [Tooltip("Lo mas cerca que se puede llegar a la ultima capa (metros)")]
@@ -117,7 +123,7 @@ public class GoyaDiorama : MonoBehaviour
                 // Mas lejos = mas grande, en la misma proporcion: desde la entrada todas las capas coinciden
                 float k10 = l.distance / 10f;
                 go.transform.position = new Vector3(c.x, eyeY + d.centerOffset * k10, entryZ + l.distance);
-                float s = d.height * k10 / sprite.bounds.size.y;
+                float s = d.height * k10 / (sprite.bounds.size.y * Mathf.Clamp(l.frame, 0.05f, 1f));
                 go.transform.localScale = Vector3.one * s;
 
                 var sr = go.AddComponent<SpriteRenderer>();
@@ -131,7 +137,11 @@ public class GoyaDiorama : MonoBehaviour
     void LateUpdate()
     {
         if (gallery == null) return;
-        float appear = gallery.appear;
+        // No se ve desde el principio: aparece de la oscuridad recien al llegar al final del camino
+        float z = gallery.RigPosition.z - gallery.Center.z;
+        float reveal = Mathf.Clamp01((z - (gallery.PathLength - revealBefore)) / Mathf.Max(0.01f, revealLength));
+        reveal = reveal * reveal * (3f - 2f * reveal);
+        float appear = gallery.appear * reveal;
         foreach (var b in built)
         {
             if (b.breathe > 0f)
@@ -140,6 +150,7 @@ public class GoyaDiorama : MonoBehaviour
             Color col = environment != null ? Color.Lerp(Color.white, environment.Fogged(Color.white, b.renderer.transform.position), fog) : Color.white;
             col.a = appear;
             b.renderer.color = col;
+            b.renderer.enabled = appear > 0.001f;
         }
     }
 }

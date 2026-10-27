@@ -8,7 +8,7 @@ Rama: `obras-oscuras` (sale de `cardboard-xr`).
 - **El cabrío arde:** con un brazo levantado y la mano abierta, se prende fuego, se carboniza y se dispersa en brasas.
 - **Un camino para recorrer** (*Path Mode* en **Goya Gallery**): las obras están a los costados de un camino, alternando izquierda y derecha, algunas más cerca y otras más atrás. El camino tiene cinco zonas, una por época y en orden: cartones para tapices, la corte, brujas y disparates, la guerra y las Pinturas Negras (*Zone Length*, 9 m cada una). Caminar hacia adelante es adentrarse en lo oscuro.
 - **Un paisaje como el fondo de La gallina ciega** (**Goya Environment**, se agrega solo): cielo azul con nubes doradas, montañas azuladas a lo lejos, cerros, un lago plateado alrededor y tierra ocre con pasto oscuro por donde va el camino. Todo se genera al empezar, sin imágenes. Zona por zona el paisaje se tiñe (*Zones → Tint*): dorado en la corte, noche azul en las brujas, rojizo en la guerra y casi negro en las Pinturas Negras. Al pasar de una zona a otra cambia de a poco, y lo lejano se pierde en la niebla. Las paredes hechas con pinturas de la versión anterior se pueden volver a prender con *Walls* y *Ground*.
-- **Las obras empiezan como polvo** en el aire. Mirando una obra, con los dos brazos levantados y las manos abiertas se arma. Con los dos puños cerrados se desarma en un remolino de brasas y vuelve a ser polvo, para armarla otra vez si se quiere.
+- **Las obras empiezan invisibles** (no hay polvo ni partículas flotando en el aire; para volver a verlo, subir Air Alpha y prender Dust en Goya Ambience). Mirando hacia donde está una obra, con los dos brazos levantados y las manos abiertas se arma. Con los dos puños cerrados se desarma en un remolino de brasas y vuelve a ser polvo, para armarla otra vez si se quiere.
 - **Todo se apaga al avanzar:** cuanto más adentro del camino, más oscuros se tiñen los cuadros, las auras pasan de dorado a rojo y el sonido ambiente se pone más grave.
 - Si se apaga *Path Mode*, vuelve la galería de 180° con una obra a la vez (*One At A Time*, *Arc Degrees*, *Arc Slots*).
 
@@ -19,7 +19,7 @@ Rama: `obras-oscuras` (sale de `cardboard-xr`).
 | **Levantar una mano** al principio | El cabrío empieza a explicar las reglas |
 | **Un brazo levantado con la mano abierta** (sostenerlo un momento), cuando el cabrío terminó de hablar (si es la misma mano del principio, hay que bajarla antes) | El cabrío se prende fuego y aparece la galería |
 | **Los dos brazos levantados con las manos abiertas**, mirando una obra | Se arma esa obra |
-| **Los dos puños cerrados** (a cualquier altura), mirando una obra | Se desarma en brasas y vuelve a ser polvo |
+| **Los dos puños cerrados** (a cualquier altura), mirando una obra | Se desarma en brasas y vuelve a quedar invisible |
 | **Un dedo levantado** (cualquier mano) | Caminás hacia adelante, hacia donde mirás |
 | **Un dedo levantado en cada mano** | Caminás hacia atrás |
 | **Cruzar los brazos en X** delante del pecho (sostenerlo un segundo y medio) | Vuelve todo a empezar, desde el cabrío. Necesita el tracker con el cuerpo; en la ventana dice "BRAZOS CRUZADOS" |
@@ -55,7 +55,7 @@ Si *Painting Sequence* queda vacía, la galería vuelve a los 3 cuadros de adela
 
 ## Pinturas negras por dentro (dioramas)
 
-Al final del camino, *Saturno devorando a su hijo* ya no está colgada plana: está separada en capas (el fondo oscuro lejos, a 16 m, y Saturno adelante, a 8 m). Desde la entrada se ve como la pintura; al caminar con ↑ las capas se separan y podés llegar hasta al lado de la figura, que respira apenas.
+Al final del camino, *Saturno devorando a su hijo* ya no está colgada plana: está separada en capas (el fondo oscuro lejos, a 16 m, y Saturno adelante, a 8 m). No se ve desde el principio: aparece de la oscuridad recién al final del camino. Desde la entrada se ve como la pintura, pero el fondo sigue más allá del cuadro y se funde con la oscuridad, así que no hay recuadro. Al caminar con ↑ las capas se separan y podés llegar hasta al lado de la figura, que respira apenas.
 
 - Las capas están en `Assets/Resources/Dioramas/` (`saturno_fondo.jpg` y `saturno_figura.png`, del mismo tamaño que la pintura).
 - `GoyaDiorama` (lo agrega solo `GoyaGallery`) tiene la lista: nombre, obra que reemplaza, alto, y cada capa con su imagen y distancia.

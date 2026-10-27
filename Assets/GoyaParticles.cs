@@ -85,7 +85,7 @@ public class GoyaParticles : MonoBehaviour
     [Tooltip("Cuanto se apagan los colores mientras es polvo (0 = colores de la obra, 1 = gris del aire)")]
     [Range(0f, 1f)] public float airGray = 0.9f;
     [Tooltip("Que tanto se ve el polvo antes de armarse (0 = invisible)")]
-    [Range(0f, 1f)] public float airAlpha = 0.1f;
+    [Range(0f, 1f)] public float airAlpha = 0f;
     [Tooltip("Tamaño de las particulas mientras son polvo (multiplica el tamaño normal)")]
     public float airSize = 0.4f;
     [Tooltip("Cuanto se mece el polvo (metros)")]
@@ -182,8 +182,8 @@ public class GoyaParticles : MonoBehaviour
 
                 case EffectState.Floating:
                     if (!together && (forceAll || (gallery.swipeGestures && p.swipe >= gallery.swipeDistance))) { BeginAssemble(e); break; }
-                    // En el camino solo se anima el polvo de las obras cercanas (son muchas)
-                    if (path && Vector3.Distance(p.root.position, gallery.RigPosition) > visibleDistance)
+                    // En el camino solo se anima el polvo de las obras cercanas (son muchas); si es invisible, ninguna
+                    if (airAlpha <= 0f || (path && Vector3.Distance(p.root.position, gallery.RigPosition) > visibleDistance))
                     {
                         if (e.go.activeSelf) e.go.SetActive(false);
                         break;
