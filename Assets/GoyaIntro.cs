@@ -90,6 +90,10 @@ public class GoyaIntro : MonoBehaviour
 
     [Header("Bienvenida: el cabrio explica las reglas")]
     public bool showRules = true;
+    [Tooltip("Frase que se ve hasta que la persona levanta una mano (asi no se pierde las reglas mientras se pone el visor)")]
+    public string startLine = "Levantá una mano\npara empezar.";
+    [Tooltip("Segundos con la mano levantada para que empiecen las reglas")]
+    public float startHoldTime = 0.5f;
     [Tooltip("Frases que dice el cabrio, en orden. La ultima queda fija hasta que se haga el gesto. " +
              "Usar \\n para cortar la linea.")]
     [TextArea(2, 4)]
@@ -100,7 +104,8 @@ public class GoyaIntro : MonoBehaviour
         "Levantá los dos brazos\ncon las manos abiertas\ny aparece una visión.",
         "Cerrá los dos puños\ny la visión se desvanece.",
         "Levantá un dedo para acercarte.\nUn dedo en cada mano para alejarte.",
-        "Levantá un brazo con la mano abierta\npara empezar."
+        "Cruzá los brazos\npara volver a empezar.",
+        "Levantá un brazo con la mano abierta\npara entrar en el sueño."
     };
     [Tooltip("Segundos que se ve cada frase")]
     public float ruleDuration = 4.5f;
@@ -122,6 +127,8 @@ public class GoyaIntro : MonoBehaviour
     Transform rig, pivot;
     Vector3 basePos;
     float touch;
+    float startHeld;
+    bool needRelease;     // hay que bajar la mano con la que se empezo antes del gesto final
     bool armedLeft, armedRight;   // la mano ya apunto al objeto con el puño cerrado
     float waitingSince = -1f;
     TextMesh rulesText;
@@ -215,6 +222,19 @@ public class GoyaIntro : MonoBehaviour
     }
 
     // Devuelve true cuando ya se mostraron todas las frases
+    void ShowStartLine()
+    {
+        if (rulesText == null) return;
+        if (lastRule != -2)
+        {
+            lastRule = -2;
+            rulesText.text = startLine.Replace("\\n", "\n");
+        }
+        Color c = textColor;
+        c.a = textColor.a * (0.75f + 0.25f * Mathf.Sin(Time.time * 2f));   // late suave para llamar la atencion
+        rulesText.color = c;
+    }
+
     bool UpdateRules()
     {
         if (rulesText == null) return true;
@@ -350,7 +370,6 @@ public class GoyaIntro : MonoBehaviour
         float dt = Time.deltaTime;
         if (pivot == null) return;
 
-        if (waitingSince < 0f) waitingSince = Time.time;
         bool leftOpen, rightOpen;
         bool nearL = ProcessHand(hands.Left, cursorLeft, hands.leftColor, out leftOpen);
         bool nearR = ProcessHand(hands.Right, cursorRight, hands.rightColor, out rightOpen);
@@ -359,14 +378,29 @@ public class GoyaIntro : MonoBehaviour
         armedLeft = Arm(armedLeft, hands.Left, nearL, leftOpen);
         armedRight = Arm(armedRight, hands.Right, nearR, rightOpen);
 
-        bool rulesDone = UpdateRules();
-        bool allowed = Time.time - waitingSince >= startGrace && (rulesDone || !waitForRules);
         var body = hands.Body;
         bool armL = HandOSCReceiver.IsRaisedOpen(hands.Left, handHighY) ||
                     (leftOpen && hands.Left.visible && body.visible && body.armLeft > armsUpLevel);
         bool armR = HandOSCReceiver.IsRaisedOpen(hands.Right, handHighY) ||
                     (rightOpen && hands.Right.visible && body.visible && body.armRight > armsUpLevel);
-        bool oneArm = oneArmGesture && (armL || armR);
+
+        // Antes de las reglas: esperar a que la persona levante una mano (Espacio en la PC)
+        if (waitingSince < 0f)
+        {
+            startHeld = (armL || armR) ? startHeld + dt : 0f;
+            ShowStartLine();
+            if (rulesText == null || startHeld >= startHoldTime || Input.GetKeyDown(KeyCode.Space))
+            {
+                waitingSince = Time.time;
+                needRelease = armL || armR;
+            }
+        }
+        if (needRelease && !armL && !armR) needRelease = false;
+
+        bool started = waitingSince >= 0f;
+        bool rulesDone = started && UpdateRules();
+        bool allowed = started && Time.time - waitingSince >= startGrace && (rulesDone || !waitForRules);
+        bool oneArm = oneArmGesture && !needRelease && (armL || armR);
         bool handPose = handGesture &&
                         ((nearL && leftOpen && (armedLeft || !requireFistFirst)) ||
                          (nearR && rightOpen && (armedRight || !requireFistFirst)));

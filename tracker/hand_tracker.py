@@ -14,6 +14,7 @@ Cuerpo (lado = como se ve en la pantalla, que es un espejo):
     /body/tilt             float  inclinacion de costado en grados (+ = hacia la derecha)
     /body/arms             2 floats  altura de cada brazo [izquierdo, derecho]:
                                   0 = muñeca a la altura del hombro, 1 = bien arriba, negativo = abajo
+    /body/cross            int    1 si los brazos estan cruzados en X delante del pecho
     /body/lm               99 floats  (33 puntos del cuerpo x [x, y, z])
 
 La postura inicial se toma sola en los primeros segundos en que se ve el cuerpo.
@@ -118,6 +119,8 @@ class Body:
         self.lean = 0.0
         self.tilt = 0.0
         self.arms = [0.0, 0.0]
+        self.cross = False
+        self.cross_count = 0       # histeresis
         self.pts = None
 
     def recalibrate(self):
@@ -177,6 +180,23 @@ class Body:
             elif lm[wr].visibility <= 0.5 and lm[el].y * h < sh[1]:
                 score = 1.0   # codo arriba del hombro aunque casi no se vea
             arms.append(max(-1.0, min(1.5, score)))
+
+        # Brazos cruzados en X: cada muñeca queda del lado del hombro contrario,
+        # a la altura del pecho o mas arriba, y las muñecas cerca una de la otra
+        crossed = False
+        if min(lm[i].visibility for i in (11, 12, 15, 16)) > 0.5:
+            sh_l, sh_r = lm[11].x, lm[12].x          # hombros (orden anatomico, no de pantalla)
+            wr_l, wr_r = lm[15].x, lm[16].x
+            sides_swapped = (wr_l - wr_r) * (sh_l - sh_r) < 0
+            chest = max(lm[11].y, lm[12].y) * h + ref * 1.2
+            high = lm[15].y * h < chest and lm[16].y * h < chest
+            close = math.dist(px(15), px(16)) < ref * 1.2
+            crossed = sides_swapped and high and close
+        self.cross_count = min(self.cross_count + 1, 4) if crossed else max(self.cross_count - 1, 0)
+        if self.cross_count >= 3:
+            self.cross = True
+        elif self.cross_count == 0:
+            self.cross = False
 
         a = self.smooth
         self.lean = a * lean + (1 - a) * self.lean
@@ -351,6 +371,7 @@ def main():
             sender.emit("/body/lean", round(body.lean, 4))
             sender.emit("/body/tilt", round(body.tilt, 2))
             sender.emit("/body/arms", [round(v, 3) for v in body.arms])
+            sender.emit("/body/cross", 1 if body.cross else 0)
             if body.pts is not None:
                 sender.emit("/body/lm", [round(v, 4) for v in body.pts])
             body_sent = True
@@ -360,7 +381,9 @@ def main():
                 status = "cuerpo: quedate derecho, tomando postura..."
             else:
                 arms_up = sum(1 for v in body.arms if v > 0.3)
-                status = f"cuerpo: inclinacion {body.lean:+.2f}  costado {body.tilt:+.0f}  brazos arriba {arms_up}"
+                status = f"cuerpo: inclinacion {body.lean:+.2f}  brazos arriba {arms_up}"
+                if body.cross:
+                    status += "  BRAZOS CRUZADOS"
             cv2.putText(frame, status, (10, 65), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 200, 255), 2)
         elif body_sent:
             sender.emit("/body/present", 0)

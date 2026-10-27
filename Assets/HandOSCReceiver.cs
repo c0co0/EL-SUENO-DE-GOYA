@@ -15,6 +15,7 @@ using extOSC;
 ///   /body/lean                float (+ = inclinado hacia la camara, - = hacia atras)
 ///   /body/tilt                float (grados de costado)
 ///   /body/arms                2 floats (altura de cada brazo: 0 = hombro, 1 = bien arriba)
+///   /body/cross               int (1 = brazos cruzados en X)
 ///   /body/lm                  99 floats (33 puntos del cuerpo)
 /// </summary>
 public class HandOSCReceiver : MonoBehaviour
@@ -43,6 +44,12 @@ public class HandOSCReceiver : MonoBehaviour
     public bool unlitOnDevice = true;
     public Color leftColor = new Color(0.2f, 0.8f, 1f);
     public Color rightColor = new Color(1f, 0.3f, 0.8f);
+
+    [Header("Reiniciar")]
+    [Tooltip("Cruzar los brazos en X (sostenidos) vuelve a empezar toda la experiencia desde el cabrio")]
+    public bool crossToRestart = true;
+    [Tooltip("Segundos con los brazos cruzados para reiniciar")]
+    public float crossHoldTime = 1.5f;
 
     [Header("Estado (solo lectura, para ver en el Inspector)")]
     public bool leftVisible;
@@ -85,6 +92,7 @@ public class HandOSCReceiver : MonoBehaviour
         public float lean;        // + = hacia adelante, - = hacia atras
         public float tilt;        // grados de costado
         public float armLeft = -1f, armRight = -1f;  // 0 = a la altura del hombro, 1 = bien arriba
+        public bool cross;        // brazos cruzados en X
         public float[] raw = new float[99];
         public float lastDataTime = -10f;
     }
@@ -109,6 +117,7 @@ public class HandOSCReceiver : MonoBehaviour
         receiver.Bind("/body/tilt", OnBodyTilt);
         receiver.Bind("/body/arms", OnBodyArms);
         receiver.Bind("/body/lm", OnBodyLandmarks);
+        receiver.Bind("/body/cross", OnBodyCross);
 
         if (showDebugSpheres)
         {
@@ -221,6 +230,7 @@ public class HandOSCReceiver : MonoBehaviour
     }
 
     float bodyPackets, bodyPacketsSeen;
+    float crossTimer;
 
     void OnBodyPresent(OSCMessage message)
     {
@@ -250,6 +260,12 @@ public class HandOSCReceiver : MonoBehaviour
         }
     }
 
+    void OnBodyCross(OSCMessage message)
+    {
+        if (message.Values.Count == 0) return;
+        lock (lockObj) Body.cross = message.Values[0].IntValue != 0;
+    }
+
     void OnBodyLandmarks(OSCMessage message)
     {
         lock (lockObj)
@@ -270,6 +286,16 @@ public class HandOSCReceiver : MonoBehaviour
             Body.visible = Body.present && Time.time - Body.lastDataTime < dataTimeout;
         }
         bodyVisible = Body.visible;
+
+        // Brazos cruzados sostenidos: recargar la escena (vuelve todo al principio, cabrio incluido)
+        crossTimer = crossToRestart && Body.visible && Body.cross ? crossTimer + Time.deltaTime : 0f;
+        if (crossTimer >= crossHoldTime)
+        {
+            crossTimer = 0f;
+            UnityEngine.SceneManagement.SceneManager.LoadScene(gameObject.scene.buildIndex >= 0
+                ? gameObject.scene.buildIndex : 0);
+            return;
+        }
         bodyLean = Body.lean;
         bodyTilt = Body.tilt;
         armLeft = Body.armLeft;

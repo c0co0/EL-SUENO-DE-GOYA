@@ -4,7 +4,7 @@ Rama: `obras-oscuras` (sale de `cardboard-xr`).
 
 ## Cómo funciona
 
-- **Bienvenida:** el macho cabrío flota adelante y arriba de él aparecen, una por una, frases cortas con las reglas (campo *Lines* de **Goya Intro**, se pueden editar en el Inspector). Hasta que no termina de explicar no se lo puede deshacer (*Wait For Rules*). Se le puede poner voz a cada frase en *Narration*.
+- **Bienvenida:** el macho cabrío flota adelante con la frase "Levantá una mano para empezar" (*Start Line*), así nadie se pierde las reglas mientras se pone el visor. Al levantar una mano, arriba de él aparecen, una por una, frases cortas con las reglas (campo *Lines* de **Goya Intro**, se pueden editar en el Inspector). Hasta que no termina de explicar no se lo puede deshacer (*Wait For Rules*). Se le puede poner voz a cada frase en *Narration*.
 - **El cabrío arde:** con un brazo levantado y la mano abierta, se prende fuego, se carboniza y se dispersa en brasas.
 - **Una obra a la vez:** la obra empieza como polvo casi invisible en el aire. Con los dos brazos levantados y las manos abiertas, el polvo se arma. Con los dos puños cerrados, se desarma en un remolino de brasas que viaja hasta otro lugar al azar de la galería y se arma como la obra siguiente.
 - **Galería de 180°:** las obras aparecen solo adelante y a los costados, nunca atrás (*Arc Degrees*, 5 lugares posibles en *Arc Slots*). La primera aparece adelante.
@@ -15,11 +15,13 @@ Rama: `obras-oscuras` (sale de `cardboard-xr`).
 
 | Gesto | Qué hace |
 |---|---|
-| **Un brazo levantado con la mano abierta** (sostenerlo un momento), cuando el cabrío terminó de hablar | El cabrío se prende fuego y aparece la galería |
+| **Levantar una mano** al principio | El cabrío empieza a explicar las reglas |
+| **Un brazo levantado con la mano abierta** (sostenerlo un momento), cuando el cabrío terminó de hablar (si es la misma mano del principio, hay que bajarla antes) | El cabrío se prende fuego y aparece la galería |
 | **Los dos brazos levantados con las manos abiertas** | Se arma la obra |
 | **Los dos puños cerrados** (a cualquier altura) | Se desarma la obra y se arma la siguiente en otro lugar |
 | **Un dedo levantado** (cualquier mano) | Te acercás a la obra que estás mirando |
 | **Un dedo levantado en cada mano** | Te alejás |
+| **Cruzar los brazos en X** delante del pecho (sostenerlo un segundo y medio) | Vuelve todo a empezar, desde el cabrío. Necesita el tracker con el cuerpo; en la ventana dice "BRAZOS CRUZADOS" |
 
 Los gestos de armar y desarmar hay que sostenerlos un momento (*Gesture Hold Time*) y soltarlos antes de repetirlos. "Levantado" quiere decir que la mano está en la parte de arriba de la imagen de la cámara (*Hand High Y*); si el tracker también ve el cuerpo, alcanza con que el brazo esté arriba del hombro.
 
@@ -54,6 +56,7 @@ Si *Painting Sequence* queda vacía, la galería vuelve a los 3 cuadros de adela
 
 | Tecla / mouse | Qué hace |
 |---|---|
+| **Espacio** | Que el cabrío empiece a explicar (en lugar de levantar la mano) |
 | **I** | Prender fuego al cabrío sin el gesto |
 | **Clic derecho + mover el mouse** | Mirar alrededor |
 | **W / S** o **flechas ↑ / ↓** | Acercarse / alejarse |
