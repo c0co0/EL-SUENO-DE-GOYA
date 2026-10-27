@@ -191,27 +191,31 @@ public class GoyaParticles : MonoBehaviour
         {
             // Cuando el humo ya se desvanecio y paso la pausa, se arma la tanda siguiente
             batchTimer += Time.deltaTime;
-            gallery.ConsumeConjure();   // un conjuro durante el cambio no queda guardado para despues
+            gallery.ConsumeForm();    // un gesto durante el cambio no queda guardado para despues
+            gallery.ConsumeBreak();
             if (batchTimer >= scatterTime + swirlPause) SwapBatch();
             return;
         }
 
-        bool allFloating = true, allReady = true, swiped = forceAll || gallery.ConsumeConjure();
+        bool form = gallery.ConsumeForm(), brk = gallery.ConsumeBreak();
+        bool allFloating = true, allReady = true, swiped = false;
         foreach (var e in effects)
         {
             var p = e.painting;
             if (!p.active) continue;
             if (e.state != EffectState.Floating) allFloating = false;
             if (e.state != EffectState.Idle || !p.revealed || Time.time < e.nextAllowed) allReady = false;
-            if (p.swipe >= gallery.swipeDistance) swiped = true;
+            if (gallery.swipeGestures && p.swipe >= gallery.swipeDistance) swiped = true;
         }
-        if (!swiped || effects.Count == 0) return;
+        if (effects.Count == 0) return;
+        if (!gallery.swipeGestures) foreach (var e in effects) e.painting.swipe = 0f;
+        if (!(forceAll || form || brk || swiped)) return;
 
         if (allFloating)
         {
-            foreach (var e in effects) BeginAssemble(e);
+            if (forceAll || form || swiped) foreach (var e in effects) BeginAssemble(e);
         }
-        else if (allReady && gallery.HasNextBatch())
+        else if (allReady && (forceAll || brk || swiped) && gallery.HasNextBatch())
         {
             batchBreaking = true;
             batchTimer = 0f;

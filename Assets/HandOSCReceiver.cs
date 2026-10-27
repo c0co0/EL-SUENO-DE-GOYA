@@ -10,6 +10,7 @@ using extOSC;
 ///   /hand/Left|Right/present  int
 ///   /hand/Left|Right/open     int
 ///   /hand/Left|Right/lm       63 floats (21 puntos x,y,z)
+///   /hand/Left|Right/fingers  int (dedos estirados sin el pulgar: 0 = puño, 1 = un dedo)
 ///   /body/present             int
 ///   /body/lean                float (+ = inclinado hacia la camara, - = hacia atras)
 ///   /body/tilt                float (grados de costado)
@@ -58,6 +59,7 @@ public class HandOSCReceiver : MonoBehaviour
     {
         public bool present;
         public bool open;
+        public int fingers = -1;     // -1 = el tracker no lo manda (version vieja)
         // Posiciones locales (relativas a este objeto), ya mapeadas al espacio 3D
         public Vector3[] points = new Vector3[21];
         public float[] raw = new float[63];
@@ -101,6 +103,7 @@ public class HandOSCReceiver : MonoBehaviour
         receiver.Bind("/hand/*/lm", OnLandmarks);
         receiver.Bind("/hand/*/open", OnOpen);
         receiver.Bind("/hand/*/present", OnPresent);
+        receiver.Bind("/hand/*/fingers", OnFingers);
         receiver.Bind("/body/present", OnBodyPresent);
         receiver.Bind("/body/lean", OnBodyLean);
         receiver.Bind("/body/tilt", OnBodyTilt);
@@ -183,6 +186,31 @@ public class HandOSCReceiver : MonoBehaviour
         var hand = StateFromAddress(message.Address);
         if (hand == null || message.Values.Count == 0) return;
         lock (lockObj) hand.open = message.Values[0].IntValue != 0;
+    }
+
+    void OnFingers(OSCMessage message)
+    {
+        var hand = StateFromAddress(message.Address);
+        if (hand == null || message.Values.Count == 0) return;
+        lock (lockObj) hand.fingers = message.Values[0].IntValue;
+    }
+
+    /// <summary>Mano visible y cerrada (puño).</summary>
+    public static bool IsFist(HandState h)
+    {
+        return h.visible && !h.open && (h.fingers < 0 || h.fingers == 0);
+    }
+
+    /// <summary>Mano visible con un solo dedo estirado.</summary>
+    public static bool IsOneFinger(HandState h)
+    {
+        return h.visible && !h.open && h.fingers == 1;
+    }
+
+    /// <summary>Mano visible, abierta y levantada (la muñeca en la parte de arriba de la imagen de la camara).</summary>
+    public static bool IsRaisedOpen(HandState h, float highY)
+    {
+        return h.visible && h.open && h.raw[1] < highY;
     }
 
     void OnPresent(OSCMessage message)

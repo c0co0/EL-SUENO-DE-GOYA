@@ -5,6 +5,7 @@ Mensajes OSC (por cada mano, <lado> = Left o Right):
     /hand/<lado>/present   int    1 si la mano esta detectada, 0 si se perdio
     /hand/<lado>/open      int    1 si la mano esta abierta, 0 si no
     /hand/<lado>/lm        63 floats  (21 landmarks x [x, y, z])
+    /hand/<lado>/fingers   int    dedos estirados sin contar el pulgar (0 = puño, 1 = un dedo...)
 
 Cuerpo (lado = como se ve en la pantalla, que es un espejo):
     /body/present          int    1 si se ve el cuerpo
@@ -314,6 +315,7 @@ def main():
 
             sender.emit(f"/hand/{name}/present", 1)
             sender.emit(f"/hand/{name}/open", 1 if slot.open else 0)
+            sender.emit(f"/hand/{name}/fingers", slot.fingers)
             sender.emit(f"/hand/{name}/lm", [round(v, 4) for v in slot.pts])
 
             mp_draw.draw_landmarks(frame, lms, mp_hands.HAND_CONNECTIONS)
@@ -331,6 +333,7 @@ def main():
                 if now - slot.last_seen < args.hold:
                     sender.emit(f"/hand/{name}/present", 1)
                     sender.emit(f"/hand/{name}/open", 1 if slot.open else 0)
+                    sender.emit(f"/hand/{name}/fingers", slot.fingers)
                     sender.emit(f"/hand/{name}/lm", [round(v, 4) for v in slot.pts])
                 else:
                     sender.emit(f"/hand/{name}/present", 0)

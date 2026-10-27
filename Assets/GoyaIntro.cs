@@ -4,10 +4,9 @@ using UnityEngine;
 /// <summary>
 /// Introduccion de la experiencia:
 ///  1. Tu objeto de Blender flota delante de la persona (gira lento y respira) y la recibe:
-///     arriba de el aparecen, una por una, las reglas de la experiencia ("Rules").
-///  2. Gesto para deshacerlo: apuntarlo con el PUÑO CERRADO y despues ABRIR la mano,
-///     manteniendola abierta sobre el objeto un momento. Asi no se deshace con cualquier
-///     movimiento de manos. El objeto tiembla y crece mientras se carga el gesto.
+///     arriba de el aparecen, una por una, las reglas de la experiencia ("Lines").
+///  2. Gesto para deshacerlo: levantar UN BRAZO con la MANO ABIERTA y sostenerlo un momento.
+///     El objeto tiembla y crece mientras se carga el gesto, y despues se prende fuego.
 ///  3. Mientras las particulas se dispersan, la galeria de cuadros aparece de a poco.
 ///
 /// Ponelo en el objeto "Galeria". Arrastra tu modelo (ya puesto en la escena) en "Intro Object".
@@ -31,19 +30,12 @@ public class GoyaIntro : MonoBehaviour
     public HandOSCReceiver hands;
     public GoyaGallery gallery;
 
-    [Header("Gesto con las manos extendidas")]
-    [Tooltip("Deshacer al cabrio extendiendo las dos manos abiertas hacia el (no hace falta apuntar)")]
-    public bool openHandsGesture = true;
-
-    [Header("Gesto con el cuerpo (necesita el tracker con el cuerpo)")]
-    [Tooltip("Deshacer al cabrio levantando los dos brazos e inclinandose un poco hacia adelante")]
-    public bool bodyGesture = true;
-    [Tooltip("Que tan arriba tienen que estar los brazos (0 = a la altura del hombro, 1 = bien arriba)")]
+    [Header("Gesto para empezar: un brazo levantado con la mano abierta")]
+    public bool oneArmGesture = true;
+    [Tooltip("Que tan arriba tiene que estar la mano en la imagen de la camara (0 = borde de arriba, 1 = borde de abajo)")]
+    [Range(0f, 1f)] public float handHighY = 0.45f;
+    [Tooltip("Si el tracker ve el cuerpo, el brazo levantado tambien cuenta aunque la mano quede baja en la imagen (0 = hombro, 1 = bien arriba)")]
     public float armsUpLevel = 0.6f;
-    [Tooltip("Cuanto hay que inclinarse hacia adelante (0.05 = un poco)")]
-    public float leanForward = 0.05f;
-    [Tooltip("Si no se detecta la inclinacion, alcanza con sostener los brazos arriba estos segundos (0 = siempre hace falta inclinarse)")]
-    public float armsOnlyTime = 3f;
 
     [Header("Toque con la mano")]
     [Tooltip("Deshacer al cabrio apuntandolo con la mano (ademas del gesto con el cuerpo)")]
@@ -101,16 +93,14 @@ public class GoyaIntro : MonoBehaviour
     [Tooltip("Frases que dice el cabrio, en orden. La ultima queda fija hasta que se haga el gesto. " +
              "Usar \\n para cortar la linea.")]
     [TextArea(2, 4)]
-    public string[] rules =
+    public string[] lines =
     {
         "Bienvenido al sueño de Goya.",
-        "Soy el Gran Cabrón.\nTe voy a mostrar sus visiones.",
-        "Sus visiones están en el aire.\nBarré con la mano abierta y aparecen.",
-        "Barré una visión y se hará brasa,\nque viaja a otro lugar a tu alrededor.",
-        "Levantá los brazos para invocar\nla visión siguiente.",
-        "Inclinate hacia adelante para acercarte,\nhacia atrás para alejarte.",
-        "Cuanto más te muevas,\nmás oscuro será el sueño.",
-        "Extendé las dos manos abiertas\nhacia mí para empezar."
+        "Soy el macho cabrío.\nTe voy a mostrar sus visiones.",
+        "Levantá los dos brazos\ncon las manos abiertas\ny aparece una visión.",
+        "Cerrá los dos puños\ny la visión se desvanece.",
+        "Levantá un dedo para acercarte.\nUn dedo en cada mano para alejarte.",
+        "Levantá un brazo con la mano abierta\npara empezar."
     };
     [Tooltip("Segundos que se ve cada frase")]
     public float ruleDuration = 4.5f;
@@ -119,7 +109,7 @@ public class GoyaIntro : MonoBehaviour
     public Color textColor = new Color(1f, 0.92f, 0.8f, 1f);
     [Tooltip("Tamaño de las letras")]
     public float textSize = 0.012f;
-    [Tooltip("Voz opcional para cada frase (mismo orden que Rules). Puede quedar vacio.")]
+    [Tooltip("Voz opcional para cada frase (mismo orden que Lines). Puede quedar vacio.")]
     public AudioClip[] narration;
 
     [Header("Pruebas")]
@@ -132,7 +122,6 @@ public class GoyaIntro : MonoBehaviour
     Transform rig, pivot;
     Vector3 basePos;
     float touch;
-    float armsHeld;
     bool armedLeft, armedRight;   // la mano ya apunto al objeto con el puño cerrado
     float waitingSince = -1f;
     TextMesh rulesText;
@@ -200,7 +189,7 @@ public class GoyaIntro : MonoBehaviour
         cursorRight = CreateCursor("CursorIntroDer", circle);
 
         PlaceObject();
-        if (showRules && rules != null && rules.Length > 0) CreateRulesText();
+        if (showRules && lines != null && lines.Length > 0) CreateRulesText();
     }
 
     // ---------------------------------------------------------------- reglas
@@ -231,14 +220,14 @@ public class GoyaIntro : MonoBehaviour
         if (rulesText == null) return true;
 
         float elapsed = Time.time - waitingSince;
-        int last = rules.Length - 1;
+        int last = lines.Length - 1;
         int index = Mathf.Min(last, Mathf.FloorToInt(elapsed / Mathf.Max(0.5f, ruleDuration)));
         float local = elapsed - index * ruleDuration;
 
         if (index != lastRule)
         {
             lastRule = index;
-            rulesText.text = rules[index].Replace("\\n", "\n");
+            rulesText.text = lines[index].Replace("\\n", "\n");
             if (narration != null && index < narration.Length && narration[index] != null)
                 AudioSource.PlayClipAtPoint(narration[index], basePos, soundVolume);
         }
@@ -373,14 +362,15 @@ public class GoyaIntro : MonoBehaviour
         bool rulesDone = UpdateRules();
         bool allowed = Time.time - waitingSince >= startGrace && (rulesDone || !waitForRules);
         var body = hands.Body;
-        bool armsUp = bodyGesture && body.visible && body.armLeft > armsUpLevel && body.armRight > armsUpLevel;
-        armsHeld = armsUp ? armsHeld + dt : 0f;
-        bool bodyPose = armsUp && (body.lean > leanForward || (armsOnlyTime > 0f && armsHeld >= armsOnlyTime));
+        bool armL = HandOSCReceiver.IsRaisedOpen(hands.Left, handHighY) ||
+                    (leftOpen && hands.Left.visible && body.visible && body.armLeft > armsUpLevel);
+        bool armR = HandOSCReceiver.IsRaisedOpen(hands.Right, handHighY) ||
+                    (rightOpen && hands.Right.visible && body.visible && body.armRight > armsUpLevel);
+        bool oneArm = oneArmGesture && (armL || armR);
         bool handPose = handGesture &&
                         ((nearL && leftOpen && (armedLeft || !requireFistFirst)) ||
                          (nearR && rightOpen && (armedRight || !requireFistFirst)));
-        bool openHands = openHandsGesture && hands.Left.visible && hands.Right.visible && leftOpen && rightOpen;
-        bool touching = allowed && (openHands || bodyPose || handPose);
+        bool touching = allowed && (oneArm || handPose);
 
         touch = touching ? touch + dt : Mathf.Max(0f, touch - dt * 2f);
         float progress = Mathf.Clamp01(touch / touchHoldTime);

@@ -4,36 +4,28 @@ Rama: `obras-oscuras` (sale de `cardboard-xr`).
 
 ## Cómo funciona
 
-- **Bienvenida:** el cabrío flota adelante y arriba de él aparecen, una por una, las reglas (campo *Rules* de **Goya Intro**, se pueden editar en el Inspector). Hasta que no termina de explicar no se lo puede deshacer (*Wait For Rules*). Se le puede poner voz a cada frase en *Narration*. La tecla **I** saltea todo.
-- **Las obras están en el aire:** después de la cabra, las obras son polvo casi invisible, desparramado y mezclado con el aire (*Assemble From Dust* en **Goya Gallery**). Al barrer cualquiera con la mano abierta, se arman todas, al revés de cuando se desarman.
-- **Una obra a la vez** (*One At A Time* en **Goya Gallery**): se ve una sola obra. Al barrerla (o con el conjuro de los brazos) se desarma en un remolino de brasas rojas, y las brasas viajan por el aire, rodeándote, hasta un lugar al azar del anillo de 360° (*Ring Slots*, 8 lugares), donde se arman como la obra siguiente de la lista. Las obras siguen el orden de las épocas. La última ya no se desarma (Backspace vuelve a empezar).
-- **Tandas por época** (si se apaga *One At A Time*): un barrido desarma todas las obras de la tanda juntas y la tanda siguiente aparece alrededor de donde estás mirando. Cada época se reparte en 2 tandas (*Batches Per Epoch*) y nunca se mezclan.
-- **Una sola lista ordenada** (*Painting Sequence*, en el objeto **Galeria**), agrupada por época. *Epoch Sizes* dice cuántas obras tiene cada época, en orden. Si se apaga *Change All Together*, vuelve el modo anterior: anillo de 360° donde cada obra se desarma sola y se rearma como la siguiente.
-- **El movimiento acelera la caída:** cuanto más se mueven las manos, sube la oscuridad y el viento se lleva más fuerte las partículas. En el modo de a una obra, con las manos muy agitadas puede saltear una de la lista (*Max Skip*).
-- **Todo se apaga con el recorrido:** a medida que avanza la lista (o con mucho movimiento), los cuadros se tiñen más oscuros, las auras pasan de dorado a rojo, el polvo se vuelve gris y el sonido ambiente se pone más grave.
+- **Bienvenida:** el macho cabrío flota adelante y arriba de él aparecen, una por una, frases cortas con las reglas (campo *Lines* de **Goya Intro**, se pueden editar en el Inspector). Hasta que no termina de explicar no se lo puede deshacer (*Wait For Rules*). Se le puede poner voz a cada frase en *Narration*.
+- **El cabrío arde:** con un brazo levantado y la mano abierta, se prende fuego, se carboniza y se dispersa en brasas.
+- **Una obra a la vez:** la obra empieza como polvo casi invisible en el aire. Con los dos brazos levantados y las manos abiertas, el polvo se arma. Con los dos puños cerrados, se desarma en un remolino de brasas que viaja hasta otro lugar al azar de la galería y se arma como la obra siguiente.
+- **Galería de 180°:** las obras aparecen solo adelante y a los costados, nunca atrás (*Arc Degrees*, 5 lugares posibles en *Arc Slots*). La primera aparece adelante.
+- **Lista ordenada por épocas** (*Painting Sequence*, en el objeto **Galeria**). La última obra ya no se desarma (Backspace vuelve a empezar).
+- **Todo se apaga con el recorrido:** a medida que avanza la lista (o con mucho movimiento de manos), los cuadros se tiñen más oscuros, las auras pasan de dorado a rojo y el sonido ambiente se pone más grave.
 
 ## Gestos
 
 | Gesto | Qué hace |
 |---|---|
-| **Extender las dos manos abiertas** hacia el cabrío (sostenerlo un segundo), cuando terminó de hablar. También sirve levantar los dos brazos (con una leve inclinación, o sostenidos unos 4 segundos) | El cabrío se prende fuego, se carboniza y se dispersa en brasas; después aparece la primera obra |
-| **Barrer** donde está la obra con la **mano abierta** (moverla de lado a lado, el cursor se pone naranja) | El polvo se arma en la obra |
-| **Barrer** la obra armada | Se hace brasa, viaja por el aire y se arma la siguiente en otro lugar |
-| **Apuntar una obra y cerrar el puño** (mantenerlo) | Te acercás a esa obra mientras el puño siga cerrado; al soltarlo te quedás ahí |
-| **Dos puños cerrados** | Te alejás |
-| **Inclinarte hacia adelante** (hacia la cámara) | Avanzás hacia donde mirás; cuanto más te inclinás, más rápido |
-| **Echarte hacia atrás** | Retrocedés |
-| **Levantar los dos brazos** y sostenerlos un segundo | Conjuro: arma la tanda, o la desvanece y llega la siguiente (igual que barrer). Hay que bajarlos para hacer otro |
+| **Un brazo levantado con la mano abierta** (sostenerlo un momento), cuando el cabrío terminó de hablar | El cabrío se prende fuego y aparece la galería |
+| **Los dos brazos levantados con las manos abiertas** | Se arma la obra |
+| **Los dos puños cerrados** (a cualquier altura) | Se desarma la obra y se arma la siguiente en otro lugar |
+| **Un dedo levantado** (cualquier mano) | Te acercás a la obra que estás mirando |
+| **Un dedo levantado en cada mano** | Te alejás |
 
-### Cuerpo
+Los gestos de armar y desarmar hay que sostenerlos un momento (*Gesture Hold Time*) y soltarlos antes de repetirlos. "Levantado" quiere decir que la mano está en la parte de arriba de la imagen de la cámara (*Hand High Y*); si el tracker también ve el cuerpo, alcanza con que el brazo esté arriba del hombro.
 
-El tracker ahora sigue también el cuerpo con la misma cámara. Al arrancar, quedate derecho unos segundos frente a la cámara: toma esa postura como punto de partida (en la ventana dice "tomando postura..."). Si te movés de lugar, apretá **C** en la ventana del tracker para tomarla de nuevo. La inclinación se mide por cuánto más grandes se ven los hombros, así que la cámara tiene que verte por lo menos de la cintura para arriba.
+En la ventana del tracker, al lado de cada mano dice si está abierta o cerrada y cuántos dedos ve entre paréntesis: 0 = puño, 1 = un dedo, 3 o más = abierta.
 
-Si la computadora va lenta con manos y cuerpo, se puede correr solo con manos: `py -3.12 hand_tracker.py --no-body`.
-
-Las manos y el puntero giran con la cabeza, así se pueden tocar las obras de atrás. No se puede salir del anillo ni acercarse a menos de 70 cm de las obras (*Min Distance To Paintings*).
-
-Colores del cursor: blanco o color de la mano = apuntando, verde = mano abierta, naranja = barriendo.
+Los gestos viejos (barrer, puño para acercarse, inclinarse) quedaron apagados y se pueden volver a prender en **Goya Gallery**: *Swipe Gestures*, *Fist Walk* y *Lean Walk*.
 
 ## Las obras ya cargadas
 
@@ -62,19 +54,18 @@ Si *Painting Sequence* queda vacía, la galería vuelve a los 3 cuadros de adela
 
 | Tecla / mouse | Qué hace |
 |---|---|
-| **I** | Saltear la intro de la cabra |
+| **I** | Prender fuego al cabrío sin el gesto |
 | **Clic derecho + mover el mouse** | Mirar alrededor |
-| **W / S** o **flechas ↑ / ↓** | Acercarse / alejarse (con clic izquierdo sobre una obra, ↑ va hacia esa obra) |
+| **W / S** o **flechas ↑ / ↓** | Acercarse / alejarse |
 | **Flechas ← / →** | Girar |
-| **Mantener E** mirando una obra | Barrerla (apunta al centro de la pantalla): arma la tanda, o la desarma y pasa a la siguiente |
-| **Mantener clic izquierdo** sobre una obra + **↑** | Acercarse a esa obra |
-| **T** | Lo mismo que barrer, sin apuntar |
+| **E** | Armar la obra, o desarmarla y pasar a la siguiente |
+| **T** | Lo mismo que E |
 | **O** | Sumar oscuridad (+25 %) |
 | **V** | Cambiar entre pantalla partida (visor) y una sola cámara |
 | **R** | Recentrar la vista |
 | **Backspace** | Volver todo al principio |
 
-Con el tracker de Python corriendo, las manos funcionan además del mouse.
+Con el tracker de Python corriendo, las manos funcionan además del teclado.
 
 ## Valores para ajustar
 
@@ -84,7 +75,8 @@ Con el tracker de Python corriendo, las manos funcionan además del mouse.
 | Batch Spacing | Goya Gallery | Grados entre las obras de una tanda |
 | Change All Together | Goya Gallery | Si un barrido cambia todas las obras juntas o de a una |
 | Break Wave Time, Scatter Time, Reform Time, Reform Spread | Goya Particles | Qué tan lento se desarma, cuánto flota el humo y qué tan lento se arma la tanda siguiente |
-| One At A Time, Ring Slots | Goya Gallery | Una obra a la vez y en cuántos lugares del anillo puede aparecer |
+| One At A Time, Arc Degrees, Arc Slots | Goya Gallery | Una obra a la vez, cuántos grados tiene la galería y en cuántos lugares puede aparecer |
+| Hand High Y, Gesture Hold Time | Goya Gallery | Qué tan arriba tiene que estar la mano para contar como levantada, y cuánto sostener los gestos |
 | Ember Smoke, Ember Alpha, Swirl, Swirl Pause | Goya Particles | Color y visibilidad de las brasas, cuánto gira el remolino y cuánto tiempo extra gira antes de viajar |
 | Travel, Travel Arc | Goya Particles | Que las brasas viajen hasta la obra siguiente, y cuánto suben en el camino |
 | Burn, Burn Time, Fire Rate, Fire Color, Ember Color | Goya Intro | Fuego del cabrío: si arde, cuánto tiempo, cuántas llamas y sus colores |
@@ -92,14 +84,13 @@ Con el tracker de Python corriendo, las manos funcionan además del mouse.
 | Max Skip | Goya Gallery | Cuántas obras puede saltear si las manos se mueven mucho (0 = nunca) |
 | Move Speed, Fist Hold Time | Goya Gallery | Velocidad al acercarse y cuánto hay que sostener el puño antes de moverse |
 | Movement For Full Dark, Dark Tint | Goya Gallery | Cuánto movimiento oscurece del todo y a qué color |
-| Body Gesture, Arms Up Level, Lean Forward, Touch Hold Time | Goya Intro | Gesto para deshacer al cabrío: qué tan arriba los brazos, cuánto inclinarse y cuánto sostenerlo. *Hand Gesture* vuelve a activar el gesto viejo del puño |
+| One Arm Gesture, Hand High Y, Arms Up Level, Touch Hold Time | Goya Intro | Gesto para prender fuego al cabrío: qué tan arriba la mano o el brazo, y cuánto sostenerlo. *Hand Gesture* vuelve a activar el gesto viejo del puño |
 | Swipe Speed, Swipe Distance | Goya Gallery | Qué tan rápido y cuánto recorrido de mano abierta hace falta para desarmar una obra (más bajo = más fácil) |
 | Auto Break, Auto Break Agitation | Goya Particles | Que las obras se desarmen solas con las manos muy agitadas (apagado por defecto) |
 | Particle Count | Goya Particles | Partículas por obra (4000). Bajarlo (por ejemplo a 2500) si el celular anda lento con 8 obras flotando |
 | Air Spread, Air Depth, Air Gray, Air Alpha, Air Size | Goya Particles | Qué tan desparramado, profundo, gris, visible y grande es el polvo antes de armarse (Air Alpha 0 = invisible) |
-| Lean To Walk, Lean Forward, Lean Back | Goya Gallery | Moverse inclinándose, y cuánto hay que inclinarse para avanzar o retroceder |
-| Arms Conjure, Arms Up Level, Arms Hold Time | Goya Gallery | Conjuro con los brazos, qué tan arriba y cuánto tiempo sostenerlos |
-| Rules, Rule Duration, Wait For Rules | Goya Intro | Frases del cabrío, segundos por frase, y si hay que esperar a que termine |
+| Lean Walk, Lean Forward, Lean Back | Goya Gallery | Moverse inclinándose (apagado), y cuánto hay que inclinarse |
+| Lines, Rule Duration, Wait For Rules | Goya Intro | Frases del cabrío, segundos por frase, y si hay que esperar a que termine |
 
 ## Lo que no se pudo probar
 

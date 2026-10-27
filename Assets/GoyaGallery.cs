@@ -49,10 +49,12 @@ public class GoyaGallery : MonoBehaviour
     public int batchSize = 7;
     [Tooltip("Grados entre las obras de una tanda. Cada tanda aparece alrededor de donde se esta mirando")]
     public float batchSpacing = 55f;
-    [Tooltip("Una obra a la vez, en orden, y cada una aparece en un lugar al azar del anillo de 360 (ignora las epocas por tanda)")]
+    [Tooltip("Una obra a la vez, en orden, y cada una aparece en un lugar al azar de la galeria (ignora las epocas por tanda)")]
     public bool oneAtATime = true;
-    [Tooltip("Lugares posibles alrededor (repartidos en 360 grados) para la obra que aparece")]
-    public int ringSlots = 8;
+    [Tooltip("Grados de la galeria, centrados adelante (180 = de un costado al otro, sin nada atras)")]
+    public float arcDegrees = 180f;
+    [Tooltip("Lugares posibles dentro de la galeria para la obra que aparece")]
+    public int arcSlots = 5;
     [Tooltip("Cuantas obras de la lista puede saltear de golpe si las manos se mueven mucho")]
     public int maxSkip = 1;
 
@@ -65,21 +67,27 @@ public class GoyaGallery : MonoBehaviour
     [Tooltip("Lo mas cerca que se puede llegar a los cuadros (metros)")]
     public float minDistanceToPaintings = 0.7f;
 
+    [Header("Gestos")]
+    [Tooltip("Un dedo levantado (cualquier mano) te acerca a la obra; un dedo en cada mano te aleja")]
+    public bool fingerWalk = true;
+    [Tooltip("Gesto viejo: puño sobre una obra para acercarse, dos puños para alejarse")]
+    public bool fistWalk = false;
+    [Tooltip("Gesto viejo: barrer la obra con la mano abierta para armarla o desarmarla")]
+    public bool swipeGestures = false;
+    [Tooltip("Que tan arriba tiene que estar la mano levantada en la imagen de la camara (0 = borde de arriba, 1 = borde de abajo)")]
+    [Range(0f, 1f)] public float handHighY = 0.45f;
+    [Tooltip("Segundos que hay que sostener los gestos de armar (dos brazos arriba) y desarmar (dos puños)")]
+    public float gestureHoldTime = 0.6f;
+
     [Header("Cuerpo (necesita el tracker con el cuerpo activado)")]
     [Tooltip("Inclinarse hacia la camara para avanzar hacia donde se mira, y echarse atras para retroceder")]
-    public bool leanToWalk = true;
+    public bool leanWalk = false;
     [Tooltip("Cuanto hay que inclinarse hacia adelante para empezar a avanzar (0.1 = hombros 10% mas grandes en la camara)")]
     public float leanForward = 0.1f;
     [Tooltip("Cuanto hay que echarse atras para retroceder (negativo)")]
     public float leanBack = -0.08f;
-    [Tooltip("Levantar los dos brazos (sostenidos) hace el conjuro: arma la tanda o la cambia por la siguiente, igual que barrer")]
-    public bool armsConjure = true;
-    [Tooltip("Que tan arriba tienen que estar los brazos (0 = a la altura del hombro, 1 = bien arriba)")]
+    [Tooltip("Si el tracker ve el cuerpo, un brazo levantado tambien cuenta aunque la mano quede baja en la imagen (0 = hombro, 1 = bien arriba)")]
     public float armsUpLevel = 0.6f;
-    [Tooltip("Segundos con los brazos arriba para que se haga el conjuro")]
-    public float armsHoldTime = 1f;
-    [Tooltip("Conjuro listo para que lo use GoyaParticles (solo lectura)")]
-    public bool conjure;
 
     [Header("Referencias")]
     [Tooltip("Si queda vacio, lo busca solo")]
@@ -191,8 +199,9 @@ public class GoyaGallery : MonoBehaviour
     Painting mousePointed;              // obra apuntada con el mouse (PC)
     float walk;          // velocidad actual, suavizada (-1 atras, 1 adelante)
     Vector3 lastWalkDir = Vector3.forward;
-    float armsTimer;
-    bool armsUsed;      // hay que bajar los brazos antes de otro conjuro
+    float formTimer, breakTimer, fingerTimer;
+    bool formReady, breakReady;          // gesto hecho, listo para que lo use GoyaParticles
+    bool formReleased, breakReleased;    // hay que soltar el gesto antes de repetirlo
 
     void Start()
     {
@@ -287,6 +296,7 @@ public class GoyaGallery : MonoBehaviour
         }
 
         darkSprites = sequence.ToArray();
+        currentSlot = Mathf.Max(2, arcSlots) / 2;   // la primera obra aparece adelante
         ApplyBatch(0, 0f);
         firstDark = nextDark;
     }
@@ -409,10 +419,10 @@ public class GoyaGallery : MonoBehaviour
 
     float RandomSlotAngle()
     {
-        int slots = Mathf.Max(2, ringSlots);
+        int slots = Mathf.Max(2, arcSlots);
         int next = Random.Range(1, slots);           // nunca el mismo lugar
         currentSlot = (currentSlot + next) % slots;
-        return currentSlot * 360f / slots;
+        return -arcDegrees * 0.5f + currentSlot * arcDegrees / (slots - 1);
     }
 
     bool TryTake(Painting p, int i)
@@ -493,8 +503,8 @@ public class GoyaGallery : MonoBehaviour
         if (!allowMove) return;
         float dt = Time.deltaTime;
 
-        bool fistL = hands.Left.visible && !hands.Left.open;
-        bool fistR = hands.Right.visible && !hands.Right.open;
+        bool fistL = fistWalk && hands.Left.visible && !hands.Left.open;
+        bool fistR = fistWalk && hands.Right.visible && !hands.Right.open;
         bool both = fistL && fistR;
 
         // La obra se elige al cerrar el puño y queda fija mientras siga cerrado
@@ -510,9 +520,21 @@ public class GoyaGallery : MonoBehaviour
             else if (walkTarget != null) { wanted = 1f; target = walkTarget; }
         }
 
+        // Un dedo levantado: acercarse a la obra que se esta mirando. Un dedo en cada mano: alejarse
+        if (fingerWalk)
+        {
+            bool oneL = HandOSCReceiver.IsOneFinger(hands.Left), oneR = HandOSCReceiver.IsOneFinger(hands.Right);
+            fingerTimer = (oneL || oneR) ? fingerTimer + dt : 0f;
+            if (fingerTimer >= fistHoldTime)
+            {
+                if (oneL && oneR) wanted = -1f;
+                else { wanted = 1f; target = PaintingInView(); }
+            }
+        }
+
         // Cuerpo: inclinarse hacia adelante avanza hacia donde se mira, echarse atras retrocede
         var body = hands.Body;
-        if (leanToWalk && body.visible && wanted == 0f)
+        if (leanWalk && body.visible && wanted == 0f)
         {
             if (body.lean > leanForward) wanted = Mathf.Clamp01((body.lean - leanForward) / Mathf.Max(0.01f, leanForward));
             else if (body.lean < leanBack) wanted = -Mathf.Clamp01((body.lean - leanBack) / Mathf.Min(-0.01f, leanBack));
@@ -692,7 +714,7 @@ public class GoyaGallery : MonoBehaviour
         pointedRight = ProcessHand(hands.Right, cursorRight, hands.rightColor, speedRight, travelRight);
         ProcessMouse();
         UpdateWalk();
-        UpdateArms();
+        UpdateGestures();
 
         foreach (var p in paintings)
         {
@@ -723,26 +745,53 @@ public class GoyaGallery : MonoBehaviour
         }
     }
 
-    // Al aparecer la galeria (despues del cabrio) hay que bajar los brazos antes del primer conjuro
-    void OnEnable() { armsUsed = true; }
+    // Al aparecer la galeria (despues del cabrio) hay que bajar el brazo antes del primer gesto
+    void OnEnable() { formReleased = breakReleased = false; }
 
-    // Los dos brazos arriba, sostenidos: conjuro (GoyaParticles lo usa como un barrido sobre toda la tanda)
-    void UpdateArms()
+    // Dos brazos levantados con las manos abiertas = armar la obra. Dos puños (a cualquier altura) = desarmarla
+    void UpdateGestures()
     {
         var body = hands.Body;
-        bool up = armsConjure && body.visible && body.armLeft > armsUpLevel && body.armRight > armsUpLevel;
-        if (!up) { armsTimer = 0f; armsUsed = false; return; }
-        if (armsUsed) return;
-        armsTimer += Time.deltaTime;
-        if (armsTimer >= armsHoldTime) { conjure = true; armsUsed = true; }
+        bool upL = HandOSCReceiver.IsRaisedOpen(hands.Left, handHighY) ||
+                   (hands.Left.visible && hands.Left.open && body.visible && body.armLeft > armsUpLevel);
+        bool upR = HandOSCReceiver.IsRaisedOpen(hands.Right, handHighY) ||
+                   (hands.Right.visible && hands.Right.open && body.visible && body.armRight > armsUpLevel);
+        Hold(upL && upR, ref formTimer, ref formReleased, ref formReady);
+        Hold(HandOSCReceiver.IsFist(hands.Left) && HandOSCReceiver.IsFist(hands.Right),
+             ref breakTimer, ref breakReleased, ref breakReady);
+
+        // En la PC, E hace el gesto que corresponda (armar o desarmar)
+        if (!Application.isMobilePlatform && Input.GetKeyDown(KeyCode.E)) formReady = breakReady = true;
     }
 
-    /// <summary>Devuelve true una sola vez por conjuro.</summary>
-    public bool ConsumeConjure()
+    void Hold(bool pose, ref float timer, ref bool released, ref bool ready)
     {
-        bool c = conjure;
-        conjure = false;
-        return c;
+        if (!pose) { timer = 0f; released = true; return; }
+        if (!released) return;
+        timer += Time.deltaTime;
+        if (timer >= gestureHoldTime) { ready = true; released = false; }
+    }
+
+    /// <summary>Devuelve true una sola vez por gesto de armar.</summary>
+    public bool ConsumeForm() { bool r = formReady; formReady = false; return r; }
+
+    /// <summary>Devuelve true una sola vez por gesto de desarmar.</summary>
+    public bool ConsumeBreak() { bool r = breakReady; breakReady = false; return r; }
+
+    // La obra activa mas cerca de donde se mira (o null si ninguna esta adelante)
+    Painting PaintingInView()
+    {
+        Vector3 look = head != null ? head.forward : rig.forward;
+        Painting best = null;
+        float bestDot = 0.5f;   // dentro de unos 60 grados
+        foreach (var p in paintings)
+        {
+            if (!p.active) continue;
+            Vector3 to = (p.root.position - rig.position).normalized;
+            float d = Vector3.Dot(look, to);
+            if (d > bestDot) { bestDot = d; best = p; }
+        }
+        return best;
     }
 
     /// <summary>Lo llama GoyaParticles cuando una obra termina de armarse desde el polvo.</summary>
@@ -762,7 +811,7 @@ public class GoyaGallery : MonoBehaviour
     {
         if (batches.Count > 0)
         {
-            currentSlot = 0;
+            currentSlot = Mathf.Max(2, arcSlots) / 2;
             ApplyBatch(0, oneAtATime ? 0f : ViewYaw());
             darkness = 0f;
             return;
