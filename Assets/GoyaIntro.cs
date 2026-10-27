@@ -101,9 +101,9 @@ public class GoyaIntro : MonoBehaviour
     {
         "Bienvenido al sueño de Goya.",
         "Soy el macho cabrío.\nTe voy a mostrar sus visiones.",
-        "Levantá los dos brazos\ncon las manos abiertas\ny aparece una visión.",
+        "Mirá una visión, levantá los dos brazos\ncon las manos abiertas\ny se va a formar.",
         "Cerrá los dos puños\ny la visión se desvanece.",
-        "Levantá un dedo para acercarte.\nUn dedo en cada mano para alejarte.",
+        "Levantá un dedo para caminar.\nUn dedo en cada mano para volver.",
         "Cruzá los brazos\npara volver a empezar.",
         "Levantá un brazo con la mano abierta\npara entrar en el sueño."
     };
