@@ -163,7 +163,7 @@ public class GoyaOrigins : MonoBehaviour
 
         var go = new GameObject("Origen_" + label);
         go.transform.SetParent(transform, false);
-        go.transform.position = o.baseCenter + Vector3.down * 0.05f;
+        go.transform.position = o.baseCenter + Vector3.down * 0.25f;   // un poco enterrado: sale del pasto
         go.transform.rotation = Quaternion.LookRotation(o.forward);
         go.AddComponent<MeshFilter>().sharedMesh = mesh;
         o.renderer = go.AddComponent<MeshRenderer>();
@@ -220,6 +220,14 @@ public class GoyaOrigins : MonoBehaviour
                 d[x, y] = v;
             }
         return d;
+    }
+
+    /// <summary>Pie de cada arbol o roca (x, y, z) y su ancho (w), para rodearlos de pasto.</summary>
+    public List<Vector4> PropBases()
+    {
+        var list = new List<Vector4>();
+        foreach (var o in all) if (o.renderer != null) list.Add(new Vector4(o.baseCenter.x, o.baseCenter.y, o.baseCenter.z, o.width));
+        return list;
     }
 
     public bool Has(GoyaGallery.Painting p) { return p != null && origins.ContainsKey(p); }

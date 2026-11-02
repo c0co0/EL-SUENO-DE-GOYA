@@ -60,6 +60,7 @@ def arbol_cometa():
     n, lbl, st, _ = cv2.connectedComponentsWithStats((mask > 127).astype(np.uint8))
     main = lbl[800, 420]
     mask = np.where((lbl == main) | (st[lbl, cv2.CC_STAT_AREA] > 1500), mask, 0).astype(np.uint8)
+    mask[790:] = 0   # sin el pedazo de suelo de la pintura: el pie lo pone el pasto del camino
     finish(im, mask, "arbol_cometa", 1.5, 40)
 
 def muro_gatos():

@@ -188,9 +188,16 @@ public class GoyaEnvironment : MonoBehaviour
                 new Vector3(55f, 9f, 55f), Color.white, -38, true);
         // Lago plateado alrededor y franja de tierra ocre por donde va el camino
         AddMesh("Lago", DiscMesh(48), WhiteTexture(), here + Vector3.down * 0.02f, Quaternion.identity, Vector3.one * 60f, lake, -37, true);
-        float pathLen = gallery.WalkLength + 30f;
-        AddMesh("Tierra", QuadMesh(), EarthTexture(), new Vector3(c.x, floorY, c.z + gallery.WalkLength * 0.5f), Quaternion.Euler(90f, 0f, 0f),
-                new Vector3(earthWidth, pathLen, 1f), Color.white, -36, false);
+        // El piso: terreno con lomas y pasto (si falta su shader, la franja de tierra de antes)
+        var terrain = GetComponent<GoyaTerrain>();
+        if (terrain == null) terrain = gameObject.AddComponent<GoyaTerrain>();
+        terrain.Build(gallery, this, floorY);
+        if (!terrain.Ready)
+        {
+            float pathLen = gallery.WalkLength + 30f;
+            AddMesh("Tierra", QuadMesh(), EarthTexture(), new Vector3(c.x, floorY, c.z + gallery.WalkLength * 0.5f), Quaternion.Euler(90f, 0f, 0f),
+                    new Vector3(earthWidth, pathLen, 1f), Color.white, -36, false);
+        }
     }
 
     static Color Smooth(Color a, Color b, float t) { return Color.Lerp(a, b, t * t * (3f - 2f * t)); }
