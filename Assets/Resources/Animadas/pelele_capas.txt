@@ -1,0 +1,3 @@
+pintura 1128 1920
+figura 513 798
+manta 556 1192

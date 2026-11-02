@@ -61,6 +61,14 @@ Al final del camino, *Saturno devorando a su hijo* ya no está colgada plana: es
 - `GoyaDiorama` (lo agrega solo `GoyaGallery`) tiene la lista: nombre, obra que reemplaza, alto, y cada capa con su imagen y distancia.
 - Para sumar otra pintura negra: recortar sus capas con el mismo tamaño, ponerlas en esa carpeta y agregar una entrada a la lista.
 
+## El piso y la profundidad
+
+`GoyaTerrain` (lo agrega solo el ambiente) arma un terreno de verdad: plano en el camino, con lomas a los costados que tapan lo que está detrás, y que baja hasta el lago a lo lejos. Tiene las pinceladas del suelo de *Duelo a garrotazos* y los colores del camino de *La gallina ciega* y la tierra de *La cometa*. Hay matas de pasto: muchas y chicas cerca del camino, menos y más grandes lejos, y alrededor del árbol y las rocas, que quedan un poco enterrados. Lo lejano se aclara con bruma (perspectiva aérea) y todo se oscurece con cada época.
+
+## Una pintura animada: El pelele
+
+Cuando *El pelele* está armado, las mujeres lo tiran con la manta: sale por arriba del cuadro dando vueltas, cae y la manta se hunde (`GoyaAnimated`, se agrega solo). Las capas (fondo sin el pelele, manta y pelele) están en `Assets/Resources/Animadas` y se generan con `tools/paisaje/pelele.py`. Altura del salto, velocidad y giro se ajustan en el componente Goya Animated.
+
 ## De dónde nacen las obras
 
 En el camino hay cuatro elementos recortados de otras pinturas de Goya, uno por época, con volumen (un relieve inflado, no una lámina plana): el árbol de *La cometa*, el muro con los gatos de *Riña de gatos*, la roca de *Ciudad sobre una roca* y el cerro de *Duelo a garrotazos*. Cada uno está donde va una obra de su época (`GoyaOrigins`, se agrega solo).
