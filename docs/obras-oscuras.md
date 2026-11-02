@@ -100,7 +100,7 @@ Desde la mitad de la zona roja hasta Saturno el camino entra en una cueva (`Goya
 - En la entrada hay una antorcha apagada apoyada en una piedra, con un cartel. Con el mismo gesto que arma una obra (los dos brazos arriba con las manos abiertas, o **E** en la PC) cerca de la antorcha, se enciende y queda en la mano (si no hay manos, abajo a la derecha de la vista).
 - Adentro está oscuro: las obras ya están colgadas en las paredes y solo se ven donde llega la luz de la antorcha. No se arman ni se desarman con gestos.
 - Las Pinturas Negras (zona 4) no están al principio: aparecen de a poco en la pared cuando se las alumbra de cerca (`appearDistance`, `appearTime`).
-- Al salir de la cueva está Saturno.
+- Al salir de la cueva aparece un cartel: con el mismo gesto (o **E**) se suelta la antorcha, que cae al piso y se apaga de a poco. Ahí está Saturno.
 - La antorcha alumbra poco (unos 3 m), así que hay que acercarse a cada obra.
 - Se ajusta en el componente `GoyaCave`: dónde empieza (`startZone`, `startAt`), ancho y alto, tamaño de la boca (`mouthScale`, `flareLength`), alto y ancho de la montaña (`mountainHeight`, `mountainWidth`), alcance y color de la luz (`torchRange`, `torchColor`), y cuánta luz hay sin antorcha (`ambient`).
 

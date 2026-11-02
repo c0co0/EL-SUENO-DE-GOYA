@@ -55,7 +55,10 @@ public class GoyaCave : MonoBehaviour
 
     GoyaGallery gallery;
     float z0, z1, floorY, cx;
-    bool built, lit;
+    bool built, lit, dropped;
+    float dropFade = 1f;
+    Vector3 dropAt;
+    TextMesh dropHint;
     int lastGestures;
     readonly List<GoyaGallery.Painting> inside = new List<GoyaGallery.Painting>();
     readonly List<GoyaGallery.Painting> hidden = new List<GoyaGallery.Painting>();
@@ -437,6 +440,21 @@ public class GoyaCave : MonoBehaviour
         hint.anchor = TextAnchor.MiddleCenter;
         hint.alignment = TextAlignment.Center;
         hint.color = new Color(1f, 0.9f, 0.75f, 0f);
+
+        // Cartel para soltarla al salir (va delante de la vista)
+        var d = new GameObject("Antorcha_CartelSoltar");
+        d.transform.SetParent(transform, false);
+        dropHint = d.AddComponent<TextMesh>();
+        dropHint.font = font;
+        d.GetComponent<MeshRenderer>().sharedMaterial = font.material;
+        dropHint.text = "Levantá los dos brazos
+con las manos abiertas
+para soltar la antorcha.";
+        dropHint.fontSize = 48;
+        dropHint.characterSize = 0.008f;
+        dropHint.anchor = TextAnchor.MiddleCenter;
+        dropHint.alignment = TextAlignment.Center;
+        dropHint.color = new Color(1f, 0.9f, 0.75f, 0f);
     }
 
     Transform Box(string label, Vector3 pos, Vector3 size, Color col, Material mat)
@@ -539,8 +557,28 @@ public class GoyaCave : MonoBehaviour
                 if (near) Light();
             }
         }
+        else if (dropped)
+        {
+            // Tirada en el piso: el fuego se va apagando
+            torch.position = Vector3.Lerp(torch.position, dropAt, 1f - Mathf.Exp(-8f * dt));
+            torch.rotation = Quaternion.Slerp(torch.rotation, Quaternion.Euler(0f, 30f, 88f), 1f - Mathf.Exp(-8f * dt));
+            dropFade = Mathf.MoveTowards(dropFade, 0f, dt / 4f);
+            var em = fire.emission; em.rateOverTime = 70f * dropFade * dropFade;
+            if (fireSound != null) fireSound.volume = 0.35f * dropFade;
+            SetLight(fireAt.position, flicker * dropFade);
+            FadeDropHint(false, dt);
+        }
         else
         {
+            // Al salir de la cueva se puede soltar con el mismo gesto (o E en la PC)
+            bool atExit = rig.z > z1 - 1.5f;
+            FadeDropHint(atExit, dt);
+            if (gallery.FormGestures != lastGestures)
+            {
+                lastGestures = gallery.FormGestures;
+                if (atExit) { Drop(); return; }
+            }
+
             // La antorcha en la mano (o, sin manos, abajo a la derecha de la vista)
             Vector3 palm;
             var head = gallery.Head;
@@ -564,6 +602,29 @@ public class GoyaCave : MonoBehaviour
                 if (p.visibility < 1f && Vector3.Distance(fireAt.position, p.root.position) < appearDistance)
                     p.visibility = Mathf.Min(1f, p.visibility + dt / Mathf.Max(0.1f, appearTime));
         }
+    }
+
+    void FadeDropHint(bool show, float dt)
+    {
+        if (dropHint == null) return;
+        var c = dropHint.color;
+        c.a = Mathf.MoveTowards(c.a, show ? 1f : 0f, dt * 1.5f);
+        dropHint.color = c;
+        dropHint.gameObject.SetActive(c.a > 0.001f);
+        var head = gallery.Head;
+        if (head == null || c.a <= 0.001f) return;
+        Vector3 f = head.forward; f.y = 0f; f = f.sqrMagnitude > 0.001f ? f.normalized : Vector3.forward;
+        dropHint.transform.position = head.position + f * 1.6f + Vector3.down * 0.35f;
+        dropHint.transform.rotation = Quaternion.LookRotation(dropHint.transform.position - head.position);
+    }
+
+    /// <summary>Suelta la antorcha: cae al piso y se apaga de a poco.</summary>
+    public void Drop()
+    {
+        if (!lit || dropped) return;
+        dropped = true;
+        Vector3 p = torch.position;
+        dropAt = new Vector3(p.x, floorY + 0.05f, p.z + 0.3f);
     }
 
     void Light()
