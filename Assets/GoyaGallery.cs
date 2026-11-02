@@ -755,7 +755,7 @@ public class GoyaGallery : MonoBehaviour
         cursor.transform.position = cursorPos;
         cursor.transform.rotation = Quaternion.LookRotation(dir);
         bool swiping = swipeAmount > 0f || (nearest != null && nearest.swipe > 0.05f && open);
-        cursor.color = swiping ? new Color(1f, 0.4f, 0.2f) : (open ? Color.green : baseColor);
+        cursor.color = swiping ? new Color(1f, 0.4f, 0.2f) : (Color)new Color32(0x5A, 0x55, 0x0D, 0xFF);
         return nearest;
     }
 

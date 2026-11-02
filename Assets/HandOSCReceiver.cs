@@ -340,8 +340,7 @@ public class HandOSCReceiver : MonoBehaviour
         if (hand.spheres == null) return;
 
         if (hand.material != null)
-            hand.material.color = open ? Color.green : baseColor;
-
+           hand.material.color = new Color32(0x5A, 0x55, 0x0D, 0xFF);
         float t = 1f - Mathf.Exp(-followSpeed * Time.deltaTime);
         for (int i = 0; i < 21; i++)
         {

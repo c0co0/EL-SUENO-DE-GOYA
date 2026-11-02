@@ -475,18 +475,11 @@ MonoBehaviour:
   centerPainting: {fileID: -2767993987867991474, guid: a4d6c79628fd0c54d9ed62ea3a9afa2c, type: 3}
   leftPainting: {fileID: -545039589660142352, guid: e96bc286d87c51b418966579b348b29c, type: 3}
   rightPainting: {fileID: -2269059245698471535, guid: ce41d6e58f713c644ac0da326d43acf3, type: 3}
-  hands: {fileID: 0}
-  appear: 1
-  distance: 2.5
-  sideAngle: 35
-  paintingMaxSize: 1.6
-  centerScale: 1.15
-  reach: 1.6
-  pointerLandmark: 9
-  cursorSize: 0.18
-  revealTime: 1.2
-  forgetSpeed: 0.25
-  veilColor: {r: 0.35, g: 0.35, b: 0.5, a: 0.12}
+  pathMode: 1
+  zoneLength: 9
+  corridorHalfWidth: 1.6
+  pathMoveSpeed: 1.1
+  gestureDistance: 7
   paintingSequence:
   - {fileID: 21300000, guid: 0f3328e1b78849b9b3c1bd68c8d7239f, type: 3}
   - {fileID: 21300000, guid: 6009f98caecb4fab8701f00a22164e0c, type: 3}
@@ -515,6 +508,52 @@ MonoBehaviour:
   - {fileID: 21300000, guid: 3f1d5e4247b7419b93c03ead1d352f1c, type: 3}
   - {fileID: 21300000, guid: 292826353d0a46c798b90ff562615192, type: 3}
   - {fileID: 21300000, guid: 523801bb8f76495c85567fed7a8d6404, type: 3}
+  changeAllTogether: 1
+  epochSizes: 0600000007000000050000000400000005000000i
+  batchesPerEpoch: 2
+  batchSize: 7
+  batchSpacing: 55
+  oneAtATime: 1
+  arcDegrees: 180
+  arcSlots: 5
+  maxSkip: 1
+  allowMove: 1
+  moveSpeed: 0.6
+  fistHoldTime: 0.4
+  minDistanceToPaintings: 0.7
+  fingerWalk: 1
+  fistWalk: 0
+  swipeGestures: 0
+  handHighY: 0.45
+  gestureHoldTime: 0.6
+  leanWalk: 0
+  leanForward: 0.1
+  leanBack: -0.08
+  armsUpLevel: 0.6
+  hands: {fileID: 0}
+  handsFollowHead: 1
+  appear: 1
+  distance: 2.5
+  sideAngle: 35
+  paintingMaxSize: 1.6
+  centerScale: 1.15
+  reach: 1.6
+  pointerLandmark: 9
+  cursorSize: 0.18
+  assembleFromDust: 1
+  revealTime: 1.2
+  forgetSpeed: 0.25
+  swipeSpeed: 0.5
+  swipeDistance: 0.35
+  veilColor: {r: 0.35, g: 0.35, b: 0.5, a: 0.12}
+  darkerPaintings: []
+  darkness: 0
+  movementForFullDark: 30
+  minHandSpeed: 0.15
+  darknessRecovery: 0.004
+  agitationSpeed: 1.5
+  agitation: 0
+  darkTint: {r: 0.6, g: 0.5, b: 0.45, a: 1}
 --- !u!4 &531652564
 Transform:
   m_ObjectHideFlags: 0
@@ -545,7 +584,7 @@ MonoBehaviour:
   gallery: {fileID: 0}
   particleCount: 4000
   particleScale: 1.8
-  touchHoldTime: 0.35
+  visibleDistance: 10
   cooldown: 1
   breakWaveTime: 1.8
   scatterTime: 3.5
@@ -554,6 +593,22 @@ MonoBehaviour:
   drag: 1.2
   reformTime: 3.5
   reformSpread: 1.5
+  emberSmoke: {r: 0.9, g: 0.16, b: 0.05, a: 1}
+  emberAlpha: 0.8
+  swirl: 0.6
+  swirlPause: 0.6
+  travel: 1
+  travelArc: 0.4
+  agitationWind: 2.5
+  autoBreak: 0
+  autoBreakAgitation: 0.75
+  autoBreakTime: 1.5
+  airSpread: 3
+  airDepth: 3
+  airGray: 0.9
+  airAlpha: 0
+  airSize: 0.4
+  airDrift: 0.35
 --- !u!114 &531652566
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -582,6 +637,9 @@ MonoBehaviour:
   reformSound: {fileID: 8300000, guid: 2aaaa5e7c84111d459a25c98383f5753, type: 3}
   ambientVolume: 0.35
   effectsVolume: 0.8
+  darkBackground: {r: 0.01, g: 0.005, b: 0.005, a: 1}
+  darkHaloColor: {r: 0.55, g: 0.08, b: 0.05, a: 1}
+  darkAmbientPitch: 0.8
 --- !u!114 &531652567
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -602,8 +660,14 @@ MonoBehaviour:
   bobAmount: 0.04
   hands: {fileID: 0}
   gallery: {fileID: 0}
+  oneArmGesture: 1
+  handHighY: 0.45
+  armsUpLevel: 0.6
+  handGesture: 0
   touchRadiusFactor: 0.45
   touchHoldTime: 1.2
+  requireFistFirst: 1
+  startGrace: 2
   reach: 1.6
   pointerLandmark: 9
   cursorSize: 0.14
@@ -618,11 +682,32 @@ MonoBehaviour:
   dissolveTime: 4.5
   galleryDelay: 1.2
   galleryFadeTime: 3
+  burn: 1
+  burnTime: 2.5
+  fireRate: 300
+  fireColor: {r: 1, g: 0.5, b: 0.1, a: 1}
+  emberColor: {r: 1, g: 0.3, b: 0.05, a: 1}
   fog: 1
   fogColor: {r: 0.03, g: 0.03, b: 0.06, a: 1}
   fogDensity: 0.22
   dissolveSound: {fileID: 0}
   soundVolume: 0.9
+  showRules: 1
+  startLine: "Levant\xE1 una mano\npara empezar."
+  startHoldTime: 0.5
+  lines:
+  - "Bienvenido al sue\xF1o de Goya."
+  - "Soy el macho cabr\xEDo.\nTe voy a mostrar sus visiones."
+  - "Mir\xE1 una visi\xF3n, levant\xE1 los dos brazos\ncon las manos abiertas\ny se va a formar."
+  - "Cerr\xE1 los dos pu\xF1os\ny la visi\xF3n se desvanece."
+  - "Levant\xE1 un dedo para caminar.\nUn dedo en cada mano para volver."
+  - "Cruz\xE1 los brazos\npara volver a empezar."
+  - "Levant\xE1 un brazo con la mano abierta\npara entrar en el sue\xF1o."
+  ruleDuration: 4.5
+  waitForRules: 1
+  textColor: {r: 1, g: 0.92, b: 0.8, a: 1}
+  textSize: 0.012
+  narration: []
   skipIntro: 0
 --- !u!1 &787862490
 GameObject:
@@ -656,27 +741,21 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::StereoGyroRig
   stereo: 1
   ipd: 0.064
+  lensSeparation: 0.062
   fieldOfView: 75
   monoFieldOfView: 65
   nearClip: 0.03
   farClip: 100
   background: {r: 0.02, g: 0.02, b: 0.04, a: 1}
   recenterDelay: 2
+  accelerometerFallback: 1
+  accelSmoothing: 8
+  tiltDeadZone: 12
+  tiltTurnSpeed: 45
+  invertPitch: 0
+  invertTurn: 0
   mouseSensitivity: 3
   createDebugMarkers: 0
---- !u!114 &787862493
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 787862490}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f08edcb8f4814b71af3765e25a736582, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::CardboardSetup
-  scanOnStart: 1
 --- !u!4 &787862492
 Transform:
   m_ObjectHideFlags: 0
@@ -693,6 +772,19 @@ Transform:
   - {fileID: 1647081608}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &787862493
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 787862490}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f08edcb8f4814b71af3765e25a736582, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CardboardSetup
+  scanOnStart: 1
 --- !u!1 &832575517
 GameObject:
   m_ObjectHideFlags: 0
@@ -792,29 +884,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cdfadef9fed85fb4db32bea36a86ec93, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::HandOSCReceiver
-  port: 5052
-  width: 1
-  height: 0.6
-  depthScale: 1
-  followSpeed: 25
-  dataTimeout: 0.5
-  showDebugSpheres: 1
-  sphereSize: 0.02
-  unlitOnDevice: 1
-  leftColor:
-    r: 0.2
-    g: 0.8
-    b: 1
-    a: 1
-  rightColor:
-    r: 1
-    g: 0.3
-    b: 0.8
-    a: 1
-  leftVisible: 0
-  leftOpen: 0
-  rightVisible: 0
-  rightOpen: 0
 --- !u!114 &1647081610
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -836,12 +905,19 @@ MonoBehaviour:
   showDebugSpheres: 1
   sphereSize: 0.02
   unlitOnDevice: 1
-  leftColor: {r: 0.2, g: 0.8, b: 1, a: 1}
-  rightColor: {r: 1, g: 0.3, b: 0.8, a: 1}
+  leftColor: {r: 0.35220122, g: 0.33276016, b: 0.047624625, a: 1}
+  rightColor: {r: 0.3529412, g: 0.33333334, b: 0.050980393, a: 1}
+  crossToRestart: 1
+  crossHoldTime: 1.5
   leftVisible: 0
   leftOpen: 0
   rightVisible: 0
   rightOpen: 0
+  bodyVisible: 0
+  bodyLean: 0
+  bodyTilt: 0
+  armLeft: 0
+  armRight: 0
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

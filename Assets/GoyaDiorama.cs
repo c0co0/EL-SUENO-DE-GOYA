@@ -49,7 +49,11 @@ public class GoyaDiorama : MonoBehaviour
             layers = new[]
             {
                 new Layer { image = "Dioramas/saturno_fondo", distance = 16f, frame = 0.4168f },
-                new Layer { image = "Dioramas/saturno_figura", distance = 8f, frame = 1f, breathe = 0.012f },
+                // La figura en tres planos: el cuerpo atras (mas oscuro), la cabeza y el hombro en el medio,
+                // y el hijo con las manos adelante. Desde la entrada se ve como la pintura entera.
+                new Layer { image = "Dioramas/saturno_figura_atras", distance = 12f, frame = 1f, breathe = 0.008f },
+                new Layer { image = "Dioramas/saturno_figura_medio", distance = 9f, frame = 1f, breathe = 0.012f },
+                new Layer { image = "Dioramas/saturno_figura_cerca", distance = 6f, frame = 1f, breathe = 0.018f },
             }
         },
     };
@@ -63,13 +67,16 @@ public class GoyaDiorama : MonoBehaviour
     [Range(0f, 1f), Tooltip("Cuanto le afecta la niebla del ambiente")]
     public float fog = 0.6f;
     [Tooltip("Lo mas cerca que se puede llegar a la ultima capa (metros)")]
-    public float minDistanceToLast = 1.5f;
+    public float minDistanceToLast = 0.4f;
+    [Tooltip("Al atravesar una capa (ej: la figura de Saturno) se desvanece a esta distancia, para poder pasar por dentro sin que te tape")]
+    public float passFade = 2.5f;
 
     class Built
     {
         public SpriteRenderer renderer;
         public Vector3 baseScale;
         public float breathe, phase;
+        public bool fadesWhenPassed;
     }
     readonly List<Built> built = new List<Built>();
     GoyaGallery gallery;
@@ -109,6 +116,8 @@ public class GoyaDiorama : MonoBehaviour
             int order = -15 - k * 10;
             // Las capas lejanas primero
             var layers = new List<Layer>(d.layers);
+            float maxDist = 0f;
+            foreach (var ly in d.layers) maxDist = Mathf.Max(maxDist, ly.distance);
             layers.Sort((a, b) => b.distance.CompareTo(a.distance));
             foreach (var l in layers)
             {
@@ -129,7 +138,9 @@ public class GoyaDiorama : MonoBehaviour
                 var sr = go.AddComponent<SpriteRenderer>();
                 sr.sprite = sprite;
                 sr.sortingOrder = order++;
-                built.Add(new Built { renderer = sr, baseScale = go.transform.localScale, breathe = l.breathe, phase = Random.value * 6f });
+                // Todas las capas menos la del fondo se pueden atravesar
+                bool isFarthest = l.distance >= maxDist - 0.001f;
+                built.Add(new Built { renderer = sr, baseScale = go.transform.localScale, breathe = l.breathe, phase = Random.value * 6f, fadesWhenPassed = !isFarthest });
             }
         }
     }
@@ -149,6 +160,12 @@ public class GoyaDiorama : MonoBehaviour
             // Niebla mas suave que en las obras: el fondo es enorme y tiene que leerse desde la entrada
             Color col = environment != null ? Color.Lerp(Color.white, environment.Fogged(Color.white, b.renderer.transform.position), fog) : Color.white;
             col.a = appear;
+            if (b.fadesWhenPassed)
+            {
+                // Al acercarte a la capa se vuelve transparente: la atravesas y entras en la pintura
+                float dz = Mathf.Abs(b.renderer.transform.position.z - gallery.RigPosition.z);
+                col.a *= Mathf.SmoothStep(0f, 1f, dz / Mathf.Max(0.01f, passFade));
+            }
             b.renderer.color = col;
             b.renderer.enabled = appear > 0.001f;
         }

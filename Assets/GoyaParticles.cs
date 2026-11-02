@@ -58,6 +58,8 @@ public class GoyaParticles : MonoBehaviour
     public Color emberSmoke = new Color(0.9f, 0.16f, 0.05f, 1f);
     [Tooltip("Que tan visible queda el remolino de brasas (0 a 1)")]
     [Range(0f, 1f)] public float emberAlpha = 0.8f;
+    [Tooltip("Cuanto se tiñen de color brasa las particulas al desarmarse: 0 = conservan los colores de la obra, 1 = brasa roja (como antes)")]
+    [Range(0f, 1f)] public float emberMix = 0f;
     [Tooltip("Que tan rapido gira el remolino alrededor de cada obra")]
     public float swirl = 0.6f;
     [Tooltip("Segundos extra que gira el remolino antes de viajar hacia la obra siguiente")]
@@ -271,8 +273,10 @@ public class GoyaParticles : MonoBehaviour
             bool wasFlying = e.state == EffectState.Scatter;
             if (!Sample(e)) continue;
             Color32 smoke = emberSmoke;
+            bool keepColors = false;
             if (travel && wasFlying)
             {
+                keepColors = true;
                 // Las brasas del remolino viajan hasta la obra nueva
                 for (int i = 0; i < e.count; i++) e.startPos[i] = e.pos[i];
                 smoke.a = (byte)(255 * emberAlpha);
@@ -283,7 +287,17 @@ public class GoyaParticles : MonoBehaviour
                 AirPositions(e, e.startPos);
                 smoke.a = 0;
             }
-            for (int i = 0; i < e.count; i++) e.fromColor[i] = smoke;
+            for (int i = 0; i < e.count; i++)
+            {
+                if (keepColors)
+                {
+                    // Conservan el color que tenian al desarmarse (mezclado con la brasa segun emberMix)
+                    Color32 c = Color32.Lerp(e.parts[i].startColor, smoke, emberMix);
+                    c.a = smoke.a;
+                    e.fromColor[i] = c;
+                }
+                else e.fromColor[i] = smoke;
+            }
             e.traveling = travel && wasFlying;
             e.painting.renderer.enabled = false;
             e.go.SetActive(true);
@@ -519,7 +533,7 @@ public class GoyaParticles : MonoBehaviour
         float fadeStart = breakWaveTime * 0.5f;
         float k = Mathf.Clamp01((e.t - fadeStart) / Mathf.Max(0.01f, scatterTime - fadeStart));
         float fade = !together ? 1f : (travelNext && travel ? Mathf.Lerp(1f, emberAlpha, k) : 1f - k * k);
-        float dark = together ? Mathf.Clamp01(e.t / Mathf.Max(0.01f, scatterTime * 0.5f)) : 0f;
+        float dark = together ? Mathf.Clamp01(e.t / Mathf.Max(0.01f, scatterTime * 0.5f)) * emberMix : 0f;
         Color32 smoke = emberSmoke;
         Vector3 axis = e.painting.root.position;
         Vector3 towardViewer = -e.painting.root.forward;

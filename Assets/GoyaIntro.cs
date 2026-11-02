@@ -359,7 +359,7 @@ public class GoyaIntro : MonoBehaviour
         cursor.enabled = true;
         cursor.transform.position = origin + dir * Mathf.Max(0.3f, proj > 0f ? proj : distance);
         cursor.transform.rotation = Quaternion.LookRotation(dir);
-        cursor.color = hand.open ? Color.green : baseCol;
+        cursor.color = new Color32(0x5A, 0x55, 0x0D, 0xFF);
 
         open = hand.open;
         return near;
