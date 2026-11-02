@@ -80,6 +80,16 @@ Al armar esa obra, el árbol o la roca se deshace en partículas de sus propios 
 - Las manos ya no se ven como esferas de colores: `GoyaHands` las dibuja como puntitos dorados, con cintas que giran cuando la mano está abierta y levantada.
 - La música de fondo en loop se sacó. La animación de entrar a las obras (`GoyaPortal`) está apagada: se prende con Portals en ese componente.
 
+## La cueva (mitad de la zona de la guerra)
+
+Desde la mitad de la zona roja hasta Saturno el camino entra en una cueva (`GoyaCave.cs`, se arma sola en modo camino). Las paredes tienen el fondo ocre de *El perro* (`Assets/Resources/Paisaje/cueva_pared.jpg`, sale de `tools/paisaje/texturas.py`).
+
+- En la entrada hay una antorcha apagada apoyada en una piedra, con un cartel. Con el mismo gesto que arma una obra (los dos brazos arriba con las manos abiertas, o **E** en la PC) cerca de la antorcha, se enciende y queda en la mano (si no hay manos, abajo a la derecha de la vista).
+- Adentro está oscuro: las obras ya están colgadas en las paredes y solo se ven donde llega la luz de la antorcha. No se arman ni se desarman con gestos.
+- Las Pinturas Negras (zona 4) no están al principio: aparecen de a poco en la pared cuando se las alumbra de cerca (`appearDistance`, `appearTime`).
+- Al salir de la cueva está Saturno.
+- Se ajusta en el componente `GoyaCave`: dónde empieza (`startZone`, `startAt`), ancho y alto, alcance y color de la luz (`torchRange`, `torchColor`), y cuánta luz hay sin antorcha (`ambient`).
+
 ## Sonido
 
 `GoyaSound` (se agrega solo) arma un campo de sonido envolvente que cambia con cada zona del camino:
@@ -92,7 +102,8 @@ Al armar esa obra, el árbol o la roca se deshace en partículas de sus propios 
 | La guerra | retumbe grave | cañones y disparos lejos en el horizonte, tambores |
 | Pinturas negras | drone grave y una respiración | gemidos, latido pegado a vos, Saturno masticando cerca |
 
-- El ambiente sale de 4 fuentes alrededor tuyo (adelante, atrás y costados) que caminan con vos pero no giran con la cabeza: al girar, el sonido queda en su lugar. Entre zonas se funde.
+- El ambiente sale de 4 fuentes alrededor tuyo (adelante, atrás y costados) que caminan con vos pero no giran con la cabeza: al girar, el sonido queda en su lugar. El cambio de zona se nota en pocos pasos (`Zone Blend`), por ejemplo al entrar a la zona roja.
+- En la cueva el ambiente de afuera baja (`Inside Cave`) y suenan eco, gotas y la antorcha encendida.
 - Pasos en la tierra cada 0,7 m que caminás, y el fuego cuando se quema el cabrío.
 - Durante la introducción el ambiente suena más bajo.
 - Los sonidos están sintetizados (`tools/sonidos/generar.py`) en `Assets/Resources/Sonidos`. Para usar grabaciones, reemplazar el `.ogg` por otro con el mismo nombre.

@@ -173,6 +173,7 @@ public class GoyaTerrain : MonoBehaviour
 
     void AddTuft(List<Vector3> verts, List<Vector2> uvs, List<Color> cols, List<int> tris, float x, float z, float size)
     {
+        if (gallery != null && gallery.Cave != null && gallery.Cave.Footprint(x, z)) return;   // adentro de la cueva no hay pasto
         float y = floorY + Height(x, z) - 0.03f;
         int variant = Random.Range(0, 4);
         float patch = Mathf.PerlinNoise(x * 0.18f + 3f, z * 0.18f + 9f);

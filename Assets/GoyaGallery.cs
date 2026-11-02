@@ -179,6 +179,8 @@ public class GoyaGallery : MonoBehaviour
         public int originalIndex = -1; // posicion de la obra original en la lista (galeria 360)
         public bool active = true; // en una tanda mas chica que la mas grande, los cuadros que sobran se apagan
         public int zone;           // zona del camino (epoca)
+        public bool locked;        // en la cueva: no se arma ni se desarma con gestos, se ilumina con la antorcha
+        public float visibility = 1f;   // la cueva la usa para que aparezcan de a poco
     }
 
     public List<Painting> paintings = new List<Painting>();
@@ -219,6 +221,9 @@ public class GoyaGallery : MonoBehaviour
     GoyaEnvironment environment;
     GoyaDiorama diorama;
     GoyaOrigins origins;
+    GoyaCave cave;
+    /// <summary>La cueva de la zona de la guerra (solo en modo camino; si no, null).</summary>
+    public GoyaCave Cave { get { return cave; } }
     /// <summary>De donde nace cada obra (solo en modo camino; si no, null).</summary>
     public GoyaOrigins Origins { get { return origins; } }
 
@@ -357,6 +362,11 @@ public class GoyaGallery : MonoBehaviour
         environment = GetComponent<GoyaEnvironment>();
         if (environment == null) environment = gameObject.AddComponent<GoyaEnvironment>();
         diorama.Build(this);
+
+        // En la mitad de la zona de la guerra empieza la cueva: sus obras quedan en las paredes
+        cave = GetComponent<GoyaCave>();
+        if (cave == null) cave = gameObject.AddComponent<GoyaCave>();
+        cave.Build(this);
 
         // Cada obra nace del suelo, de un arbol o de una roca
         origins = GetComponent<GoyaOrigins>();
@@ -865,7 +875,7 @@ public class GoyaGallery : MonoBehaviour
             veil.a *= 1f + 0.5f * Mathf.Sin(Time.time * 1.5f + p.phase); // el velo "respira"
             Color shown = Color.Lerp(veil, CurrentTint(), t);
             if (environment != null) shown = environment.Fogged(shown, p.root.position);
-            shown.a *= appear;
+            shown.a *= appear * p.visibility;
             p.renderer.color = shown;
         }
     }
@@ -881,13 +891,19 @@ public class GoyaGallery : MonoBehaviour
                    (hands.Left.visible && hands.Left.open && body.visible && body.armLeft > armsUpLevel);
         bool upR = HandOSCReceiver.IsRaisedOpen(hands.Right, handHighY) ||
                    (hands.Right.visible && hands.Right.open && body.visible && body.armRight > armsUpLevel);
+        bool wasForm = formReady;
         Hold(upL && upR, ref formTimer, ref formReleased, ref formReady);
         Hold(HandOSCReceiver.IsFist(hands.Left) && HandOSCReceiver.IsFist(hands.Right),
              ref breakTimer, ref breakReleased, ref breakReady);
 
         // En la PC, E hace el gesto que corresponda (armar o desarmar)
         if (!Application.isMobilePlatform && Input.GetKeyDown(KeyCode.E)) formReady = breakReady = true;
+        if (formReady && !wasForm) FormGestures++;
     }
+
+    /// <summary>Cuantas veces se hizo el gesto de armar (dos brazos arriba, o E): otros scripts miran si cambio (la antorcha de la cueva).</summary>
+    public int FormGestures { get; private set; }
+    public Transform Head { get { return head; } }
 
     void Hold(bool pose, ref float timer, ref bool released, ref bool ready)
     {
@@ -956,6 +972,7 @@ public class GoyaGallery : MonoBehaviour
         }
         foreach (var p in paintings)
         {
+            if (p.locked) continue;   // las de la cueva quedan colgadas
             p.reveal = 0f;
             p.revealed = false;
             p.darkIndex = p.originalIndex;

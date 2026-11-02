@@ -71,13 +71,14 @@ public class GoyaOrigins : MonoBehaviour
         var chosen = new Dictionary<GoyaGallery.Painting, Prop>();
         foreach (var pr in props)
         {
-            var inZone = gallery.paintings.FindAll(p => p.zone == pr.zone && !chosen.ContainsKey(p));
+            var inZone = gallery.paintings.FindAll(p => p.zone == pr.zone && !p.locked && !chosen.ContainsKey(p));
             if (inZone.Count == 0) continue;
             chosen[inZone[inZone.Count / 2]] = pr;
         }
 
         foreach (var p in gallery.paintings)
         {
+            if (p.locked) continue;   // las de la cueva estan en las paredes
             var o = new Origin();
             Vector3 fwd = p.root.forward; fwd.y = 0f; fwd.Normalize();   // la obra mira al camino: forward se aleja
             o.forward = fwd;

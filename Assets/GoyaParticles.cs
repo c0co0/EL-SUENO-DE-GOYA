@@ -229,7 +229,7 @@ public class GoyaParticles : MonoBehaviour
         if (!form && !brk) return;
 
         var target = gallery.PaintingInView(gallery.gestureDistance);
-        if (target == null) return;
+        if (target == null || target.locked) return;   // las de la cueva no se arman ni se desarman
         foreach (var e in effects)
         {
             if (e.painting != target) continue;

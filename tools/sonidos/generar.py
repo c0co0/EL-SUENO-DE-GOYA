@@ -313,6 +313,21 @@ def mastica():
         place(out, c, at); at += rng.uniform(0.35, 0.6)
     return reverb(out, 1.0, 0.2, 3000)
 
+# ------------------------------------------------------------------ cueva
+def cama_cueva(sec=16):
+    tt = t(sec + 2)
+    x = low(brown(sec + 2), 90) * curve(sec + 2, 0.2, 0.5, 1)
+    air = np.zeros(len(tt)); y = noise(sec + 2); c = curve(sec + 2, 0.15, 180, 420); blk = 2048
+    for i in range(0, len(y), blk):
+        fc = c[i]; air[i:i + blk] = band(y[max(0, i - blk): i + blk], fc * 0.95, fc * 1.05)[-len(y[i:i + blk]):]
+    x = x + air * 0.5 * curve(sec + 2, 0.2, 0.2, 1)
+    x = reverb(x, 3.0, 0.6, 1500)[: len(tt)]
+    return loopify(x, 2)
+def gota():
+    n = int(0.25 * SR); tt = np.arange(n) / SR; f = rng.uniform(1300, 2600)
+    y = np.sin(2 * np.pi * np.cumsum(f * (1 + 0.8 * np.exp(-tt / 0.01))) / SR) * np.exp(-tt / 0.04)
+    return reverb(y, 2.8, 0.6, 5000)
+
 # ------------------------------------------------------------------
 if __name__ == "__main__":
     for i in range(6): save(f"pasos_{i+1}", paso(), 0.8)
@@ -332,3 +347,5 @@ if __name__ == "__main__":
     for i in range(3): save(f"zona5_gemido_{i+1}", gemido(), 0.6)
     for i in range(2): save(f"zona5_latido_{i+1}", latido(), 0.8)
     for i in range(3): save(f"zona5_mastica_{i+1}", mastica(), 0.6)
+    for v in range(2): save(f"cueva_cama_{v+1}", cama_cueva(), 0.7, loop=True)
+    for i in range(5): save(f"cueva_gota_{i+1}", gota(), 0.5)

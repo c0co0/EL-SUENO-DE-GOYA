@@ -270,7 +270,7 @@ public class GoyaAmbience : MonoBehaviour
             h.sr.transform.position = p.root.position + p.root.forward * 0.08f;
             h.sr.transform.rotation = p.root.rotation;
             h.sr.transform.localScale = new Vector3(p.halfW * 2f * haloSize, p.halfH * 2f * haloSize, 1f);
-            h.sr.enabled = p.active;
+            h.sr.enabled = p.active && !p.locked;
             float target = haloStrength * Mathf.SmoothStep(0f, 1f, p.reveal);
             h.flash = Mathf.Max(0f, h.flash - Time.deltaTime / 1.8f);
             float a = target + haloStrength * 1.6f * h.flash;

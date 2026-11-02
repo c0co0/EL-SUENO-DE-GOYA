@@ -28,6 +28,11 @@ public class GoyaSound : MonoBehaviour
     [Tooltip("Cada cuantos segundos aparece un sonido suelto (minimo y maximo)")]
     public Vector2 eventInterval = new Vector2(2.5f, 7f);
 
+    [Tooltip("Que tan rapido cambia el ambiente al pasar de una zona a otra (proporcion de la zona; mas chico = cambio mas marcado)")]
+    [Range(0.02f, 0.5f)] public float zoneBlend = 0.08f;
+    [Tooltip("Ambiente de las zonas que se sigue escuchando adentro de la cueva")]
+    [Range(0f, 1f)] public float insideCave = 0.2f;
+
     [Header("Pasos")]
     [Tooltip("Metros entre un paso y otro")]
     public float stepLength = 0.7f;
@@ -46,6 +51,7 @@ public class GoyaSound : MonoBehaviour
         { "gemido",   new Vector4(6f, 12f, -1f, 2f) },
         { "latido",   new Vector4(0.3f, 0.6f, -0.3f, 0f) },
         { "mastica",  new Vector4(1.5f, 3f, 0.5f, 1.5f) },
+        { "gota",     new Vector4(1.5f, 5f, 0.5f, 2.5f) },
     };
 
     class Zone
@@ -57,6 +63,7 @@ public class GoyaSound : MonoBehaviour
 
     readonly List<Zone> zones = new List<Zone>();
     readonly List<AudioClip> stepClips = new List<AudioClip>();
+    Zone cave;   // ambiente de la cueva (aparte de las zonas)
     AudioClip fireLoop, fireStart;
     GameObject ring;
     GoyaGallery gallery;
@@ -88,6 +95,12 @@ public class GoyaSound : MonoBehaviour
             if (n.StartsWith("pasos")) stepClips.Add(c);
             else if (n == "fuego_loop") fireLoop = c;
             else if (n == "fuego_encendido") fireStart = c;
+            else if (n.StartsWith("cueva"))
+            {
+                if (!byZone.ContainsKey(-1)) { byZone[-1] = new Zone(); beds[-1] = new List<AudioClip>(); }
+                if (n.Contains("_cama_")) beds[-1].Add(c);
+                else byZone[-1].clips.Add(c);
+            }
             else if (n.StartsWith("zona") && n.Length > 5 && char.IsDigit(n[4]))
             {
                 int z = n[4] - '1';
@@ -109,7 +122,7 @@ public class GoyaSound : MonoBehaviour
             zone.bed = new AudioSource[list.Count == 0 ? 0 : dirs.Length];
             for (int i = 0; i < zone.bed.Length; i++)
             {
-                var go = new GameObject("Zona" + (kv.Key + 1) + "_" + i);
+                var go = new GameObject((kv.Key < 0 ? "Cueva" : "Zona" + (kv.Key + 1)) + "_" + i);
                 go.transform.SetParent(ring.transform, false);
                 go.transform.localPosition = dirs[i] * ringRadius;
                 var src = Make(go, list[i % list.Count], true);
@@ -121,6 +134,7 @@ public class GoyaSound : MonoBehaviour
                 zone.bed[i] = src;
             }
             zone.timer = Random.Range(eventInterval.x, eventInterval.y);
+            if (kv.Key < 0) { cave = zone; continue; }
             while (zones.Count <= kv.Key) zones.Add(new Zone { bed = new AudioSource[0] });
             zones[kv.Key] = zone;
         }
@@ -159,18 +173,36 @@ public class GoyaSound : MonoBehaviour
         // Zona actual: en el camino segun donde estas; adentro de una obra (portal) se queda la ultima
         bool path = gallery != null && gallery.pathMode && gallery.PathLength > 0f;
         bool inPortal = gallery != null && Mathf.Abs(pos.x - gallery.Center.x) > 500f;
-        if (path && !inPortal) lastZone = gallery.ZoneAt(pos) - 0.5f;   // centro de cada zona = 100% de su ambiente
+        if (path && !inPortal) lastZone = gallery.ZoneAt(pos);
         float level = ambience * master * (IntroRunning() ? introAmbience : 1f);
+        bool inCave = path && !inPortal && gallery.Cave != null && gallery.Cave.Inside(pos);
 
         float dt = Time.deltaTime;
+        if (cave != null)
+        {
+            cave.weight = Mathf.MoveTowards(cave.weight, inCave ? 1f : 0f, dt * 0.7f);
+            foreach (var s in cave.bed) if (s != null) s.volume = cave.weight * level;
+            if (cave.weight > 0.2f && cave.clips.Count > 0)
+            {
+                cave.timer -= dt * 1.5f;
+                if (cave.timer <= 0f)
+                {
+                    cave.timer = Random.Range(eventInterval.x, eventInterval.y);
+                    PlayEvent(cave.clips[Random.Range(0, cave.clips.Count)], pos, cave.weight);
+                }
+            }
+        }
+        float outside = cave != null ? Mathf.Lerp(1f, insideCave, cave.weight) : 1f;
         for (int z = 0; z < zones.Count; z++)
         {
             var zone = zones[z];
-            float target = Mathf.Clamp01(1f - Mathf.Abs(lastZone - z));
-            if (z == 0 && lastZone < 0f) target = 1f;
-            if (z == zones.Count - 1 && lastZone > z) target = 1f;
-            zone.weight = Mathf.MoveTowards(zone.weight, target, dt * 0.5f);
-            foreach (var s in zone.bed) if (s != null) s.volume = zone.weight * level;
+            // Toda la zona suena a si misma; solo cerca del borde se mezcla con la vecina (el cambio se nota)
+            float d = Mathf.Abs(lastZone - (z + 0.5f));
+            float target = Mathf.Clamp01((0.5f + zoneBlend - d) / (2f * zoneBlend));
+            if (z == 0 && lastZone < 0.5f) target = 1f;
+            if (z == zones.Count - 1 && lastZone > z + 0.5f) target = 1f;
+            zone.weight = Mathf.MoveTowards(zone.weight, target, dt * 0.8f);
+            foreach (var s in zone.bed) if (s != null) s.volume = zone.weight * level * outside;
 
             // Sonidos sueltos de la zona, mas seguidos cuanto mas adentro estas
             if (zone.weight > 0.2f && zone.clips.Count > 0)
@@ -179,7 +211,7 @@ public class GoyaSound : MonoBehaviour
                 if (zone.timer <= 0f)
                 {
                     zone.timer = Random.Range(eventInterval.x, eventInterval.y);
-                    PlayEvent(zone.clips[Random.Range(0, zone.clips.Count)], pos, zone.weight);
+                    PlayEvent(zone.clips[Random.Range(0, zone.clips.Count)], pos, zone.weight * outside);
                 }
             }
         }

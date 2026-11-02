@@ -47,8 +47,16 @@ def suelo_goya():
     tile = np.vstack([np.hstack([a, a[:, ::-1]]), np.hstack([a[::-1], a[::-1, ::-1]])])
     return Image.fromarray(np.clip(tile, 60, 255).astype(np.uint8)).resize((512, 256), Image.LANCZOS)
 
+def pared_cueva():
+    """Paredes de la cueva: el fondo ocre de El perro (pintado en una pared de la Quinta del Sordo), repetible."""
+    im = Image.open(os.path.join(OUT, "..", "..", "Obras", "27 El perro.jpg")).convert("RGB")
+    a = np.asarray(im.crop((60, 80, 1120, 1250)).resize((512, 512), Image.LANCZOS), np.float32)
+    tile = np.vstack([np.hstack([a, a[:, ::-1]]), np.hstack([a[::-1], a[::-1, ::-1]])])
+    return Image.fromarray(np.clip(tile, 0, 255).astype(np.uint8)).resize((512, 512), Image.LANCZOS)
+
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
+    pared_cueva().save(os.path.join(OUT, "cueva_pared.jpg"), quality=88)
     suelo_goya().save(os.path.join(OUT, "pinceladas.png"))
     atlas = Image.new("LA", (1024, 256), (0, 0))
     for i in range(4): atlas.paste(mata(), (i * 256, 0))
