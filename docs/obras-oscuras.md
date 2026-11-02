@@ -55,11 +55,18 @@ Si *Painting Sequence* queda vacía, la galería vuelve a los 3 cuadros de adela
 
 ## Pinturas negras por dentro (dioramas)
 
-Al final del camino, *Saturno devorando a su hijo* ya no está colgada plana: está separada en capas (el fondo oscuro lejos, a 16 m, y Saturno adelante, a 8 m). No se ve desde el principio: aparece de la oscuridad recién al final del camino. Desde la entrada se ve como la pintura, pero el fondo sigue más allá del cuadro y se funde con la oscuridad, así que no hay recuadro. Al caminar con ↑ las capas se separan y podés llegar hasta al lado de la figura, que respira apenas.
+Al salir de la cueva, cuatro Pinturas Negras se recorren por dentro, una detrás de otra: *El gran cabrón* (el aquelarre), *Las Parcas*, *El perro* y, al final, *Saturno devorando a su hijo*. Cada una está separada en capas a distintas distancias (el fondo lejos, a 16 m, y las figuras más cerca). Desde la entrada de cada una se ve como la pintura, pero el fondo sigue más allá del cuadro y se funde con la oscuridad, así que no hay recuadro. Al caminar las capas se separan y se pasa entre las figuras, que respiran apenas. Al atravesar el fondo de una se entra en la siguiente; el de Saturno es el final.
 
-- Las capas están en `Assets/Resources/Dioramas/` (`saturno_fondo.jpg` y `saturno_figura.png`, del mismo tamaño que la pintura).
-- `GoyaDiorama` (lo agrega solo `GoyaGallery`) tiene la lista: nombre, obra que reemplaza, alto, y cada capa con su imagen y distancia.
-- Para sumar otra pintura negra: recortar sus capas con el mismo tamaño, ponerlas en esa carpeta y agregar una entrada a la lista.
+| Pintura | Capas (de atrás hacia adelante) |
+|---|---|
+| El gran cabrón | la multitud; el grupo de la derecha y el de la izquierda; el macho cabrío; la muchacha de blanco |
+| Las Parcas | el paisaje con el río; las dos de la izquierda; la de adelante con el hombre atado; los arbustos oscuros |
+| El perro | el campo ocre vacío; el perro; la ladera (el perro asoma detrás) |
+| Saturno | el fondo oscuro; el cuerpo; la cabeza y el hombro; el hijo con las manos |
+
+- No se ven desde el principio: aparecen de la oscuridad recién al llegar a la salida de la cueva.
+- Las capas están en `Assets/Resources/Dioramas/`, del mismo tamaño que la pintura. Las de El gran cabrón, Las Parcas y El perro se generan con `tools/paisaje/dioramas.py` (la imagen de Las Parcas está en `tools/paisaje/fuentes`). *El gran cabrón* sale de una imagen chica (960 px de ancho), así que se ve más blanda que las otras.
+- `GoyaDiorama` (lo agrega solo `GoyaGallery`) tiene la lista: nombre, obra que reemplaza (El perro ya no está en la cueva), alto, y cada capa con su imagen y distancia. Entre una pintura y la siguiente hay 20 m (`spacing`).
 
 ## El piso y la profundidad
 

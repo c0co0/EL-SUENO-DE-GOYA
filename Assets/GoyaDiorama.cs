@@ -2,9 +2,11 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Pinturas negras "por dentro": al final del camino, una pintura separada en capas (fondo y figuras)
+/// Pinturas negras "por dentro": al final del camino, pinturas separadas en capas (fondo y figuras)
 /// puestas a distintas distancias, como un escenario de teatro. Desde la entrada se ve igual que la pintura,
 /// pero al caminar las capas se separan y se puede pasar entre ellas, hasta quedar al lado de las figuras.
+/// Una detras de otra: El gran cabron, Las Parcas, El perro y, al final, Saturno. Al atravesar el fondo de una
+/// se entra en la siguiente. Las capas se generan con tools/paisaje/dioramas.py (Saturno aparte).
 ///
 /// Las capas estan en Assets/Resources/Dioramas (fondo en .jpg, figuras en .png con transparencia),
 /// todas del mismo tamaño que la pintura original, asi coinciden.
@@ -40,6 +42,49 @@ public class GoyaDiorama : MonoBehaviour
 
     public Diorama[] dioramas =
     {
+        // El aquelarre: la multitud atras, adelante el macho cabrio, la muchacha de blanco y los dos grupos de los costados
+        new Diorama
+        {
+            name = "Gran cabron",
+            height = 4.2f,
+            centerOffset = -0.1f,
+            layers = new[]
+            {
+                new Layer { image = "Dioramas/cabron_fondo", distance = 16f, frame = 0.385f },
+                new Layer { image = "Dioramas/cabron_derecha", distance = 12.5f, frame = 1f, breathe = 0.006f },
+                new Layer { image = "Dioramas/cabron_izquierda", distance = 11.5f, frame = 1f, breathe = 0.008f },
+                new Layer { image = "Dioramas/cabron_macho", distance = 8.5f, frame = 1f, breathe = 0.012f },
+                new Layer { image = "Dioramas/cabron_blanca", distance = 5.5f, frame = 1f, breathe = 0.01f },
+            }
+        },
+        // Las Parcas: el rio atras, las figuras que flotan en dos grupos y los arbustos oscuros adelante
+        new Diorama
+        {
+            name = "Las Parcas",
+            height = 5f,
+            centerOffset = 0.8f,
+            layers = new[]
+            {
+                new Layer { image = "Dioramas/parcas_fondo", distance = 16f, frame = 0.3848f },
+                new Layer { image = "Dioramas/parcas_izquierda", distance = 11f, frame = 1f, breathe = 0.012f },
+                new Layer { image = "Dioramas/parcas_derecha", distance = 8.5f, frame = 1f, breathe = 0.015f },
+                new Layer { image = "Dioramas/parcas_arbustos", distance = 5f, frame = 1f },
+            }
+        },
+        // El perro: el campo vacio atras, el perro en el medio y la ladera adelante (el perro asoma detras)
+        new Diorama
+        {
+            name = "El perro",
+            replaces = "27 El perro",
+            height = 8f,
+            centerOffset = 1.8f,
+            layers = new[]
+            {
+                new Layer { image = "Dioramas/perro_fondo", distance = 16f, frame = 0.4547f },
+                new Layer { image = "Dioramas/perro_perro", distance = 10f, frame = 1f, breathe = 0.01f },
+                new Layer { image = "Dioramas/perro_ladera", distance = 7f, frame = 1f },
+            }
+        },
         new Diorama
         {
             name = "Saturno",
@@ -138,9 +183,10 @@ public class GoyaDiorama : MonoBehaviour
                 var sr = go.AddComponent<SpriteRenderer>();
                 sr.sprite = sprite;
                 sr.sortingOrder = order++;
-                // Todas las capas menos la del fondo se pueden atravesar
+                // Todas las capas se pueden atravesar, menos el fondo del ultimo diorama (Saturno)
                 bool isFarthest = l.distance >= maxDist - 0.001f;
-                built.Add(new Built { renderer = sr, baseScale = go.transform.localScale, breathe = l.breathe, phase = Random.value * 6f, fadesWhenPassed = !isFarthest });
+                bool last = k == dioramas.Length - 1;
+                built.Add(new Built { renderer = sr, baseScale = go.transform.localScale, breathe = l.breathe, phase = Random.value * 6f, fadesWhenPassed = !(isFarthest && last) });
             }
         }
     }
