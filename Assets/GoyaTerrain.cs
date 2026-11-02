@@ -27,6 +27,8 @@ public class GoyaTerrain : MonoBehaviour
     public int tufts = 1800;
     [Tooltip("Matas alrededor de cada arbol o roca")]
     public int tuftsPerProp = 45;
+    [Tooltip("Matas al pie de cada obra")]
+    public int tuftsPerPainting = 30;
 
     [Header("Colores (de los fondos de Goya)")]
     public Color path = new Color(0.56f, 0.48f, 0.40f);      // camino de La gallina ciega
@@ -154,6 +156,15 @@ public class GoyaTerrain : MonoBehaviour
                     float a = Random.value * Mathf.PI * 2f;
                     float r = b.w * 0.5f * Mathf.Sqrt(Random.Range(0.15f, 1.1f));
                     AddTuft(verts, uvs, cols, tris, b.x + Mathf.Cos(a) * r, b.z + Mathf.Sin(a) * r * 0.5f, Random.Range(0.35f, 0.8f));
+                }
+        // Al pie de cada obra: tapa la base, como si estuviera clavada en el campo
+        if (gallery.Origins != null)
+            foreach (var b in gallery.Origins.PaintingBases())
+                for (int n = 0; n < tuftsPerPainting; n++)
+                {
+                    float a = Random.value * Mathf.PI * 2f;
+                    float r = Mathf.Sqrt(Random.Range(0.05f, 1f));
+                    AddTuft(verts, uvs, cols, tris, b.x + Mathf.Cos(a) * r * 0.7f, b.z + Mathf.Sin(a) * r * b.w * 0.55f, Random.Range(0.3f, 0.65f));
                 }
 
         grass = new Mesh { indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };

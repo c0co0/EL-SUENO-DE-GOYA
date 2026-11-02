@@ -63,32 +63,39 @@ Al final del camino, *Saturno devorando a su hijo* ya no está colgada plana: es
 
 ## El piso y la profundidad
 
-`GoyaTerrain` (lo agrega solo el ambiente) arma un terreno de verdad: plano en el camino, con lomas a los costados que tapan lo que está detrás, y que baja hasta el lago a lo lejos. Tiene las pinceladas del suelo de *Duelo a garrotazos* y los colores del camino de *La gallina ciega* y la tierra de *La cometa*. Hay matas de pasto: muchas y chicas cerca del camino, menos y más grandes lejos, y alrededor del árbol y las rocas, que quedan un poco enterrados. Lo lejano se aclara con bruma (perspectiva aérea) y todo se oscurece con cada época.
+`GoyaTerrain` (lo agrega solo el ambiente) arma un terreno de verdad: plano en el camino, con lomas a los costados que tapan lo que está detrás, y que baja hasta el lago a lo lejos. Tiene las pinceladas del suelo de *Duelo a garrotazos* y los colores del camino de *La gallina ciega* y la tierra de *La cometa*. Hay matas de pasto: muchas y chicas cerca del camino, menos y más grandes lejos, alrededor de los árboles y al pie de cada obra, que quedan un poco enterrados. Lo lejano se aclara con bruma (perspectiva aérea) y todo se oscurece con cada época.
 
-## Una pintura animada: El pelele
+## Las obras son parte del lugar (relieve)
 
-Cuando *El pelele* está armado, las mujeres lo tiran con la manta: sale por arriba del cuadro dando vueltas, cae y la manta se hunde (`GoyaAnimated`, se agrega solo). Las capas (fondo sin el pelele, manta y pelele) están en `Assets/Resources/Animadas` y se generan con `tools/paisaje/pelele.py`. Altura del salto, velocidad y giro se ajustan en el componente Goya Animated.
+Las obras del camino (antes de la cueva) ya no flotan: están apoyadas en el piso, un poco enterradas entre el pasto, con los bordes gastados y en relieve (`GoyaRelief`, se agrega solo). Las figuras de cada obra (los recortes de `Assets/Resources/Cortes`) sobresalen, el resto es una lámina gruesa que se afina hacia los bordes, con luz y sombra en las pinceladas. Se ajusta en el componente Goya Relief: cuánto sobresalen las figuras (`figureDepth`), el grosor (`baseDepth`), las pinceladas (`detailDepth`), cuánto se comen los bordes (`roughEdge`) y cuánto quedan enterradas (`sink`). Las obras animadas quedan planas (`flat`), porque sus capas van encima.
+
+## Pinturas animadas: El pelele y Vuelo de brujas
+
+- Cuando *El pelele* está armado, las mujeres lo tiran con la manta: sale por arriba del cuadro dando vueltas, cae y la manta se hunde (`GoyaAnimated`). Capas generadas con `tools/paisaje/pelele.py`.
+- Cuando *Vuelo de brujas* está armado, el grupo de brujas que lleva al hombre flota en el cielo: sube y baja despacio, se mece y gira (`GoyaVuelo`). Capas generadas con `tools/paisaje/vuelo.py` a partir del recorte de `Cortes`.
+- Las capas están en `Assets/Resources/Animadas`. Los dos componentes se agregan solos y se ajustan en el Inspector (velocidad, altura, giro).
 
 ## De dónde nacen las obras
 
-En el camino hay cuatro elementos recortados de otras pinturas de Goya, uno por época, con volumen (un relieve inflado, no una lámina plana): el árbol de *La cometa*, el muro con los gatos de *Riña de gatos*, la roca de *Ciudad sobre una roca* y el cerro de *Duelo a garrotazos*. Cada uno está donde va una obra de su época (`GoyaOrigins`, se agrega solo).
+En el paisaje solo hay árboles recortados de pinturas de Goya, con volumen (un relieve inflado, no una lámina plana): el de *La cometa*, el doblado por el viento de *La nevada* y el tronco de *La gallina ciega* (`GoyaOrigins`, se agrega solo). Tres de ellos están donde va una obra (uno por época, en las tres primeras), y otros seis están sueltos en las lomas, algunos espejados para que no se repitan iguales.
 
-Al armar esa obra, el árbol o la roca se deshace en partículas de sus propios colores, que giran en un remolino alrededor de la mano con cintas doradas y forman la pintura: el árbol se transforma en la obra. Al desarmarla vuelve a ser el árbol o la roca. Las demás obras nacen del suelo, con color de tierra.
+Al armar una obra que tiene árbol, el árbol se deshace en partículas de sus propios colores, que giran en un remolino alrededor de la mano con cintas doradas y forman la pintura: el árbol se transforma en la obra. Al desarmarla vuelve a ser el árbol. Las demás obras nacen del suelo, con color de tierra.
 
-- Los recortes están en `Assets/Resources/Paisaje` (se generan con `tools/paisaje/recortar.py`). En el componente Goya Origins se puede cambiar el tamaño, la época y el grosor de cada uno.
+- Los recortes están en `Assets/Resources/Paisaje` (se generan con `tools/paisaje/recortar.py`). En el componente Goya Origins, `Props` son los árboles que van con una obra y `Trees` los sueltos: se puede cambiar el tamaño, la época, el lugar, el grosor y el espejado de cada uno.
 - Ajustes en Goya Particles, sección Remolino: Vortex (prender/apagar), Vortex Size, Vortex Speed, Toward Hand, Vortex Ribbons, Streak.
 - Las manos ya no se ven como esferas de colores: `GoyaHands` las dibuja como puntitos dorados, con cintas que giran cuando la mano está abierta y levantada.
 - La música de fondo en loop se sacó. La animación de entrar a las obras (`GoyaPortal`) está apagada: se prende con Portals en ese componente.
 
 ## La cueva (mitad de la zona de la guerra)
 
-Desde la mitad de la zona roja hasta Saturno el camino entra en una cueva (`GoyaCave.cs`, se arma sola en modo camino). Las paredes tienen el fondo ocre de *El perro* (`Assets/Resources/Paisaje/cueva_pared.jpg`, sale de `tools/paisaje/texturas.py`).
+Desde la mitad de la zona roja hasta Saturno el camino entra en una cueva (`GoyaCave.cs`, se arma sola en modo camino). La cueva está adentro de una montaña grande de roca ocre (los colores de *Ciudad sobre una roca*), con salientes y grietas: el camino llega por un valle a una boca grande con una pared de roca alrededor, que se angosta hacia adentro. Del otro lado se sale por otra boca hacia Saturno. Las paredes tienen el fondo ocre de *El perro* (`Assets/Resources/Paisaje/cueva_pared.jpg`, sale de `tools/paisaje/texturas.py`).
 
 - En la entrada hay una antorcha apagada apoyada en una piedra, con un cartel. Con el mismo gesto que arma una obra (los dos brazos arriba con las manos abiertas, o **E** en la PC) cerca de la antorcha, se enciende y queda en la mano (si no hay manos, abajo a la derecha de la vista).
 - Adentro está oscuro: las obras ya están colgadas en las paredes y solo se ven donde llega la luz de la antorcha. No se arman ni se desarman con gestos.
 - Las Pinturas Negras (zona 4) no están al principio: aparecen de a poco en la pared cuando se las alumbra de cerca (`appearDistance`, `appearTime`).
 - Al salir de la cueva está Saturno.
-- Se ajusta en el componente `GoyaCave`: dónde empieza (`startZone`, `startAt`), ancho y alto, alcance y color de la luz (`torchRange`, `torchColor`), y cuánta luz hay sin antorcha (`ambient`).
+- La antorcha alumbra poco (unos 3 m), así que hay que acercarse a cada obra.
+- Se ajusta en el componente `GoyaCave`: dónde empieza (`startZone`, `startAt`), ancho y alto, tamaño de la boca (`mouthScale`, `flareLength`), alto y ancho de la montaña (`mountainHeight`, `mountainWidth`), alcance y color de la luz (`torchRange`, `torchColor`), y cuánta luz hay sin antorcha (`ambient`).
 
 ## Sonido
 

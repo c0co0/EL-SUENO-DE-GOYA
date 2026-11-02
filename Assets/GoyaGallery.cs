@@ -222,6 +222,7 @@ public class GoyaGallery : MonoBehaviour
     GoyaDiorama diorama;
     GoyaOrigins origins;
     GoyaCave cave;
+    GoyaRelief relief;
     /// <summary>La cueva de la zona de la guerra (solo en modo camino; si no, null).</summary>
     public GoyaCave Cave { get { return cave; } }
     /// <summary>De donde nace cada obra (solo en modo camino; si no, null).</summary>
@@ -367,6 +368,11 @@ public class GoyaGallery : MonoBehaviour
         cave = GetComponent<GoyaCave>();
         if (cave == null) cave = gameObject.AddComponent<GoyaCave>();
         cave.Build(this);
+
+        // Las demas obras son parte del lugar: apoyadas en el piso y en relieve
+        relief = GetComponent<GoyaRelief>();
+        if (relief == null) relief = gameObject.AddComponent<GoyaRelief>();
+        relief.Build(this);
 
         // Cada obra nace del suelo, de un arbol o de una roca
         origins = GetComponent<GoyaOrigins>();

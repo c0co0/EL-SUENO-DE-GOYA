@@ -2,7 +2,8 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// La cueva: empieza en la mitad de la zona de la guerra y llega hasta Saturno. Adentro esta oscuro.
+/// La cueva: empieza en la mitad de la zona de la guerra y llega hasta Saturno, adentro de una montaña de roca
+/// con una boca grande a cada lado. Adentro esta oscuro.
 /// En la entrada hay una antorcha apagada: con el mismo gesto que arma las obras (los dos brazos arriba con
 /// las manos abiertas, o E en la PC) se enciende y queda en la mano. Las obras ya estan colgadas en las paredes
 /// y solo se ven donde llega la luz. Las Pinturas Negras no estan al principio: aparecen de a poco en la pared
@@ -26,12 +27,26 @@ public class GoyaCave : MonoBehaviour
     public float roughness = 0.35f;
     public Color wallColor = new Color(0.85f, 0.75f, 0.62f);
     public Color outsideRock = new Color(0.42f, 0.30f, 0.22f);
+    [Tooltip("Cuanto mas grande es la boca que el tunel")]
+    public float mouthScale = 1.7f;
+    [Tooltip("Metros en que la boca se angosta hasta el tunel")]
+    public float flareLength = 4f;
+
+    [Header("Montaña")]
+    public float mountainHeight = 17f;
+    [Tooltip("Mitad del ancho de la montaña")]
+    public float mountainWidth = 26f;
+    [Tooltip("Metros de ladera antes de la entrada y despues de la salida")]
+    public float mountainFoot = 7f;
+    public Color rockLight = new Color(0.66f, 0.55f, 0.40f);   // ocre de Ciudad sobre una roca
+    public Color rockDark = new Color(0.30f, 0.22f, 0.16f);
+    public Color rockGreen = new Color(0.36f, 0.35f, 0.20f);
 
     [Header("Antorcha")]
-    public float torchRange = 5.5f;
+    public float torchRange = 3.2f;
     public Color torchColor = new Color(1.6f, 1.0f, 0.5f);
     [Tooltip("Luz que hay en la cueva sin antorcha")]
-    public Color ambient = new Color(0.05f, 0.045f, 0.04f);
+    public Color ambient = new Color(0.025f, 0.022f, 0.02f);
     [Tooltip("A que distancia de la antorcha hay que estar para encenderla (metros)")]
     public float reach = 3.5f;
     [Tooltip("Distancia a la que hay que alumbrar una Pintura Negra para que aparezca, y cuanto tarda")]
@@ -50,6 +65,12 @@ public class GoyaCave : MonoBehaviour
     TextMesh hint;
     Vector3 standTop;
     float flicker;
+    GoyaEnvironment environment;
+    Mesh outside;
+    Vector3[] outsidePos;
+    Color[] outsideBase, outsideNow;
+    float colorTimer;
+    readonly List<Vector3> ringIn = new List<Vector3>(), ringOut = new List<Vector3>();
 
     public bool Built { get { return built; } }
 
@@ -59,10 +80,12 @@ public class GoyaCave : MonoBehaviour
         return built && Mathf.Abs(p.x - cx) < halfWidth && p.z > z0 && p.z < z1;
     }
 
-    /// <summary>Si un punto del piso cae debajo de la cueva o su entrada (ahi no va pasto).</summary>
+    /// <summary>Si un punto del piso cae debajo de la cueva, su boca o la montaña (ahi no va pasto ni arboles).</summary>
     public bool Footprint(float x, float z)
     {
-        return built && Mathf.Abs(x - cx) < halfWidth + 0.6f && z > z0 - 0.5f && z < z1 + 0.5f;
+        if (!built) return false;
+        if (z > z0 - 0.5f && z < z1 + 0.5f && Mathf.Abs(x - cx) < halfWidth * Flare(z) + 0.6f) return true;
+        return MountainAt(x, z) * Cut(x, z) > 0.8f;   // debajo de la montaña
     }
 
     public void Build(GoyaGallery g)
@@ -88,7 +111,7 @@ public class GoyaCave : MonoBehaviour
             float pz = p.root.position.z;
             if (pz < z0 + 0.8f || pz > z1 - 0.3f) continue;
             float side = p.root.position.x < cx ? -1f : 1f;
-            p.root.position = new Vector3(cx + side * (halfWidth - 0.1f), eyeY + 0.1f, pz);
+            p.root.position = new Vector3(cx + side * (halfWidth * Flare(pz) - 0.1f), eyeY + 0.1f, pz);
             p.root.rotation = Quaternion.LookRotation(new Vector3(side, 0f, 0f));
             p.locked = true;
             p.revealed = true;
@@ -105,9 +128,9 @@ public class GoyaCave : MonoBehaviour
         if (rockShader != null)
         {
             var rockMat = new Material(rockShader) { mainTexture = wallTex };
-            BuildMouth(rockMat, z0, -1f);
-            BuildMouth(rockMat, z1, 1f);
+            BuildMountain(rockMat);
         }
+        environment = g.GetComponent<GoyaEnvironment>();
         BuildTorch(c);
         built = true;
         lastGestures = g.FormGestures;
@@ -115,6 +138,14 @@ public class GoyaCave : MonoBehaviour
     }
 
     // ---------------------------------------------------------------- forma
+
+    // Cuanto mas grande es el tunel en ese punto: la boca es grande y se angosta hacia adentro (y en la salida)
+    float Flare(float z)
+    {
+        float a = 1f - Mathf.SmoothStep(0f, 1f, (z - z0) / flareLength);
+        float b = 1f - Mathf.SmoothStep(0f, 1f, (z1 - z) / (flareLength * 0.6f));
+        return 1f + (mouthScale - 1f) * Mathf.Max(a, b * 0.6f);
+    }
 
     // Perfil del tunel: paredes rectas y boveda, de derecha a izquierda
     List<Vector2> Profile()
@@ -146,15 +177,19 @@ public class GoyaCave : MonoBehaviour
         for (int j = 0; j < nz; j++)
         {
             float z = Mathf.Lerp(z0, z1, (float)j / (nz - 1));
+            float k = Flare(z);
             float arc = 0f;
             for (int i = 0; i < np; i++)
             {
-                if (i > 0) arc += Vector2.Distance(prof[i], prof[i - 1]);
+                if (i > 0) arc += Vector2.Distance(prof[i], prof[i - 1]) * k;
                 Vector2 p = prof[i];
                 float n = Mathf.PerlinNoise(z * 0.7f + 3f, i * 0.45f) * 0.7f + Mathf.PerlinNoise(z * 2.1f, i * 1.3f + 9f) * 0.3f;
                 float push = roughness * n * (p.y < 0.2f ? 0.3f : 1f);   // siempre hacia afuera: no tapa las obras
-                Vector2 q = p + Outward(p) * push;
-                verts.Add(new Vector3(cx + q.x, floorY + q.y, z));
+                Vector2 q = (p + Outward(p) * push) * k;
+                var at = new Vector3(cx + q.x, floorY + q.y, z);
+                verts.Add(at);
+                if (j == 0) ringIn.Add(at);
+                if (j == nz - 1) ringOut.Add(at);
                 uvs.Add(new Vector2(arc / 2.5f, z / 2.5f));
                 float shade = 0.65f + 0.45f * (1f - n);   // lo hundido mas oscuro
                 cols.Add(wallColor * shade);
@@ -178,7 +213,8 @@ public class GoyaCave : MonoBehaviour
             float z = Mathf.Lerp(z0, z1, (float)j / (nz - 1));
             for (int i = 0; i <= 4; i++)
             {
-                float x = cx - halfWidth - 0.2f + (halfWidth * 2f + 0.4f) * i / 4f;
+                float hw = halfWidth * Flare(z) + 0.2f;
+                float x = cx - hw + hw * 2f * i / 4f;
                 verts.Add(new Vector3(x, floorY + 0.015f, z));
                 uvs.Add(new Vector2(x / 4f, z / 2f));
                 cols.Add(new Color(0.45f, 0.36f, 0.28f) * (0.8f + 0.4f * Mathf.PerlinNoise(x, z)));
@@ -193,31 +229,156 @@ public class GoyaCave : MonoBehaviour
         Make("Cueva_Piso", verts, uvs, cols, tris, mat);
     }
 
-    // La boca: una pared de roca alrededor de la entrada (tapa el tunel visto desde afuera)
-    void BuildMouth(Material mat, float z, float facing)
+    // ---------------------------------------------------------------- la montaña
+
+    /// <summary>Alto de la montaña (sobre el piso) en un punto, sin el corte del camino.</summary>
+    float MountainAt(float x, float z)
     {
-        var prof = Profile();
-        int np = prof.Count;
+        float ax = Mathf.Abs(x - cx);
+        float core = halfWidth * mouthScale + 3f;
+        float across = 1f - Mathf.SmoothStep(0f, 1f, (ax - core) / Mathf.Max(1f, mountainWidth - core));
+        float along = Mathf.SmoothStep(0f, 1f, (z - (z0 - mountainFoot)) / (mountainFoot + 1.5f))
+                    * (1f - Mathf.SmoothStep(0f, 1f, (z - (z1 - 1.5f)) / (mountainFoot + 1.5f)));
+        float big = 0.7f + 0.6f * Mathf.PerlinNoise(x * 0.06f + 5f, z * 0.06f);
+        float crag = (Mathf.PerlinNoise(x * 0.22f, z * 0.22f + 30f) - 0.5f) * 3f + (Mathf.PerlinNoise(x * 0.7f + 9f, z * 0.7f) - 0.5f) * 0.8f;
+        float h = mountainHeight * across * along * big + crag * across * along;
+        return h - (1f - across) * 4f;   // los bordes bajan hasta debajo del terreno (y del lago)
+    }
+
+    // Afuera de la cueva el camino corta la montaña: un valle que lleva a la boca (y a Saturno al salir)
+    float Cut(float x, float z)
+    {
+        if (z >= z0 && z <= z1) return 1f;
+        float hw = halfWidth * (z < z0 ? mouthScale : 1f + (mouthScale - 1f) * 0.6f) + 0.4f;
+        return Mathf.SmoothStep(0f, 1f, (Mathf.Abs(x - cx) - hw) / 4f);
+    }
+
+    void BuildMountain(Material mat)
+    {
         var verts = new List<Vector3>(); var uvs = new List<Vector2>(); var cols = new List<Color>(); var tris = new List<int>();
-        for (int i = 0; i < np; i++)
+
+        // Lineas de la grilla: pasan justo por la entrada y la salida
+        var zs = new List<float>();
+        void Span(float from, float to, float step) { int cnt = Mathf.Max(1, Mathf.CeilToInt((to - from) / step)); for (int k = 0; k < cnt; k++) zs.Add(Mathf.Lerp(from, to, (float)k / cnt)); }
+        Span(z0 - mountainFoot - 1f, z0, 1f);
+        Span(z0, z1, 1f);
+        Span(z1, z1 + mountainFoot + 1f, 1f);
+        zs.Add(z1 + mountainFoot + 1f);
+        int nx = Mathf.CeilToInt(mountainWidth * 2f) + 1, nz = zs.Count;
+        var light = new Vector3(-0.5f, 1f, -0.35f).normalized;
+        for (int j = 0; j < nz; j++)
+            for (int i = 0; i < nx; i++)
+            {
+                float x = cx - mountainWidth + i * (mountainWidth * 2f) / (nx - 1), z = zs[j];
+                float h = MountainAt(x, z) * Cut(x, z);
+                verts.Add(new Vector3(x, floorY + h - 0.3f, z));
+                uvs.Add(new Vector2(x / 3f, (h + z) / 3f));
+                float dx = MountainAt(x + 0.7f, z) * Cut(x + 0.7f, z) - MountainAt(x - 0.7f, z) * Cut(x - 0.7f, z);
+                float dz = MountainAt(x, z + 0.7f) * Cut(x, z + 0.7f) - MountainAt(x, z - 0.7f) * Cut(x, z - 0.7f);
+                Vector3 nrm = new Vector3(-dx / 1.4f, 1f, -dz / 1.4f).normalized;
+                float steep = 1f - nrm.y;
+                float patch = Mathf.PerlinNoise(x * 0.15f + 2f, z * 0.15f + 7f);
+                Color c = Color.Lerp(rockDark, rockLight, Mathf.Clamp01(patch * 0.8f + Mathf.Clamp01(h / mountainHeight) * 0.4f));
+                c = Color.Lerp(c, rockGreen, Mathf.Clamp01(1f - steep * 3f) * 0.6f * (1f - Mathf.Clamp01(h / mountainHeight)));   // pasto donde es plano
+                c *= 0.55f + 0.65f * Mathf.Max(0f, Vector3.Dot(nrm, light));
+                c.a = 1f;
+                cols.Add(c);
+            }
+        float slit = halfWidth * mouthScale + 0.6f;
+        for (int j = 0; j < nz - 1; j++)
+            for (int i = 0; i < nx - 1; i++)
+            {
+                // La pared que cruzaria la boca (de la entrada o de la salida) no va: ahi estan las fachadas
+                float mx = Mathf.Abs(cx - mountainWidth + (i + 0.5f) * (mountainWidth * 2f) / (nx - 1) - cx);
+                bool across = (zs[j] < z0 && zs[j + 1] >= z0) || (zs[j] <= z1 && zs[j + 1] > z1);
+                if (across && mx < slit) continue;
+                int a = j * nx + i, b = a + nx;
+                tris.AddRange(new[] { a, b, a + 1, a + 1, b, b + 1 });
+            }
+
+        Facade(verts, uvs, cols, tris, ringIn, z0, -1f);
+        Facade(verts, uvs, cols, tris, ringOut, z1, 1f);
+
+        outside = new Mesh { indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
+        outsidePos = verts.ToArray();
+        outsideBase = cols.ToArray();
+        outsideNow = new Color[outsidePos.Length];
+        outside.SetVertices(verts); outside.SetUVs(0, uvs); outside.SetColors(cols); outside.SetTriangles(tris, 0);
+        outside.RecalculateBounds();
+        var go = new GameObject("Cueva_Montaña");
+        go.transform.SetParent(transform, false);
+        go.AddComponent<MeshFilter>().sharedMesh = outside;
+        var r = go.AddComponent<MeshRenderer>();
+        r.sharedMaterial = mat;
+        r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        r.receiveShadows = false;
+    }
+
+    // La pared de roca alrededor de la boca: del borde del tunel hacia afuera, con salientes
+    void Facade(List<Vector3> verts, List<Vector2> uvs, List<Color> cols, List<int> tris, List<Vector3> ring, float z, float facing)
+    {
+        if (ring.Count < 2) return;
+        float hw = halfWidth * mouthScale + 3.2f;
+        Vector3 center = new Vector3(cx, floorY + wallHeight * 0.45f, z);
+        int start = verts.Count, n = ring.Count;
+        var light = new Vector3(-0.5f, 0.8f, -0.4f * -facing).normalized;
+        for (int i = 0; i < n; i++)
         {
-            Vector2 p = prof[i] + Outward(prof[i]) * roughness * 0.5f;
-            float n = Mathf.PerlinNoise(i * 0.5f + z, 4f);
-            Vector2 o = new Vector2(p.x * 2.6f, p.y * 1.5f + 1.2f + 1.5f * n);
-            if (prof[i].y < 0.01f) o.y = -0.3f;
-            verts.Add(new Vector3(cx + p.x, floorY + p.y, z));
-            verts.Add(new Vector3(cx + o.x, floorY + o.y, z + facing * 0.6f * n));
-            uvs.Add(new Vector2(p.x / 2.5f, p.y / 2.5f));
-            uvs.Add(new Vector2(o.x / 2.5f, o.y / 2.5f));
-            cols.Add(outsideRock * 0.7f);
-            cols.Add(outsideRock * (0.9f + 0.3f * n));
+            Vector3 inner = ring[i];
+            Vector3 dir = inner - center; dir.z = 0f;
+            if (dir.sqrMagnitude < 0.01f) dir = Vector3.up;
+            dir.Normalize();
+            // Hasta el borde: a los costados el ancho de la fachada, arriba el alto de la montaña en la boca
+            float tx = Mathf.Abs(dir.x) > 0.001f ? hw / Mathf.Abs(dir.x) : 1e4f;
+            float topY = floorY + MountainAt(cx + dir.x * 2f, z - facing * 0.5f) + 0.8f;
+            float ty = dir.y > 0.001f ? (topY - center.y) / dir.y : (dir.y < -0.001f ? (floorY - 0.4f - center.y) / dir.y : 1e4f);
+            float t = Mathf.Min(tx, ty);
+            Vector3 outer = center + dir * t;
+            float nz = Mathf.PerlinNoise(i * 0.35f + z, 3f);
+            float nz2 = Mathf.PerlinNoise(i * 0.8f, z + 11f);
+            Vector3 mid = Vector3.Lerp(inner, outer, 0.3f + 0.15f * nz2);
+            mid.z = z + facing * (0.9f + 1.4f * nz);          // saliente de roca hacia afuera
+            Vector3 lip = Vector3.Lerp(inner, mid, 0.35f);
+            lip.z = z + facing * 0.5f * nz;
+            outer.z = z + facing * (0.2f + 1.2f * nz2);
+            Vector3[] row = { inner, lip, mid, outer };
+            for (int k = 0; k < 4; k++)
+            {
+                verts.Add(row[k]);
+                uvs.Add(new Vector2(row[k].x / 2.5f, row[k].y / 2.5f));
+                float shade = k == 0 ? 0.45f : (k == 1 ? 0.7f : 0.85f + 0.3f * nz);
+                Color c = Color.Lerp(rockDark, rockLight, 0.35f + 0.5f * nz2) * shade;
+                c.a = 1f;
+                cols.Add(c);
+            }
         }
-        for (int i = 0; i < np - 1; i++)
+        for (int i = 0; i < n - 1; i++)
+            for (int k = 0; k < 3; k++)
+            {
+                int a = start + i * 4 + k, b = a + 4;
+                if (facing < 0f) tris.AddRange(new[] { a, a + 1, b, b, a + 1, b + 1 });
+                else tris.AddRange(new[] { a, b, a + 1, b, b + 1, a + 1 });
+            }
+    }
+
+    // Tinte de la epoca y niebla sobre la montaña (como el terreno)
+    void UpdateOutsideColors()
+    {
+        if (outside == null) return;
+        Vector3 eye = gallery.RigPosition;
+        float appear = gallery.appear;
+        for (int i = 0; i < outsidePos.Length; i++)
         {
-            int a = i * 2;
-            tris.AddRange(new[] { a, a + 1, a + 2, a + 2, a + 1, a + 3 });
+            Color c = outsideBase[i];
+            if (environment != null)
+            {
+                Color tint = environment.ZoneTint(outsidePos[i]);
+                c = new Color(c.r * tint.r, c.g * tint.g, c.b * tint.b, 1f);
+                c = environment.Fogged(c, outsidePos[i]);
+            }
+            outsideNow[i] = c * appear;
         }
-        Make(facing < 0 ? "Cueva_Entrada" : "Cueva_Salida", verts, uvs, cols, tris, mat);
+        outside.colors = outsideNow;
     }
 
     void Make(string label, List<Vector3> v, List<Vector2> uv, List<Color> c, List<int> t, Material mat)
@@ -360,6 +521,8 @@ public class GoyaCave : MonoBehaviour
         if (!built || gallery == null) return;
         Vector3 rig = gallery.RigPosition;
         float dt = Time.deltaTime;
+        colorTimer -= dt;
+        if (colorTimer <= 0f) { colorTimer = 0.2f; UpdateOutsideColors(); }
 
         if (!lit)
         {

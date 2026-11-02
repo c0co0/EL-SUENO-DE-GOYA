@@ -2,11 +2,10 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// De donde nace cada obra del camino. Algunas nacen de un elemento recortado de otra pintura de Goya
-/// (el arbol de La cometa, el muro de Riña de gatos, la roca de Ciudad sobre una roca, el cerro de Duelo a garrotazos):
-/// el elemento esta en el camino con volumen (relieve), y al armar la obra se deshace en particulas de sus
-/// propios colores que giran en el remolino y forman la pintura. Al desarmarla, vuelve a ser el arbol o la roca.
-/// Las demas obras nacen del suelo.
+/// De donde nace cada obra del camino, y los arboles del paisaje. Los arboles estan recortados de pinturas de Goya
+/// (La cometa, La nevada, La gallina ciega) y tienen volumen (relieve). Algunas obras nacen de un arbol: al armarla,
+/// el arbol se deshace en particulas de sus propios colores que giran en el remolino y forman la pintura; al
+/// desarmarla, vuelve a ser el arbol. Las demas obras nacen del suelo. Hay ademas arboles sueltos en las lomas.
 /// Los recortes estan en Assets/Resources/Paisaje (se generan con tools/paisaje/recortar.py).
 /// GoyaGallery lo agrega solo en modo camino.
 /// </summary>
@@ -24,14 +23,35 @@ public class GoyaOrigins : MonoBehaviour
         public float width;
         [Tooltip("Grosor del relieve, en proporcion al lado mas corto")]
         public float depth = 0.25f;
+        [Tooltip("Espejado (para que el mismo arbol no se repita igual)")]
+        public bool mirror;
+    }
+
+    [System.Serializable]
+    public class Tree : Prop
+    {
+        [Tooltip("En que parte de la zona (0 = comienzo, 1 = final)")]
+        [Range(0f, 1f)] public float along = 0.5f;
+        [Tooltip("Distancia al centro del camino (negativo = a la izquierda)")]
+        public float side = 6f;
     }
 
     public Prop[] props =
     {
         new Prop { image = "Paisaje/arbol_cometa", zone = 0, height = 5.2f, depth = 0.25f },
-        new Prop { image = "Paisaje/muro_gatos", zone = 1, width = 4.4f, depth = 0.3f },
-        new Prop { image = "Paisaje/roca_ciudad", zone = 2, height = 4.6f, depth = 0.3f },
-        new Prop { image = "Paisaje/cerro_duelo", zone = 3, width = 6.5f, depth = 0.35f },
+        new Prop { image = "Paisaje/arbol_gallina", zone = 1, height = 6f, depth = 0.3f },
+        new Prop { image = "Paisaje/arbol_nevada", zone = 2, height = 5.5f, depth = 0.2f, mirror = true },
+    };
+
+    [Tooltip("Arboles sueltos en el paisaje (no nace ninguna obra de ellos)")]
+    public Tree[] trees =
+    {
+        new Tree { image = "Paisaje/arbol_gallina", zone = 0, along = 0.15f, side = 6.5f, height = 6.5f, depth = 0.3f },
+        new Tree { image = "Paisaje/arbol_nevada", zone = 0, along = 0.8f, side = -5.5f, height = 4.6f, depth = 0.2f },
+        new Tree { image = "Paisaje/arbol_cometa", zone = 1, along = 0.35f, side = -6.5f, height = 4.8f, depth = 0.25f, mirror = true },
+        new Tree { image = "Paisaje/arbol_nevada", zone = 1, along = 0.9f, side = 7.5f, height = 5.8f, depth = 0.2f, mirror = true },
+        new Tree { image = "Paisaje/arbol_cometa", zone = 2, along = 0.6f, side = 6f, height = 5.5f, depth = 0.25f },
+        new Tree { image = "Paisaje/arbol_nevada", zone = 2, along = 0.75f, side = -6.5f, height = 6.2f, depth = 0.2f },
     };
 
     [Range(0f, 1f), Tooltip("Cuanto se oscurecen con la epoca (1 = igual que el paisaje)")]
@@ -51,12 +71,15 @@ public class GoyaOrigins : MonoBehaviour
         public List<Vector3> points;     // puntos de la superficie (locales), para las particulas
         public List<Color> colors;
         public float presence = 1f;      // 1 = se ve el arbol/roca, 0 = ya se transformo en la obra
+        public bool grounded = true;     // los arboles sueltos se apoyan en las lomas cuando esta el terreno
+        public bool painting;            // va con una obra (para el pasto de alrededor)
     }
 
     readonly Dictionary<GoyaGallery.Painting, Origin> origins = new Dictionary<GoyaGallery.Painting, Origin>();
     readonly List<Origin> all = new List<Origin>();
     GoyaGallery gallery;
     GoyaEnvironment environment;
+    GoyaTerrain terrain;
     float floorY;
 
     public void Build(GoyaGallery g)
@@ -99,8 +122,29 @@ public class GoyaOrigins : MonoBehaviour
             o.shadow.sprite = soft;
             o.shadow.sortingOrder = -34;
 
+            o.painting = true;
             origins[p] = o;
             all.Add(o);
+        }
+
+        // Arboles sueltos: miran al camino y se apoyan en las lomas (cuando el terreno esta listo)
+        var c = gallery.Center;
+        int n = 0;
+        foreach (var t in trees)
+        {
+            if (t == null || t.zone >= gallery.ZoneCount) continue;
+            float z = c.z + (t.zone + t.along) * gallery.zoneLength;
+            var cave = gallery.Cave;
+            if (cave != null && cave.Footprint(c.x + t.side, z)) continue;
+            var o = new Origin();
+            float sd = Mathf.Sign(t.side);
+            o.forward = new Vector3(sd, 0f, 0.3f).normalized;
+            o.right = Vector3.Cross(Vector3.up, o.forward);
+            o.baseCenter = new Vector3(c.x + t.side, floorY, z);
+            o.width = 2f;
+            o.grounded = false;
+            BuildProp(o, t, "Arbol" + (n++));
+            if (o.renderer != null) all.Add(o);
         }
     }
 
@@ -166,6 +210,7 @@ public class GoyaOrigins : MonoBehaviour
         go.transform.SetParent(transform, false);
         go.transform.position = o.baseCenter + Vector3.down * 0.25f;   // un poco enterrado: sale del pasto
         go.transform.rotation = Quaternion.LookRotation(o.forward);
+        if (pr.mirror) go.transform.localScale = new Vector3(-1f, 1f, 1f);
         go.AddComponent<MeshFilter>().sharedMesh = mesh;
         o.renderer = go.AddComponent<MeshRenderer>();
         o.material = new Material(Shader.Find("Sprites/Default"));
@@ -193,7 +238,7 @@ public class GoyaOrigins : MonoBehaviour
     }
 
     // Distancia (en puntos) de cada punto opaco al borde transparente mas cercano
-    static float[,] Chamfer(float[,] a, int w, int h)
+    public static float[,] Chamfer(float[,] a, int w, int h)
     {
         var d = new float[w, h];
         const float big = 1e6f, diag = 1.414f;
@@ -223,11 +268,19 @@ public class GoyaOrigins : MonoBehaviour
         return d;
     }
 
-    /// <summary>Pie de cada arbol o roca (x, y, z) y su ancho (w), para rodearlos de pasto.</summary>
+    /// <summary>Pie de cada arbol (x, y, z) y su ancho (w), para rodearlos de pasto.</summary>
     public List<Vector4> PropBases()
     {
         var list = new List<Vector4>();
         foreach (var o in all) if (o.renderer != null) list.Add(new Vector4(o.baseCenter.x, o.baseCenter.y, o.baseCenter.z, o.width));
+        return list;
+    }
+
+    /// <summary>Pie de cada obra del camino (x, y, z) y su ancho (w): ahi tambien crece pasto.</summary>
+    public List<Vector4> PaintingBases()
+    {
+        var list = new List<Vector4>();
+        foreach (var o in all) if (o.painting && o.renderer == null) list.Add(new Vector4(o.baseCenter.x, o.baseCenter.y, o.baseCenter.z, o.width));
         return list;
     }
 
@@ -277,8 +330,16 @@ public class GoyaOrigins : MonoBehaviour
     {
         if (gallery == null) return;
         float appear = gallery.appear;
+        if (terrain == null) terrain = GetComponent<GoyaTerrain>();
         foreach (var o in all)
         {
+            if (!o.grounded && terrain != null && terrain.Ready && o.renderer != null)
+            {
+                o.grounded = true;
+                float h = terrain.Height(o.baseCenter.x, o.baseCenter.z);
+                o.baseCenter.y = floorY + h;
+                o.renderer.transform.position = o.baseCenter + Vector3.down * 0.25f;
+            }
             if (o.renderer != null)
             {
                 Color c = Shade(Color.white, o.renderer.transform.position + Vector3.up);
@@ -286,7 +347,7 @@ public class GoyaOrigins : MonoBehaviour
                 o.material.color = c;
                 o.renderer.enabled = c.a > 0.01f;
             }
-            o.shadow.color = new Color(0f, 0f, 0f, 0.35f * appear);
+            if (o.shadow != null) o.shadow.color = new Color(0f, 0f, 0f, 0.35f * appear);
         }
     }
 
