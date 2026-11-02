@@ -63,9 +63,11 @@ Al final del camino, *Saturno devorando a su hijo* ya no está colgada plana: es
 
 ## De dónde nacen las obras
 
-Cada obra del camino tiene detrás un árbol o una pared de roca, o nace directo del suelo (`GoyaOrigins`, se agrega solo). Al armarla, las partículas salen de ahí con color de tierra, hojas o piedra, giran en un remolino alrededor de la mano con cintas doradas (como el video de referencia) y se acomodan en la obra. Al desarmarla hacen el camino inverso y vuelven a la tierra, al árbol o a la roca.
+En el camino hay cuatro elementos recortados de otras pinturas de Goya, uno por época, con volumen (un relieve inflado, no una lámina plana): el árbol de *La cometa*, el muro con los gatos de *Riña de gatos*, la roca de *Ciudad sobre una roca* y el cerro de *Duelo a garrotazos*. Cada uno está donde va una obra de su época (`GoyaOrigins`, se agrega solo).
 
-- Los árboles y las rocas están dibujados con pinceladas (`tools/paisaje/generar.py`) en `Assets/Resources/Paisaje`, y se oscurecen con cada época.
+Al armar esa obra, el árbol o la roca se deshace en partículas de sus propios colores, que giran en un remolino alrededor de la mano con cintas doradas y forman la pintura: el árbol se transforma en la obra. Al desarmarla vuelve a ser el árbol o la roca. Las demás obras nacen del suelo, con color de tierra.
+
+- Los recortes están en `Assets/Resources/Paisaje` (se generan con `tools/paisaje/recortar.py`). En el componente Goya Origins se puede cambiar el tamaño, la época y el grosor de cada uno.
 - Ajustes en Goya Particles, sección Remolino: Vortex (prender/apagar), Vortex Size, Vortex Speed, Toward Hand, Vortex Ribbons, Streak.
 - Las manos ya no se ven como esferas de colores: `GoyaHands` las dibuja como puntitos dorados, con cintas que giran cuando la mano está abierta y levantada.
 - La música de fondo en loop se sacó. La animación de entrar a las obras (`GoyaPortal`) está apagada: se prende con Portals en ese componente.

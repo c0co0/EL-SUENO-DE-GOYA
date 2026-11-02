@@ -904,6 +904,8 @@ public class GoyaParticles : MonoBehaviour
         }
 
         if (forming) e.painting.reveal = prog;
+        // El arbol/roca se deshace mientras se forma la obra, y vuelve a aparecer cuando se desarma
+        gallery.Origins.SetPresence(e.painting, forming ? 1f - Smooth(prog * 1.4f) : Smooth((prog - 0.3f) / 0.7f));
         Write(e);
 
         if (e.t < total) return;
