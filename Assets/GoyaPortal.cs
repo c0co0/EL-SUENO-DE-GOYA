@@ -16,7 +16,7 @@ using UnityEngine;
 public class GoyaPortal : MonoBehaviour
 {
     [Header("Entrar")]
-    public bool portals = true;
+    public bool portals = false;   // apagado por ahora: la animacion de entrar quedaba rara
     [Tooltip("Hay que estar a menos de esta distancia (metros) de la obra")]
     public float portalDistance = 2.6f;
     [Tooltip("Segundos mirando la obra para entrar")]

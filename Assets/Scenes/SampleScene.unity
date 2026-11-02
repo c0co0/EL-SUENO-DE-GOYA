@@ -631,7 +631,7 @@ MonoBehaviour:
   haloColor: {r: 1, g: 0.72, b: 0.45, a: 1}
   haloStrength: 0.22
   haloSize: 2
-  ambientLoop: {fileID: 8300000, guid: e30f7c5908ba1f643a7c879cc097c45d, type: 3}
+  ambientLoop: {fileID: 0}
   revealSound: {fileID: 8300000, guid: 2aaaa5e7c84111d459a25c98383f5753, type: 3}
   breakSound: {fileID: 8300000, guid: 4b27750093390834991b15556642541b, type: 3}
   reformSound: {fileID: 8300000, guid: 2aaaa5e7c84111d459a25c98383f5753, type: 3}
@@ -902,7 +902,7 @@ MonoBehaviour:
   depthScale: 1
   followSpeed: 25
   dataTimeout: 0.5
-  showDebugSpheres: 1
+  showDebugSpheres: 0
   sphereSize: 0.02
   unlitOnDevice: 1
   leftColor: {r: 0.35220122, g: 0.33276016, b: 0.047624625, a: 1}

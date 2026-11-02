@@ -79,6 +79,21 @@ public class GoyaParticles : MonoBehaviour
     [Tooltip("Segundos de agitacion alta para que un cuadro se deshaga solo")]
     public float autoBreakTime = 1.5f;
 
+    [Header("Remolino (camino): como en el video de referencia")]
+    [Tooltip("En el camino las obras salen del suelo, de un arbol o de una roca, giran en un remolino y se arman (y al desarmarse vuelven)")]
+    public bool vortex = true;
+    [Tooltip("Tamaño del remolino (multiplica el tamaño de la obra)")]
+    public float vortexSize = 0.8f;
+    [Tooltip("Vueltas por segundo del remolino (radianes)")]
+    public float vortexSpeed = 2.6f;
+    [Tooltip("Cuanto se acerca el remolino a la mano (0 = en la obra, 1 = en la mano)")]
+    [Range(0f, 1f)] public float towardHand = 0.4f;
+    [Tooltip("Cintas doradas que giran con el remolino")]
+    public int vortexRibbons = 6;
+    public Color ribbonColor = new Color(1f, 0.8f, 0.4f, 0.9f);
+    [Tooltip("Que tan estiradas se ven las particulas al girar (como trazos)")]
+    public float streak = 0.05f;
+
     [Header("Polvo en el aire (obras sin armar)")]
     [Tooltip("Que tan desparramado esta el polvo alrededor del cuadro (multiplica el tamaño del cuadro)")]
     public float airSpread = 3f;
@@ -115,6 +130,13 @@ public class GoyaParticles : MonoBehaviour
         public float nextAllowed;
         public bool assembling;    // el Reform actual es el primer armado desde el polvo
         public bool traveling;     // el Reform actual viaja en arco alrededor de la persona
+        // Remolino (camino): la obra nace del suelo/arbol/roca, gira alrededor de la mano y se arma
+        public bool vortex;
+        public Vector3 center;
+        public Vector3[] orbU, orbV, sink;
+        public float[] orbR, orbW;
+        public Color32[] srcColor;
+        public TrailRenderer[] ribbons;
     }
 
     // Avisos para otros scripts (por ejemplo el sonido de GoyaAmbience)
@@ -122,7 +144,7 @@ public class GoyaParticles : MonoBehaviour
     public System.Action<GoyaGallery.Painting> OnReform;
 
     readonly List<Effect> effects = new List<Effect>();
-    Material particleMat;
+    Material particleMat, ribbonMat;
     bool built;
     bool batchBreaking;  // la tanda actual se esta desvaneciendo
     float batchTimer;
@@ -516,6 +538,11 @@ public class GoyaParticles : MonoBehaviour
         Write(e);
 
         e.state = EffectState.Scatter;
+        if (UseVortex(e))
+        {
+            SetupVortex(e);
+            for (int i = 0; i < e.count; i++) e.startPos[i] = e.target[i];
+        }
         if (OnBreak != null) OnBreak(p);
         e.t = 0f;
         e.touch = 0f;
@@ -525,6 +552,7 @@ public class GoyaParticles : MonoBehaviour
 
     void UpdateScatter(Effect e, float dt)
     {
+        if (e.vortex) { UpdateVortex(e, dt, false); return; }
         e.t += dt;
         // Toda la tanda junta (o en el camino): las particulas se vuelven humo de brasas, giran y se desvanecen
         bool path = gallery.pathMode && gallery.PathLength > 0f;
@@ -666,6 +694,16 @@ public class GoyaParticles : MonoBehaviour
     void BeginAssemble(Effect e)
     {
         for (int i = 0; i < e.count; i++) e.startPos[i] = e.pos[i];
+        if (!e.go.activeSelf) { e.go.SetActive(true); e.ps.Play(); }
+        if (UseVortex(e))
+        {
+            SetupVortex(e);
+            for (int i = 0; i < e.count; i++)
+            {
+                e.startPos[i] = e.pos[i] = e.sink[i];   // sale del suelo, del arbol o de la roca
+                e.fromColor[i] = e.srcColor[i];
+            }
+        }
         e.painting.swipe = 0f;
         e.assembling = true;
         e.state = EffectState.Reform;
@@ -680,6 +718,7 @@ public class GoyaParticles : MonoBehaviour
 
     void UpdateReform(Effect e, float dt)
     {
+        if (e.vortex) { UpdateVortex(e, dt, true); return; }
         e.t += dt;
         Color tint = gallery.CurrentTint();
 
@@ -730,12 +769,183 @@ public class GoyaParticles : MonoBehaviour
         return c + new Vector3(Mathf.Sin(ang) * r, y, Mathf.Cos(ang) * r);
     }
 
+    // ---------------------------------------------------------------- remolino
+
+    bool UseVortex(Effect e)
+    {
+        return vortex && gallery.pathMode && gallery.PathLength > 0f && gallery.Origins != null && gallery.Origins.Has(e.painting);
+    }
+
+    Vector3 VortexCenter(Effect e)
+    {
+        var p = e.painting;
+        Vector3 front = p.root.position - p.root.forward * 0.3f;
+        Vector3 palm;
+        if (GoyaHands.Palm(out palm) && Vector3.Distance(palm, front) < 10f) return Vector3.Lerp(front, palm, towardHand);
+        return front;
+    }
+
+    void SetupVortex(Effect e)
+    {
+        int n = e.count;
+        if (e.orbU == null)
+        {
+            e.orbU = new Vector3[n]; e.orbV = new Vector3[n]; e.sink = new Vector3[n];
+            e.orbR = new float[n]; e.orbW = new float[n]; e.srcColor = new Color32[n];
+        }
+        var p = e.painting;
+        e.vortex = true;
+        e.center = VortexCenter(e);
+
+        // Unos pocos planos de giro, inclinados (como las orbitas del video)
+        const int planes = 5;
+        var us = new Vector3[planes]; var vs = new Vector3[planes]; var ws = new float[planes];
+        for (int k = 0; k < planes; k++)
+        {
+            Vector3 normal = (-p.root.forward + Random.insideUnitSphere * 1.2f).normalized;
+            us[k] = Vector3.Cross(normal, Vector3.up).normalized;
+            if (us[k].sqrMagnitude < 0.01f) us[k] = p.root.right;
+            vs[k] = Vector3.Cross(normal, us[k]).normalized;
+            ws[k] = vortexSpeed * Random.Range(0.7f, 1.4f);
+        }
+        float size = Mathf.Max(p.halfW, p.halfH) * vortexSize;
+        for (int i = 0; i < n; i++)
+        {
+            int k = Random.Range(0, planes);
+            e.orbU[i] = us[k]; e.orbV[i] = vs[k];
+            e.orbR[i] = size * Mathf.Lerp(0.25f, 1.1f, Mathf.Sqrt(Random.value));
+            e.orbW[i] = ws[k] * (1.3f - 0.5f * e.orbR[i] / Mathf.Max(0.01f, size)) ;   // los de adentro giran mas rapido
+            float a = Random.value, b = Random.value;
+            e.sink[i] = gallery.Origins.SourcePoint(p, a, b);
+            e.srcColor[i] = gallery.Origins.SourceColor(p, a, b);
+            e.vel[i] = Vector3.zero;
+        }
+
+        var rend = e.go.GetComponent<ParticleSystemRenderer>();
+        rend.renderMode = ParticleSystemRenderMode.Stretch;
+        rend.velocityScale = streak;
+        rend.lengthScale = 1f;
+
+        // Cintas doradas
+        if (e.ribbons == null || e.ribbons.Length != vortexRibbons) e.ribbons = new TrailRenderer[vortexRibbons];
+        for (int r = 0; r < e.ribbons.Length; r++)
+        {
+            if (e.ribbons[r] == null)
+            {
+                var go = new GameObject("Cinta_" + r);
+                go.transform.SetParent(e.go.transform, false);
+                var tr = go.AddComponent<TrailRenderer>();
+                if (ribbonMat == null) ribbonMat = new Material(particleMat.shader);   // sin textura: trazo liso
+                tr.sharedMaterial = ribbonMat;
+                tr.time = 0.6f;
+                tr.widthMultiplier = 0.012f;
+                tr.minVertexDistance = 0.02f;
+                tr.sortingOrder = 6;
+                e.ribbons[r] = tr;
+            }
+            e.ribbons[r].Clear();
+            e.ribbons[r].emitting = false;
+        }
+    }
+
+    Vector3 OrbitPoint(Effect e, int i, float time)
+    {
+        float ang = e.seed[i] * 40f + time * e.orbW[i];
+        return e.center + (e.orbU[i] * Mathf.Cos(ang) + e.orbV[i] * Mathf.Sin(ang)) * e.orbR[i];
+    }
+
+    // forming = true: del suelo/arbol/roca al remolino y del remolino a la obra.
+    // forming = false: de la obra al remolino y del remolino de vuelta al suelo/arbol/roca.
+    void UpdateVortex(Effect e, float dt, bool forming)
+    {
+        e.t += dt;
+        e.center = Vector3.Lerp(e.center, VortexCenter(e), 1f - Mathf.Exp(-2f * dt));
+        Color tint = gallery.CurrentTint();
+        float total = reformSpread + reformTime;
+        float invDt = 1f / Mathf.Max(0.001f, dt);
+
+        for (int i = 0; i < e.count; i++)
+        {
+            float k = Mathf.Clamp01((e.t - e.seed[i] * reformSpread) / reformTime);
+            Vector3 orbit = OrbitPoint(e, i, e.t);
+            Vector3 from = e.startPos[i];
+            Vector3 to = forming ? e.target[i] : e.sink[i];
+            Vector3 next = k < 0.5f
+                ? Vector3.Lerp(from, orbit, Smooth(k * 2f))
+                : Vector3.Lerp(orbit, to, Smooth((k - 0.5f) * 2f));
+            e.vel[i] = (next - e.pos[i]) * invDt;
+            e.pos[i] = next;
+
+            Color32 a = forming ? e.srcColor[i] : e.fromColor[i];
+            Color32 b = forming ? Tinted(e.toColor[i], tint) : e.srcColor[i];
+            Color32 c = Color32.Lerp(a, b, Smooth(k));
+            if (!forming) c.a = (byte)(c.a * Mathf.Clamp01((1f - k) / 0.25f));   // al volver, se funde con la tierra
+            e.parts[i].startColor = c;
+        }
+
+        // Cintas: aparecen con el remolino y se van cuando termina
+        float prog = Mathf.Clamp01(e.t / total);
+        float glow = Mathf.Sin(prog * Mathf.PI);
+        Vector3 axisN = -e.painting.root.forward;
+        for (int r = 0; r < e.ribbons.Length; r++)
+        {
+            var tr = e.ribbons[r];
+            if (tr == null) continue;
+            tr.emitting = glow > 0.05f;
+            float ang = e.t * vortexSpeed * (1.3f + 0.25f * r) + r * 1.7f;
+            float tilt = r * 37f;
+            Vector3 u = Quaternion.AngleAxis(tilt, axisN) * e.painting.root.right;
+            Vector3 v = Vector3.Cross(Quaternion.AngleAxis(tilt * 0.6f, u) * axisN, u).normalized;
+            float rad = Mathf.Max(e.painting.halfW, e.painting.halfH) * vortexSize * (0.6f + 0.12f * r);
+            tr.transform.position = e.center + (u * Mathf.Cos(ang) + v * Mathf.Sin(ang)) * rad;
+            Color col = ribbonColor; col.a *= glow;
+            Color end = col; end.a = 0f;
+            tr.startColor = col; tr.endColor = end;
+        }
+
+        if (forming) e.painting.reveal = prog;
+        Write(e);
+
+        if (e.t < total) return;
+
+        // Termino
+        EndVortex(e);
+        if (forming)
+        {
+            if (e.assembling) gallery.MarkRevealed(e.painting);
+            e.assembling = false;
+            e.painting.swipe = 0f;
+            e.painting.renderer.enabled = true;
+            e.ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+            e.go.SetActive(false);
+            e.state = EffectState.Idle;
+            e.nextAllowed = Time.time + cooldown;
+        }
+        else
+        {
+            e.painting.revealed = false;
+            e.painting.reveal = 0f;
+            e.nextAllowed = Time.time + cooldown;
+            StartFloating(e);
+        }
+    }
+
+    void EndVortex(Effect e)
+    {
+        e.vortex = false;
+        var rend = e.go.GetComponent<ParticleSystemRenderer>();
+        rend.renderMode = ParticleSystemRenderMode.Billboard;
+        if (e.ribbons != null) foreach (var tr in e.ribbons) if (tr != null) tr.emitting = false;
+    }
+
+    static float Smooth(float x) { x = Mathf.Clamp01(x); return x * x * (3f - 2f * x); }
+
     void Write(Effect e, float sizeMul = 1f)
     {
         for (int i = 0; i < e.count; i++)
         {
             e.parts[i].position = e.pos[i];
-            e.parts[i].velocity = Vector3.zero;
+            e.parts[i].velocity = e.vortex ? e.vel[i] : Vector3.zero;
             e.parts[i].startLifetime = 1000f;
             e.parts[i].remainingLifetime = 1000f;
             e.parts[i].startSize = e.size * sizeMul;

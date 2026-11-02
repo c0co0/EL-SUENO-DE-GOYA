@@ -218,6 +218,9 @@ public class GoyaGallery : MonoBehaviour
 
     GoyaEnvironment environment;
     GoyaDiorama diorama;
+    GoyaOrigins origins;
+    /// <summary>De donde nace cada obra (solo en modo camino; si no, null).</summary>
+    public GoyaOrigins Origins { get { return origins; } }
 
     /// <summary>Hasta donde se puede caminar: el camino de obras mas los dioramas del final.</summary>
     public float WalkLength
@@ -354,6 +357,11 @@ public class GoyaGallery : MonoBehaviour
         environment = GetComponent<GoyaEnvironment>();
         if (environment == null) environment = gameObject.AddComponent<GoyaEnvironment>();
         diorama.Build(this);
+
+        // Cada obra nace del suelo, de un arbol o de una roca
+        origins = GetComponent<GoyaOrigins>();
+        if (origins == null) origins = gameObject.AddComponent<GoyaOrigins>();
+        origins.Build(this);
     }
 
     // Tandas por epoca: cada epoca se reparte en "batchesPerEpoch" tandas, sin mezclarse con la siguiente

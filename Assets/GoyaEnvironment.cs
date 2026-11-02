@@ -486,6 +486,16 @@ public class GoyaEnvironment : MonoBehaviour
     }
 
     /// <summary>Mezcla un color con la niebla segun lo lejos que esta ese punto (las cosas lejanas se pierden).</summary>
+    /// <summary>Tinte de la epoca en un punto del camino (las zonas mas oscuras, mas oscuro).</summary>
+    public Color ZoneTint(Vector3 pos)
+    {
+        if (gallery == null || zones.Length == 0) return Color.white;
+        float u = Mathf.Clamp(gallery.ZoneAt(pos) - 0.5f, 0f, zones.Length - 1);
+        int a = Mathf.Min(Mathf.FloorToInt(u), zones.Length - 1);
+        int b = Mathf.Min(a + 1, zones.Length - 1);
+        return Color.Lerp(zones[a].tint, zones[b].tint, Mathf.SmoothStep(0f, 1f, u - a));
+    }
+
     public Color Fogged(Color c, Vector3 pos)
     {
         float d = Vector3.Distance(pos, gallery != null ? gallery.RigPosition : pos) * densityNow;
