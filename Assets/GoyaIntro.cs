@@ -123,6 +123,8 @@ public class GoyaIntro : MonoBehaviour
 
     enum IntroState { Waiting, Burning, Dissolving, Done }
     IntroState state = IntroState.Waiting;
+    /// <summary>Termino la introduccion (o no hay).</summary>
+    public bool Finished { get { return state == IntroState.Done; } }
 
     Transform rig, pivot;
     Vector3 basePos;
@@ -438,6 +440,7 @@ public class GoyaIntro : MonoBehaviour
         for (int i = 0; i < burnMats.Length; i++) burnOriginal[i] = GetColor(burnMats[i]);
 
         fire = CreateFire();
+        GoyaSound.Fire(basePos, burnTime);
         burnT = 0f;
         state = IntroState.Burning;
     }

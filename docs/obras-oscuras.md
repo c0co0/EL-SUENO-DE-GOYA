@@ -61,6 +61,24 @@ Al final del camino, *Saturno devorando a su hijo* ya no está colgada plana: es
 - `GoyaDiorama` (lo agrega solo `GoyaGallery`) tiene la lista: nombre, obra que reemplaza, alto, y cada capa con su imagen y distancia.
 - Para sumar otra pintura negra: recortar sus capas con el mismo tamaño, ponerlas en esa carpeta y agregar una entrada a la lista.
 
+## Sonido
+
+`GoyaSound` (se agrega solo) arma un campo de sonido envolvente que cambia con cada zona del camino:
+
+| Zona | Ambiente alrededor | Sonidos sueltos |
+|---|---|---|
+| Cartones | viento y hojas | pájaros arriba |
+| La corte | murmullo de gente en un salón | clave desde otro salón, copas |
+| Brujas | viento nocturno que aúlla, grillos | susurros muy cerca, búho |
+| La guerra | retumbe grave | cañones y disparos lejos en el horizonte, tambores |
+| Pinturas negras | drone grave y una respiración | gemidos, latido pegado a vos, Saturno masticando cerca |
+
+- El ambiente sale de 4 fuentes alrededor tuyo (adelante, atrás y costados) que caminan con vos pero no giran con la cabeza: al girar, el sonido queda en su lugar. Entre zonas se funde.
+- Pasos en la tierra cada 0,7 m que caminás, y el fuego cuando se quema el cabrío.
+- Durante la introducción el ambiente suena más bajo.
+- Los sonidos están sintetizados (`tools/sonidos/generar.py`) en `Assets/Resources/Sonidos`. Para usar grabaciones, reemplazar el `.ogg` por otro con el mismo nombre.
+- Volúmenes en el componente Goya Sound (aparece en Play sobre el objeto de la galería): Master, Ambience, Events, Steps, Fire, Intro Ambience.
+
 ## Probar en la PC (sin tracker ni celular)
 
 | Tecla / mouse | Qué hace |
