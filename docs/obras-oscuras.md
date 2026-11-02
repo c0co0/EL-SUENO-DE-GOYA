@@ -55,7 +55,7 @@ Si *Painting Sequence* queda vacía, la galería vuelve a los 3 cuadros de adela
 
 ## Pinturas negras por dentro (dioramas)
 
-Al salir de la cueva, cuatro Pinturas Negras se recorren por dentro, una detrás de otra: *El gran cabrón* (el aquelarre), *Las Parcas*, *El perro* y, al final, *Saturno devorando a su hijo*. Cada una está separada en capas a distintas distancias (el fondo lejos, a 16 m, y las figuras más cerca). Desde la entrada de cada una se ve como la pintura, pero el fondo sigue más allá del cuadro y se funde con la oscuridad, así que no hay recuadro. Al caminar las capas se separan y se pasa entre las figuras, que respiran apenas. Al atravesar el fondo de una se entra en la siguiente; el de Saturno es el final.
+Al salir de la cueva, cuatro Pinturas Negras se recorren por dentro, una detrás de otra: primero *Saturno devorando a su hijo* (es lo que se ve desde la salida), después *El gran cabrón* (el aquelarre), *Las Parcas* y *El perro*. Cada una está separada en capas a distintas distancias (el fondo lejos, a 16 m, y las figuras más cerca). Desde la entrada de cada una se ve como la pintura, pero el fondo sigue más allá del cuadro y se funde con la oscuridad, así que no hay recuadro. Al caminar las capas se separan y se pasa entre las figuras, que respiran apenas. Al atravesar el fondo de una se entra en la siguiente; el de El perro es el final.
 
 | Pintura | Capas (de atrás hacia adelante) |
 |---|---|

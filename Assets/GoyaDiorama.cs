@@ -5,7 +5,7 @@ using UnityEngine;
 /// Pinturas negras "por dentro": al final del camino, pinturas separadas en capas (fondo y figuras)
 /// puestas a distintas distancias, como un escenario de teatro. Desde la entrada se ve igual que la pintura,
 /// pero al caminar las capas se separan y se puede pasar entre ellas, hasta quedar al lado de las figuras.
-/// Una detras de otra: El gran cabron, Las Parcas, El perro y, al final, Saturno. Al atravesar el fondo de una
+/// Una detras de otra: Saturno, El gran cabron, Las Parcas y El perro. Al atravesar el fondo de una
 /// se entra en la siguiente. Las capas se generan con tools/paisaje/dioramas.py (Saturno aparte).
 ///
 /// Las capas estan en Assets/Resources/Dioramas (fondo en .jpg, figuras en .png con transparencia),
@@ -42,6 +42,23 @@ public class GoyaDiorama : MonoBehaviour
 
     public Diorama[] dioramas =
     {
+        // Saturno primero, apenas se sale de la cueva (es lo que se ve desde la salida)
+        new Diorama
+        {
+            name = "Saturno",
+            replaces = "28 Saturno devorando a su hijo",
+            height = 8f,
+            centerOffset = 1.2f,
+            layers = new[]
+            {
+                new Layer { image = "Dioramas/saturno_fondo", distance = 16f, frame = 0.4168f },
+                // La figura en tres planos: el cuerpo atras (mas oscuro), la cabeza y el hombro en el medio,
+                // y el hijo con las manos adelante. Desde la entrada se ve como la pintura entera.
+                new Layer { image = "Dioramas/saturno_figura_atras", distance = 12f, frame = 1f, breathe = 0.008f },
+                new Layer { image = "Dioramas/saturno_figura_medio", distance = 9f, frame = 1f, breathe = 0.012f },
+                new Layer { image = "Dioramas/saturno_figura_cerca", distance = 6f, frame = 1f, breathe = 0.018f },
+            }
+        },
         // El aquelarre: la multitud atras, adelante el macho cabrio, la muchacha de blanco y los dos grupos de los costados
         new Diorama
         {
@@ -83,22 +100,6 @@ public class GoyaDiorama : MonoBehaviour
                 new Layer { image = "Dioramas/perro_fondo", distance = 16f, frame = 0.4547f },
                 new Layer { image = "Dioramas/perro_perro", distance = 10f, frame = 1f, breathe = 0.01f },
                 new Layer { image = "Dioramas/perro_ladera", distance = 7f, frame = 1f },
-            }
-        },
-        new Diorama
-        {
-            name = "Saturno",
-            replaces = "28 Saturno devorando a su hijo",
-            height = 8f,
-            centerOffset = 1.2f,
-            layers = new[]
-            {
-                new Layer { image = "Dioramas/saturno_fondo", distance = 16f, frame = 0.4168f },
-                // La figura en tres planos: el cuerpo atras (mas oscuro), la cabeza y el hombro en el medio,
-                // y el hijo con las manos adelante. Desde la entrada se ve como la pintura entera.
-                new Layer { image = "Dioramas/saturno_figura_atras", distance = 12f, frame = 1f, breathe = 0.008f },
-                new Layer { image = "Dioramas/saturno_figura_medio", distance = 9f, frame = 1f, breathe = 0.012f },
-                new Layer { image = "Dioramas/saturno_figura_cerca", distance = 6f, frame = 1f, breathe = 0.018f },
             }
         },
     };
@@ -183,7 +184,7 @@ public class GoyaDiorama : MonoBehaviour
                 var sr = go.AddComponent<SpriteRenderer>();
                 sr.sprite = sprite;
                 sr.sortingOrder = order++;
-                // Todas las capas se pueden atravesar, menos el fondo del ultimo diorama (Saturno)
+                // Todas las capas se pueden atravesar, menos el fondo del ultimo diorama
                 bool isFarthest = l.distance >= maxDist - 0.001f;
                 bool last = k == dioramas.Length - 1;
                 built.Add(new Built { renderer = sr, baseScale = go.transform.localScale, breathe = l.breathe, phase = Random.value * 6f, fadesWhenPassed = !(isFarthest && last) });
