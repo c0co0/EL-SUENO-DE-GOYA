@@ -328,6 +328,36 @@ def gota():
     y = np.sin(2 * np.pi * np.cumsum(f * (1 + 0.8 * np.exp(-tt / 0.01))) / SR) * np.exp(-tt / 0.04)
     return reverb(y, 2.8, 0.6, 5000)
 
+# ------------------------------------------------------------------ juego: rocas que caen y reloj
+def derrumbe():
+    """Aviso de que va a caer una roca: retumbe grave que crece y piedritas que caen."""
+    sec = 1.6; n = int(sec * SR); tt = np.arange(n) / SR
+    x = low(brown(sec), 70) * np.clip(tt / 1.2, 0, 1) ** 1.5 * 2.5
+    for _ in range(int(rng.integers(14, 22))):
+        k = int(rng.uniform(0.2, 1.5) * SR); m = int(0.03 * SR)
+        click = band(noise(0.03), rng.uniform(1500, 2500), rng.uniform(3500, 6000)) * np.exp(-np.arange(m) / SR / 0.006)
+        x[k:k + m] += click[: len(x[k:k + m])] * rng.uniform(0.2, 0.6)
+    return reverb(x, 2.5, 0.5, 3000)
+
+def golpe():
+    """La roca contra el piso: golpe sordo, crujido y piedras que ruedan."""
+    sec = 1.8; n = int(sec * SR); tt = np.arange(n) / SR
+    thud = np.sin(2 * np.pi * np.cumsum(55 * (1 + 1.5 * np.exp(-tt / 0.03))) / SR) * np.exp(-tt / 0.18)
+    crack = high(noise(sec), 800) * np.exp(-tt / 0.05) * 0.6
+    rolls = low(noise(sec), 2500) * np.exp(-tt / 0.5) * curve(sec, 9, 0, 1) * 0.25
+    return reverb(thud * 1.4 + crack + rolls, 2.5, 0.45, 2500)
+
+def tic():
+    """Tic del reloj cuando queda poco tiempo."""
+    n = int(0.12 * SR); tt = np.arange(n) / SR
+    y = np.sin(2 * np.pi * 1900 * tt) * np.exp(-tt / 0.012) + band(noise(0.12), 3000, 7000) * np.exp(-tt / 0.004) * 0.5
+    return reverb(y, 1.2, 0.25, 6000)
+
+def juego():
+    for i in range(3): save(f"roca_derrumbe_{i+1}", derrumbe(), 0.8)
+    for i in range(3): save(f"roca_golpe_{i+1}", golpe(), 0.9)
+    save("reloj_tic", tic(), 0.5)
+
 # ------------------------------------------------------------------
 if __name__ == "__main__":
     for i in range(6): save(f"pasos_{i+1}", paso(), 0.8)
@@ -349,3 +379,4 @@ if __name__ == "__main__":
     for i in range(3): save(f"zona5_mastica_{i+1}", mastica(), 0.6)
     for v in range(2): save(f"cueva_cama_{v+1}", cama_cueva(), 0.7, loop=True)
     for i in range(5): save(f"cueva_gota_{i+1}", gota(), 0.5)
+    juego()

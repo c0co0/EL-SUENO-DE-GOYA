@@ -12,6 +12,16 @@ Rama: `obras-oscuras` (sale de `cardboard-xr`).
 - **Todo se apaga al avanzar:** cuanto más adentro del camino, más oscuros se tiñen los cuadros, las auras pasan de dorado a rojo y el sonido ambiente se pone más grave.
 - Si se apaga *Path Mode*, vuelve la galería de 180° con una obra a la vez (*One At A Time*, *Arc Degrees*, *Arc Slots*).
 
+## El juego: el reloj
+
+Cuando aparece la galería arranca un reloj (`GoyaGame`, se agrega solo): hay 5 minutos para encontrar la mayor cantidad de obras. Arriba de la vista se ve el tiempo que queda y cuántas obras llevás (por ejemplo `3:12   7 / 26 obras`).
+
+- Cuenta como encontrada cada obra del camino que se arma, cada obra de la cueva que se alumbra de cerca (las Pinturas Negras, cuando ya aparecieron) y cada Pintura Negra por dentro a la que se entra.
+- En la cueva caen rocas del techo: primero se oye un retumbe y cae polvo, y después la roca, justo adelante de donde vas (más lejos si corrés). Para esquivarla hay que frenar o correr. Si te pega, perdés 15 segundos.
+- En los últimos 30 segundos el reloj se pone rojo y suena un tic.
+- Al terminar el tiempo ya no se puede caminar y se muestra cuántas encontraste; cruzar los brazos vuelve a empezar.
+- Se ajusta en **Goya Game** (duración, prender o apagar el reloj) y en **Goya Cave**, sección Rocas que caen (cada cuánto caen, el aviso, la distancia a la que pegan y cuánto tiempo restan). Los sonidos nuevos (`roca_derrumbe`, `roca_golpe`, `reloj_tic`) salen de `tools/sonidos/generar.py`.
+
 ## Gestos
 
 | Gesto | Qué hace |
@@ -22,6 +32,7 @@ Rama: `obras-oscuras` (sale de `cardboard-xr`).
 | **Los dos puños cerrados** (a cualquier altura), mirando una obra | Se desarma en brasas y vuelve a quedar invisible |
 | **Un dedo levantado** (cualquier mano) | Caminás hacia adelante, hacia donde mirás |
 | **Un dedo levantado en cada mano** | Caminás hacia atrás |
+| **Dos dedos levantados** (la V, en una mano) | Corrés hacia donde mirás (en la PC: Shift + ↑) |
 | **Cruzar los brazos en X** delante del pecho (sostenerlo un segundo y medio) | Vuelve todo a empezar, desde el cabrío. Necesita el tracker con el cuerpo; en la ventana dice "BRAZOS CRUZADOS" |
 
 Los gestos de armar y desarmar hay que sostenerlos un momento (*Gesture Hold Time*) y soltarlos antes de repetirlos. "Levantado" quiere decir que la mano está en la parte de arriba de la imagen de la cámara (*Hand High Y*); si el tracker también ve el cuerpo, alcanza con que el brazo esté arriba del hombro.

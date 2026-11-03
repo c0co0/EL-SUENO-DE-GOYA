@@ -136,6 +136,18 @@ public class GoyaDiorama : MonoBehaviour
         return false;
     }
 
+    /// <summary>Cuantas pinturas por dentro hay (para el contador del juego).</summary>
+    public int Count { get { return dioramas.Length; } }
+
+    /// <summary>A cuantas ya se entro (pasando unos metros de su entrada).</summary>
+    public int Reached(GoyaGallery g)
+    {
+        float z = g.RigPosition.z - g.Center.z - g.PathLength;
+        int n = 0;
+        for (int k = 0; k < dioramas.Length; k++) if (z > k * spacing + 3f) n++;
+        return n;
+    }
+
     /// <summary>Metros que ocupan los dioramas despues del final del camino.</summary>
     public float Length
     {

@@ -53,6 +53,32 @@ public class GoyaCave : MonoBehaviour
     public float appearDistance = 3.2f;
     public float appearTime = 4f;
 
+    [Header("Rocas que caen")]
+    [Tooltip("Adentro de la cueva caen rocas del techo: si te pegan, perdes tiempo (GoyaGame)")]
+    public bool fallingRocks = true;
+    [Tooltip("Segundos entre una roca y la siguiente (al azar entre los dos)")]
+    public Vector2 rockInterval = new Vector2(5f, 9f);
+    [Tooltip("Segundos de aviso (retumbe y polvo) antes de que caiga")]
+    public float rockWarning = 1.4f;
+    [Tooltip("Distancia a la que la roca te pega (metros)")]
+    public float rockRadius = 0.8f;
+    [Tooltip("Segundos que se pierden si te pega una roca")]
+    public float rockPenalty = 15f;
+
+    class Rock
+    {
+        public Transform t;
+        public ParticleSystem dust;
+        public Vector3 at;
+        public float time, size;
+        public bool fell;
+    }
+    readonly List<Rock> rocks = new List<Rock>();
+    readonly HashSet<GoyaGallery.Painting> found = new HashSet<GoyaGallery.Painting>();
+    float rockTimer = 3f;
+    Material rockMat, dustMat;
+    AudioClip[] rumbleClips, hitClips;
+
     GoyaGallery gallery;
     float z0, z1, floorY, cx;
     bool built, lit, dropped;
@@ -76,6 +102,10 @@ public class GoyaCave : MonoBehaviour
     readonly List<Vector3> ringIn = new List<Vector3>(), ringOut = new List<Vector3>();
 
     public bool Built { get { return built; } }
+    /// <summary>Obras de la cueva (para el contador del juego).</summary>
+    public int PaintingCount { get { return inside.Count; } }
+    /// <summary>Obras de la cueva que ya se alumbraron (y, las negras, que ya aparecieron).</summary>
+    public int FoundCount { get { return found.Count; } }
 
     /// <summary>Si un punto esta adentro de la cueva.</summary>
     public bool Inside(Vector3 p)
@@ -541,6 +571,7 @@ para soltar la antorcha.";
         float dt = Time.deltaTime;
         colorTimer -= dt;
         if (colorTimer <= 0f) { colorTimer = 0.2f; UpdateOutsideColors(); }
+        UpdateRocks(rig, dt);
 
         if (!lit)
         {
@@ -601,7 +632,149 @@ para soltar la antorcha.";
             foreach (var p in hidden)
                 if (p.visibility < 1f && Vector3.Distance(fireAt.position, p.root.position) < appearDistance)
                     p.visibility = Mathf.Min(1f, p.visibility + dt / Mathf.Max(0.1f, appearTime));
+            // Encontrada: alumbrada de cerca (y, si es negra, ya aparecida)
+            foreach (var p in inside)
+                if (!found.Contains(p) && p.visibility >= 1f && Vector3.Distance(fireAt.position, p.root.position) < appearDistance)
+                    found.Add(p);
         }
+    }
+
+    // ---------------------------------------------------------------- rocas que caen
+
+    void UpdateRocks(Vector3 rig, float dt)
+    {
+        // Las que ya cayeron se hunden y desaparecen
+        for (int i = rocks.Count - 1; i >= 0; i--)
+        {
+            var r = rocks[i];
+            r.time += dt;
+            if (!r.fell)
+            {
+                if (r.time < rockWarning) continue;   // aviso: retumbe y polvo
+                if (!r.t.gameObject.activeSelf) r.t.gameObject.SetActive(true);
+                float fall = r.time - rockWarning;
+                float top = floorY + wallHeight + vaultHeight * 0.7f;
+                float y = top - 0.5f * 9.8f * fall * fall;
+                r.t.position = new Vector3(r.at.x, Mathf.Max(floorY + r.size * 0.4f, y), r.at.z);
+                r.t.Rotate(new Vector3(200f, 90f, 140f) * dt);
+                if (y <= floorY + r.size * 0.4f) Land(r, rig);
+            }
+            else if (r.time > 8f)
+            {
+                r.t.position += Vector3.down * dt * 0.1f;
+                if (r.time > 12f) { Destroy(r.t.gameObject); if (r.dust != null) Destroy(r.dust.gameObject); rocks.RemoveAt(i); }
+            }
+        }
+
+        if (!fallingRocks || !lit || dropped || !Inside(rig)) return;
+        var game = GoyaGame.Instance;
+        if (game != null && !game.Playing) return;
+        rockTimer -= dt;
+        if (rockTimer > 0f || rocks.Count >= 4) return;
+        rockTimer = Random.Range(rockInterval.x, Mathf.Max(rockInterval.x, rockInterval.y));
+
+        // Cae donde vas a estar: adelante en la direccion en que miras (mas lejos si corres)
+        var head = gallery.Head;
+        Vector3 f = head != null ? head.forward : Vector3.forward; f.y = 0f;
+        f = f.sqrMagnitude > 0.001f ? f.normalized : Vector3.forward;
+        float ahead = gallery.Running ? 4f : 2.2f;
+        Vector3 at = rig + f * ahead + new Vector3(Random.Range(-0.5f, 0.5f), 0f, 0f);
+        float hw = halfWidth * Flare(at.z) - 0.5f;
+        at.x = Mathf.Clamp(at.x, cx - hw, cx + hw);
+        at.z = Mathf.Clamp(at.z, z0 + 1f, z1 - 1f);
+        at.y = floorY;
+        SpawnRock(at);
+    }
+
+    void SpawnRock(Vector3 at)
+    {
+        if (rockMat == null)
+        {
+            var sh = Resources.Load<Shader>("Shaders/GoyaCueva");
+            rockMat = new Material(sh != null ? sh : Shader.Find("Sprites/Default")) { mainTexture = Resources.Load<Texture2D>("Paisaje/cueva_pared") };
+            dustMat = new Material(Shader.Find("Sprites/Default")) { mainTexture = SoftDot() };
+            rumbleClips = new[] { Resources.Load<AudioClip>("Sonidos/roca_derrumbe_1"), Resources.Load<AudioClip>("Sonidos/roca_derrumbe_2"), Resources.Load<AudioClip>("Sonidos/roca_derrumbe_3") };
+            hitClips = new[] { Resources.Load<AudioClip>("Sonidos/roca_golpe_1"), Resources.Load<AudioClip>("Sonidos/roca_golpe_2"), Resources.Load<AudioClip>("Sonidos/roca_golpe_3") };
+        }
+        var r = new Rock { at = at, size = Random.Range(0.35f, 0.6f) };
+        r.t = RockMesh(r.size).transform;
+        r.t.gameObject.SetActive(false);
+
+        // Aviso: polvo y piedritas que caen del techo, y el retumbe
+        float top = floorY + wallHeight + vaultHeight * 0.7f;
+        var go = new GameObject("Roca_Polvo");
+        go.transform.SetParent(transform, false);
+        go.transform.position = new Vector3(at.x, top, at.z);
+        var ps = go.AddComponent<ParticleSystem>();
+        ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+        var main = ps.main;
+        main.duration = rockWarning + 0.3f;
+        main.loop = false;
+        main.startLifetime = 1.2f;
+        main.startSpeed = 0.2f;
+        main.startSize = new ParticleSystem.MinMaxCurve(0.02f, 0.07f);
+        main.startColor = new Color(0.75f, 0.62f, 0.45f, 0.8f);
+        main.gravityModifier = 0.6f;
+        main.simulationSpace = ParticleSystemSimulationSpace.World;
+        var em = ps.emission; em.rateOverTime = 45f;
+        var shp = ps.shape; shp.shapeType = ParticleSystemShapeType.Circle; shp.radius = 0.4f; shp.rotation = new Vector3(90f, 0f, 0f);
+        go.GetComponent<ParticleSystemRenderer>().sharedMaterial = dustMat;
+        ps.Play();
+        r.dust = ps;
+        PlayAt(rumbleClips, new Vector3(at.x, top, at.z), 0.9f);
+        rocks.Add(r);
+    }
+
+    void Land(Rock r, Vector3 rig)
+    {
+        r.fell = true;
+        r.time = 0f;
+        PlayAt(hitClips, r.t.position, 1f);
+        Vector3 d = r.t.position - rig; d.y = 0f;
+        if (d.magnitude < rockRadius + r.size * 0.5f)
+        {
+            var game = GoyaGame.Instance;
+            if (game != null) game.Penalty(rockPenalty, "Te golpeó una roca");
+        }
+    }
+
+    static void PlayAt(AudioClip[] clips, Vector3 pos, float volume)
+    {
+        if (clips == null || clips.Length == 0) return;
+        var c = clips[Random.Range(0, clips.Length)];
+        if (c != null) AudioSource.PlayClipAtPoint(c, pos, volume);
+    }
+
+    // Una piedra irregular (esfera deformada), con la textura de las paredes
+    GameObject RockMesh(float size)
+    {
+        int la = 8, lo = 12;
+        var v = new List<Vector3>(); var uv = new List<Vector2>(); var c = new List<Color>(); var t = new List<int>();
+        float seed = Random.value * 50f;
+        for (int i = 0; i <= la; i++)
+            for (int j = 0; j <= lo; j++)
+            {
+                float th = Mathf.PI * i / la, ph = 2f * Mathf.PI * j / lo;
+                Vector3 n = new Vector3(Mathf.Sin(th) * Mathf.Cos(ph), Mathf.Cos(th), Mathf.Sin(th) * Mathf.Sin(ph));
+                float k = 0.75f + 0.5f * Mathf.PerlinNoise(n.x * 1.7f + seed, n.y * 1.7f + n.z * 1.3f);
+                v.Add(n * size * 0.5f * k);
+                uv.Add(new Vector2((float)j / lo, (float)i / la));
+                c.Add(wallColor * (0.6f + 0.4f * k));
+            }
+        for (int i = 0; i < la; i++)
+            for (int j = 0; j < lo; j++)
+            {
+                int a = i * (lo + 1) + j, b = a + lo + 1;
+                t.AddRange(new[] { a, b, a + 1, a + 1, b, b + 1 });
+            }
+        var mesh = new Mesh();
+        mesh.SetVertices(v); mesh.SetUVs(0, uv); mesh.SetColors(c); mesh.SetTriangles(t, 0);
+        mesh.RecalculateBounds();
+        var go = new GameObject("Roca");
+        go.transform.SetParent(transform, false);
+        go.AddComponent<MeshFilter>().sharedMesh = mesh;
+        go.AddComponent<MeshRenderer>().sharedMaterial = rockMat;
+        return go;
     }
 
     void FadeDropHint(bool show, float dt)

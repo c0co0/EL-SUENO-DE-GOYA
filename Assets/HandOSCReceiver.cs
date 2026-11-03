@@ -216,6 +216,12 @@ public class HandOSCReceiver : MonoBehaviour
         return h.visible && !h.open && h.fingers == 1;
     }
 
+    /// <summary>Mano visible con dos dedos estirados (la V): correr.</summary>
+    public static bool IsTwoFingers(HandState h)
+    {
+        return h.visible && !h.open && h.fingers == 2;
+    }
+
     /// <summary>Mano visible, abierta y levantada (la muñeca en la parte de arriba de la imagen de la camara).</summary>
     public static bool IsRaisedOpen(HandState h, float highY)
     {

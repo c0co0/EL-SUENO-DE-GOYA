@@ -44,6 +44,8 @@ public class GoyaGallery : MonoBehaviour
     public float corridorHalfWidth = 1.6f;
     [Tooltip("Velocidad al caminar por el camino (metros por segundo)")]
     public float pathMoveSpeed = 1.1f;
+    [Tooltip("Cuanto mas rapido se va al correr (dos dedos levantados, o Shift en la PC)")]
+    public float runMultiplier = 2.4f;
     [Tooltip("Hasta que distancia (metros) los gestos de armar y desarmar alcanzan a la obra que se mira")]
     public float gestureDistance = 7f;
 
@@ -248,6 +250,7 @@ public class GoyaGallery : MonoBehaviour
     Painting walkTarget;                // obra hacia la que te acercas con el puño
     Painting mousePointed;              // obra apuntada con el mouse (PC)
     float walk;          // velocidad actual, suavizada (-1 atras, 1 adelante)
+    float runBlend;      // 0 caminando, 1 corriendo (suavizado)
     Vector3 lastWalkDir = Vector3.forward;
     float formTimer, breakTimer, fingerTimer;
     bool formReady, breakReady;          // gesto hecho, listo para que lo use GoyaParticles
@@ -652,13 +655,17 @@ public class GoyaGallery : MonoBehaviour
         }
 
         // Un dedo levantado: acercarse a la obra que se esta mirando. Un dedo en cada mano: alejarse
+        bool run = false;
         if (fingerWalk)
         {
             bool oneL = HandOSCReceiver.IsOneFinger(hands.Left), oneR = HandOSCReceiver.IsOneFinger(hands.Right);
-            fingerTimer = (oneL || oneR) ? fingerTimer + dt : 0f;
+            // Dos dedos (la V) en una mano: correr hacia donde se mira
+            bool twoL = HandOSCReceiver.IsTwoFingers(hands.Left), twoR = HandOSCReceiver.IsTwoFingers(hands.Right);
+            fingerTimer = (oneL || oneR || twoL || twoR) ? fingerTimer + dt : 0f;
             if (fingerTimer >= fistHoldTime)
             {
-                if (oneL && oneR) wanted = -1f;
+                if (twoL || twoR) { wanted = 1f; run = true; }
+                else if (oneL && oneR) wanted = -1f;
                 else { wanted = 1f; target = PaintingInView(); }
             }
         }
@@ -672,7 +679,14 @@ public class GoyaGallery : MonoBehaviour
         }
 
         // En la PC: flecha arriba (o W) = hacia la obra apuntada con el clic izquierdo, o hacia donde miras
-        if (Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.UpArrow)) { wanted = 1f; target = mousePointed; }
+        if (Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.UpArrow))
+        {
+            wanted = 1f;
+            target = mousePointed;
+            if (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift)) { run = true; target = null; }
+        }
+        if (Frozen) { wanted = 0f; run = false; }
+        Running = run && wanted > 0f;
         if (Input.GetKey(KeyCode.S) || Input.GetKey(KeyCode.DownArrow)) { wanted = -1f; target = null; }
 
         Vector3 look = head != null ? head.forward : rig.forward;
@@ -695,7 +709,9 @@ public class GoyaGallery : MonoBehaviour
         lastWalkDir = Vector3.Slerp(lastWalkDir, dir, 1f - Mathf.Exp(-6f * dt));
         if (Mathf.Abs(walk) < 0.01f) return;
 
-        Vector3 pos = rig.position + lastWalkDir * (walk * (pathMode && PathLength > 0f ? pathMoveSpeed : moveSpeed) * dt);
+        runBlend = Mathf.MoveTowards(runBlend, Running ? 1f : 0f, dt * 2f);
+        float speed = (pathMode && PathLength > 0f ? pathMoveSpeed : moveSpeed) * Mathf.Lerp(1f, runMultiplier, runBlend);
+        Vector3 pos = rig.position + lastWalkDir * (walk * speed * dt);
         Vector3 offset = pos - center;
         offset.y = 0f;
         if (pathMode && PathLength > 0f)
@@ -909,6 +925,10 @@ public class GoyaGallery : MonoBehaviour
 
     /// <summary>Cuantas veces se hizo el gesto de armar (dos brazos arriba, o E): otros scripts miran si cambio (la antorcha de la cueva).</summary>
     public int FormGestures { get; private set; }
+    /// <summary>Corriendo (dos dedos levantados, o Shift en la PC).</summary>
+    public bool Running { get; private set; }
+    /// <summary>Si es true no se puede caminar (lo usa GoyaGame cuando se termina el tiempo).</summary>
+    public bool Frozen { get; set; }
     public Transform Head { get { return head; } }
 
     void Hold(bool pose, ref float timer, ref bool released, ref bool ready)
