@@ -136,6 +136,20 @@ public class GoyaParticles : MonoBehaviour
     [Tooltip("Con esta parte del polvo juntado, el resto se junta solo y la obra se forma")]
     [Range(0.1f, 1f)] public float formAt = 0.7f;
 
+    [Header("Obras pintadas sobre telas y rocas (camino)")]
+    [Tooltip("Cada obra tiene su soporte en la escenografia, a la altura de la vista: una tela colgada entre dos palos o una roca con una cara lisa. Cada mota de polvo que juntas con la mano llega a la tela o a la roca y ahi nace un caminante que pinta la obra (como en Processing: aceleracion al azar, toma el color de la pintura, se achica y muere)")]
+    public bool paintOnSurfaces = true;
+    [Tooltip("Caminantes pintando a la vez en cada obra (mas = se pinta mas rapido, mas pesado)")]
+    public int maxWalkers = 260;
+    [Tooltip("Radio de la pincelada al nacer (pixeles de una tela de 256 de alto)")]
+    public float walkerSize = 6f;
+    [Tooltip("Cuanto se achica la pincelada en cada paso (mas = trazos mas cortos)")]
+    public float walkerShrink = 0.035f;
+    [Tooltip("Pasos de cada caminante por cuadro (mas = pinta mas rapido)")]
+    public int walkerSteps = 3;
+    [Tooltip("Cuando ya juntaste el polvo, los segundos maximos hasta que la obra termina de pintarse sola")]
+    public float finishAfter = 20f;
+
     [Header("Obras vivas (camino): la obra armada sigue siendo particulas")]
     [Tooltip("Al armarse, la obra no vuelve a ser un cuadro plano: queda hecha de particulas con volumen, que respiran, se mecen con el aire, se deshilachan en los bordes y se apartan de la mano")]
     public bool livingPaintings = true;
@@ -197,6 +211,9 @@ public class GoyaParticles : MonoBehaviour
         public float[] sShow;      // cuanto se ve la tela en cada punto: crece donde se acomodo el polvo
         public float[] sGoal;
         public Color[] sColor;
+        public GoyaCanvas canvas;  // soporte (tela o roca) donde la pintan los caminantes
+        public Sprite canvasSprite;
+        public float paintTime;    // segundos desde que se junto el polvo (para terminar de pintar)
         public float fade;         // obra viva: 0 = recien armada (se ven las particulas), 1 = se ve la tela
         public float[] delay, seed;
         public bool[] released;
@@ -246,6 +263,7 @@ public class GoyaParticles : MonoBehaviour
         if (together) UpdateTogether(forceAll);
         if (path) { UpdatePath(forceAll); forceAll = false; }
 
+        TintSupports();
         foreach (var e in effects)
         {
             var p = e.painting;
@@ -751,6 +769,8 @@ public class GoyaParticles : MonoBehaviour
                 Vector3 toViewer = gallery.RigPosition - p.root.position; toViewer.y = 0f;
                 BuildSheet(e, Vector3.Dot(p.root.forward, toViewer) >= 0f ? p.root.forward : -p.root.forward, Mathf.Max(p.halfW, p.halfH));
                 e.fade = 0f;
+                if (OnSurface(e)) { e.canvas.Clear(); e.fade = 1f; }   // la tela o la roca se ven enteras, sin pintar
+                e.paintTime = 0f;
             }
         }
 
@@ -963,7 +983,14 @@ public class GoyaParticles : MonoBehaviour
             dust.a = dustAlpha * (e.mote[i] > 1.5f ? 0.2f : 1f) * (0.7f + 0.3f * Mathf.Sin(time * 2f + sd));   // titilan
             Color32 c = Color32.Lerp(dust, Tinted(e.toColor[i], tint), k2);
             float gone = 1f;
-            if (e.caught[i] > settleTime * 0.7f && e.sheetGo != null && e.sheetGo.activeSelf)
+            bool surface = OnSurface(e);
+            if (surface && e.caught[i] > settleTime * 0.7f)
+            {
+                // Llego a la tela (o a la roca): ahi nace un caminante que pinta, y la mota se apaga
+                if (e.caught[i] - dt <= settleTime * 0.7f) e.canvas.Spawn(e.uv[i]);
+                gone = Mathf.Clamp01(1f - (e.caught[i] - settleTime * 0.7f) / 0.8f);
+            }
+            else if (e.caught[i] > settleTime * 0.7f && e.sheetGo != null && e.sheetGo.activeSelf)
             {
                 // Llego: la tela aparece en ese lugar y la mota se apaga (no hay salto de una cosa a la otra)
                 Reveal(e, e.uv[i]);
@@ -988,6 +1015,21 @@ public class GoyaParticles : MonoBehaviour
             UpdateSheet(e, dt, pushes, h0, h1, handPush * boost, tint, fogA, fogB, appear * p.visibility, 1f + gallery.agitation * agitationWind);
         }
 
+        bool painted = true;
+        if (OnSurface(e))
+        {
+            e.canvas.Step();
+            if (e.gathered)
+            {
+                // Ya juntaste el polvo: nacen caminantes donde falta pintar, hasta completar la obra
+                e.paintTime += dt;
+                e.canvas.SpawnWhereMissing(3);
+                painted = e.canvas.Coverage >= 0.95f || e.paintTime >= finishAfter;
+                if (painted) e.canvas.FinishFill();
+            }
+            else painted = false;
+        }
+
         float progress = (float)caughtCount / n;
         p.reveal = progress;
         if (!e.gathered && progress >= formAt)
@@ -996,7 +1038,7 @@ public class GoyaParticles : MonoBehaviour
             if (OnReform != null) OnReform(p);
         }
         // Todas atrapadas y acomodadas: la obra esta formada y queda viva
-        if (caughtCount == n && settled >= settleTime)
+        if (caughtCount == n && settled >= settleTime && painted)
         {
             gallery.MarkRevealed(p);
             p.swipe = 0f;
@@ -1076,6 +1118,69 @@ public class GoyaParticles : MonoBehaviour
         e.t = 0f;
     }
 
+    // ---------------------------------------------------------------- telas y rocas
+
+    bool OnSurface(Effect e)
+    {
+        return paintOnSurfaces && Dust() && e.canvas != null && e.canvasSprite != null && e.canvasSprite == e.painting.renderer.sprite
+            && e.sheetGo != null && e.sheetGo.activeSelf && Living(e);
+    }
+
+    Material supportMat;
+
+    // El soporte de la obra (tela colgada o roca) y la textura donde se pinta. Se arma una vez; se rehace si la obra
+    // cambio de imagen o de lugar.
+    bool PrepareCanvas(Effect e, Vector3 front)
+    {
+        var p = e.painting;
+        if (!livingPaintings || !Living(e)) return false;
+        var sprite = p.renderer.sprite;
+        var src = GetPixels(sprite);
+        if (src == null || p.halfH <= 0f) return false;
+        bool moved = e.canvas != null && (e.canvas.supportAt - p.root.position).sqrMagnitude > 0.09f;
+        if (e.canvas == null || e.canvasSprite != sprite || moved)
+        {
+            if (e.canvas != null) e.canvas.DestroySupport();
+            var kind = effects.IndexOf(e) % 2 == 0 ? GoyaCanvas.Kind.Cloth : GoyaCanvas.Kind.Rock;
+            e.canvas = new GoyaCanvas(kind, src, p.halfW / p.halfH);
+            e.canvasSprite = sprite;
+            if (supportMat == null)
+            {
+                var sh = Resources.Load<Shader>("Shaders/GoyaTerreno");
+                supportMat = new Material(sh != null ? sh : particleMat.shader);
+                var tex = Resources.Load<Texture2D>("Paisaje/pinceladas");
+                if (tex != null) supportMat.mainTexture = tex;
+            }
+            var env = gallery.GetComponent<GoyaEnvironment>();
+            float floorY = gallery.RigPosition.y - (env != null ? env.eyeHeight : 1.6f);
+            Vector3 right = Vector3.Cross(Vector3.up, front).normalized;
+            if (right.sqrMagnitude < 0.5f) right = p.root.right;
+            e.canvas.BuildSupport(transform, p.root.position, right, Vector3.up, front, p.halfW * 2f, p.halfH * 2f, floorY, supportMat);
+            e.canvas.TintSupport(Color.white, Color.clear);
+        }
+        e.canvas.MaxWalkers = maxWalkers;
+        e.canvas.Size = walkerSize;
+        e.canvas.Shrink = walkerShrink;
+        e.canvas.StepsPerFrame = walkerSteps;
+        return true;
+    }
+
+    // Los soportes son escenografia: toman la niebla y el tinte de la epoca como el resto (de a una por cuadro, es liviano)
+    int tintTurn;
+    void TintSupports()
+    {
+        if (effects.Count == 0) return;
+        tintTurn = (tintTurn + 1) % effects.Count;
+        var e = effects[tintTurn];
+        if (e.canvas == null || e.canvas.support == null) return;
+        Color tint = gallery.CurrentTint();
+        Color fogA = Color.black, fogB = Color.white;
+        var env = gallery.GetComponent<GoyaEnvironment>();
+        if (env != null) { fogA = env.Fogged(Color.black, e.painting.root.position); fogB = env.Fogged(Color.white, e.painting.root.position); }
+        float k = gallery.appear;
+        e.canvas.TintSupport(new Color(tint.r * (fogB.r - fogA.r) * k, tint.g * (fogB.g - fogA.g) * k, tint.b * (fogB.b - fogA.b) * k), fogA * k);
+    }
+
     void HideSheet(Effect e)
     {
         if (e.sheetGo != null && e.sheetGo.activeSelf) e.sheetGo.SetActive(false);
@@ -1107,14 +1212,15 @@ public class GoyaParticles : MonoBehaviour
         }
         var rend = e.sheetGo.GetComponent<MeshRenderer>();
         var mat = rend.sharedMaterial;
-        mat.mainTexture = sprite.texture;
+        bool onCanvas = paintOnSurfaces && Dust() && PrepareCanvas(e, front);
+        mat.mainTexture = onCanvas ? (Texture)e.canvas.tex : sprite.texture;
         // Recorte de las figuras: el fondo de la pintura queda mas transparente
-        var cut = Resources.Load<Sprite>("Cortes/" + sprite.name);
+        var cut = onCanvas ? null : Resources.Load<Sprite>("Cortes/" + sprite.name);
         if (mat.HasProperty("_Mask"))
         {
             mat.SetTexture("_Mask", cut != null ? cut.texture : Texture2D.whiteTexture);
             mat.SetFloat("_HasMask", cut != null ? 1f : 0f);
-            mat.SetFloat("_Bg", backgroundAlpha);
+            mat.SetFloat("_Bg", onCanvas ? 1f : backgroundAlpha);
         }
 
         float w = p.halfW * 2f, h = p.halfH * 2f;
@@ -1144,14 +1250,14 @@ public class GoyaParticles : MonoBehaviour
                 // Borde gastado: no es una linea recta, cambia con el ruido
                 float ragged = edgeDissolve * (0.6f + 0.8f * Mathf.PerlinNoise(u * 6f + p.phase, v * 6f));
                 float fade = ragged > 0f ? Mathf.Clamp01(edge / ragged) : 1f;
-                e.sEdge[k] = fade * fade * (3f - 2f * fade);
+                e.sEdge[k] = onCanvas ? 1f : fade * fade * (3f - 2f * fade);
                 Vector3 flat = c + right * ((u - 0.5f) * w) + up * ((v - 0.5f) * h);
-                e.sHome[k] = flat + front * ((lum - 0.35f) * livingDepth * size);
+                e.sHome[k] = onCanvas ? flat : flat + front * ((lum - 0.35f) * livingDepth * size);   // la tela y la roca son lisas
                 e.sPos[k] = flat;            // arranca plana y se acomoda (sale el volumen)
                 e.sVel[k] = Vector3.zero;
-                uvs[k] = new Vector2((r.x + u * r.width) / tw, (r.y + v * r.height) / th);
+                uvs[k] = onCanvas ? new Vector2(u, v) : new Vector2((r.x + u * r.width) / tw, (r.y + v * r.height) / th);
                 uvs2[k] = new Vector2(u, v);
-                e.sShow[k] = 0f; e.sGoal[k] = 0f;
+                e.sShow[k] = onCanvas ? 1f : 0f; e.sGoal[k] = onCanvas ? 1f : 0f;
             }
         // Largo de reposo de cada resorte con la vecina de la derecha y la de arriba (se guarda en sRest: x = derecha, y = arriba)
         for (int j = 0; j <= sy; j++)
@@ -1188,13 +1294,20 @@ public class GoyaParticles : MonoBehaviour
         float r2 = handRadius * handRadius;
         float tt = Time.time * 0.35f;
         var pos = e.sPos; var home = e.sHome; var vel = e.sVel;
+        bool canvas = OnSurface(e);
+        bool rock = canvas && e.canvas.kind == GoyaCanvas.Kind.Rock;
+        bool cloth = canvas && !rock;
+        float flowK = cloth ? 1.6f : 1f, springK = cloth ? 0.5f : 1f;
+        if (rock) { pushes = 0; System.Array.Copy(home, pos, pos.Length); }   // la roca no se mueve: solo cambia el color
+        else
         for (int j = 0; j <= sy; j++)
             for (int i = 0; i <= sx; i++)
             {
                 int k = j * w + i;
+                if (cloth && j == sy) { pos[k] = home[k]; vel[k] = Vector3.zero; continue; }   // la tela cuelga del travesaño
                 Vector3 x = pos[k], v = vel[k];
                 float loose = 1f - e.sEdge[k];
-                Vector3 a = (home[k] - x) * (spring * (1f - 0.6f * loose)) - v * damping;
+                Vector3 a = (home[k] - x) * (spring * springK * (1f - 0.6f * loose)) - v * damping;
                 // Vecinas: cada una tira para mantener la misma distancia que en reposo (la onda se propaga)
                 Vector3 off = x - home[k];
                 if (i > 0) a += ((pos[k - 1] - home[k - 1]) - off) * neighborSpring;
@@ -1204,7 +1317,7 @@ public class GoyaParticles : MonoBehaviour
                 float sxn = x.x * 1.3f, syn = x.y * 1.3f, szn = x.z * 1.3f;
                 a += new Vector3(Mathf.PerlinNoise(syn + tt, szn) - 0.5f,
                                  Mathf.PerlinNoise(szn + 3.1f, sxn + tt) - 0.45f,
-                                 Mathf.PerlinNoise(sxn + 7.7f + tt, syn) - 0.5f) * (flow * wind * (0.25f + 1.5f * loose));
+                                 Mathf.PerlinNoise(sxn + 7.7f + tt, syn) - 0.5f) * (flow * flowK * wind * (0.25f + 1.5f * loose));
                 if (pushes > 0)
                 {
                     Vector3 d = x - pushA; float d2 = d.sqrMagnitude;
@@ -1217,7 +1330,7 @@ public class GoyaParticles : MonoBehaviour
                 }
                 vel[k] = v + a * dt;
             }
-        for (int k = 0; k < pos.Length; k++) pos[k] += vel[k] * dt;
+        if (!rock) for (int k = 0; k < pos.Length; k++) pos[k] += vel[k] * dt;
 
         // Color: Sprites/Default multiplica la imagen por el color de cada vertice. Niebla aproximada: oscurece hacia la niebla
         Color mul = new Color(tint.r * (fogB.r - fogA.r), tint.g * (fogB.g - fogA.g), tint.b * (fogB.b - fogA.b), 1f);
@@ -1240,6 +1353,31 @@ public class GoyaParticles : MonoBehaviour
         if (!near)
         {
             if (e.go.activeSelf) e.go.SetActive(false);
+            return;
+        }
+        bool onSurface = OnSurface(e) && e.sheetSprite == p.renderer.sprite;
+        if (onSurface)
+        {
+            // Pintada en la tela o la roca: no quedan particulas sueltas, la obra es la pintura del soporte
+            if (e.go.activeSelf) e.go.SetActive(false);
+            dt = Mathf.Min(dt, 0.04f);
+            if (e.canvas.Coverage < 0.95f)
+            {
+                // Armada con el gesto (sin juntar polvo): los caminantes la pintan igual
+                e.paintTime += dt;
+                e.canvas.SpawnWhereMissing(4);
+                e.canvas.Step();
+                if (e.paintTime >= finishAfter) e.canvas.FinishFill();
+            }
+            int hp = 0; Vector3 ha = Vector3.zero, hb = Vector3.zero;
+            if (p.hovered) { ha = p.hitPoint; hp = 1; }
+            Vector3 hpalm;
+            if (GoyaHands.Palm(out hpalm) && Vector3.Distance(hpalm, p.root.position) < Mathf.Max(p.halfW, p.halfH) + 1f) { if (hp == 0) ha = hpalm; else hb = hpalm; hp++; }
+            Color st = gallery.CurrentTint();
+            var senv = gallery.GetComponent<GoyaEnvironment>();
+            Color sfa = Color.black, sfb = Color.white;
+            if (senv != null) { sfa = senv.Fogged(Color.black, p.root.position); sfb = senv.Fogged(Color.white, p.root.position); }
+            UpdateSheet(e, dt, hp, ha, hb, handPush * 0.5f * (0.5f + gallery.agitation * 2f), st, sfa, sfb, gallery.appear * p.visibility, 1f + gallery.agitation * agitationWind);
             return;
         }
         if (!e.go.activeSelf) { e.go.SetActive(true); e.ps.Play(); }

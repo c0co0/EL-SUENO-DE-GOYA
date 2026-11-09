@@ -121,6 +121,25 @@ Inspirado en *Dust* de Robert Hodgin (motas de polvo iluminadas que se arremolin
 - El gesto de los dos brazos arriba sigue armándola de golpe.
 - Se ajusta en **Goya Particles**, sección *Polvo que se junta*: color y brillo de las motas, tamaño de la nube, fuerza y alcance del aire de la mano, distancia a la que se atrapan, el resorte y cuánto hay que juntar.
 
+## Las obras se pintan sobre telas y rocas (caminantes)
+
+Cada obra del camino tiene su soporte en la escenografía, con la obra más o menos a la altura de la vista: una **tela colgada** entre dos palos con un travesaño, o una **roca** con una cara lisa (se alternan, una y una). La tela empieza en blanco (lino con trama) y la roca muestra la piedra.
+
+Cuando juntás el polvo con la mano, cada mota que llega a su lugar en la tela o la roca se apaga y en ese punto **nace un caminante**, como en el video de Processing de partículas que dibujan. Cada caminante es una partícula con posición, velocidad y una aceleración al azar en cada paso. Toma el color de la pintura donde está parado, deja una pincelada redonda y se achica hasta morir. La obra aparece trazo por trazo, en los lugares donde fuiste juntando el polvo.
+
+Cuando ya juntaste bastante (`Form At`), nacen caminantes solos en las partes que faltan, hasta que la obra queda pintada (o pasan `Finish After` segundos y se completa sola). La tela se mece con el aire y con la mano (cuelga del travesaño, es la malla de resortes de las obras vivas), y la roca queda quieta. Los soportes toman la niebla y el tinte de la época como el resto del paisaje. Si desarmás la obra (dos puños), la tela vuelve a quedar en blanco y se puede pintar de nuevo.
+
+Código: `Assets/GoyaCanvas.cs` (los soportes, la textura y los caminantes) y `GoyaParticles` (sección **Obras pintadas sobre telas y rocas**).
+
+| Valor | Qué hace |
+|---|---|
+| `Paint On Surfaces` | Apagado: vuelve a la obra de partículas flotando, sin soporte |
+| `Max Walkers` | Caminantes a la vez en cada obra (más = se pinta más rápido) |
+| `Walker Size` | Tamaño de la pincelada al nacer |
+| `Walker Shrink` | Cuánto se achica en cada paso (más = trazos más cortos) |
+| `Walker Steps` | Pasos por cuadro (más = pinta más rápido) |
+| `Finish After` | Segundos máximos para terminar de pintarse sola después de juntar el polvo |
+
 ## Las obras vivas (hechas de partículas)
 
 Cuando una obra del camino se arma, **ya no vuelve a ser un cuadro plano**: queda hecha de sus partículas (`GoyaParticles`, *Living Paintings*). Flotan a la altura de la vista, sin marco, y se mezclan con el aire del lugar:
