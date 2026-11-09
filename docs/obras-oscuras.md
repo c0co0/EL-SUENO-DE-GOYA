@@ -113,12 +113,13 @@ Al salir de la cueva, cuatro Pinturas Negras se recorren por dentro, una detrás
 Cuando una obra del camino se arma, **ya no vuelve a ser un cuadro plano**: queda hecha de sus partículas (`GoyaParticles`, *Living Paintings*). Flotan a la altura de la vista, sin marco, y se mezclan con el aire del lugar:
 
 - **Volumen**: cada partícula tiene su lugar en la obra, y lo claro sale hacia adelante y lo oscuro se hunde (*Living Depth*). Al caminar alrededor se nota la profundidad.
-- **Sin marco**: las partículas del borde quedan sueltas, más lejos del plano y más transparentes, como humo (*Edge Dissolve*, *Edge Drift*).
+- **La imagen la lleva una tela de partículas**: una grilla de puntos (*Sheet Resolution*, 56 a lo alto) con la pintura pegada encima, así se ve con toda su definición. Cada punto es una partícula unida a su lugar y a sus 4 vecinas por resortes (*Neighbor Spring*): por eso un empujón de la mano se propaga como una onda por la obra.
+- **Sin marco**: el borde de la tela se vuelve transparente de forma irregular, y ahí siguen las partículas sueltas, más chicas, alejándose como humo (*Edge Dissolve*, *Edge Drift*, *Edge Particle Size*).
 - **Simulación**: cada partícula es un punto con velocidad, atado a su lugar por un resorte con freno (*Spring*, *Damping*). Encima actúa un campo de corrientes de aire que cambia con el tiempo (*Flow*, más fuerte en los bordes y cuando las manos se agitan).
 - **La mano las aparta**: donde la mano (o el puntero) toca la obra, las partículas se corren (*Hand Push*, *Hand Radius*). Cuando la mano se va, el resorte las devuelve y la obra ondula hasta quedarse quieta.
 - Toman el color de la época (más oscura con el movimiento) y la niebla del lugar, igual que antes.
 - Los dos puños la desarman como siempre. Las animadas (*El pelele*, *Vuelo de brujas*) quedan como cuadro (*Keep Flat*), porque sus capas van encima.
-- Si el celular anda lento: bajar *Particle Count* o *Living Distance* (las obras más lejanas que eso no se simulan).
+- Si el celular anda lento: bajar *Sheet Resolution*, *Particle Count* o *Living Distance* (las obras más lejanas que eso no se simulan).
 - Para volver a las obras en relieve apoyadas en el piso (`GoyaRelief`): destildar *Living Paintings*.
 
 ## Pinturas animadas: El pelele y Vuelo de brujas

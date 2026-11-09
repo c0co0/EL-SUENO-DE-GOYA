@@ -129,6 +129,12 @@ public class GoyaParticles : MonoBehaviour
     public float handRadius = 0.45f;
     [Tooltip("Las obras vivas mas lejanas que esto (metros) no se simulan ni se dibujan")]
     public float livingDistance = 14f;
+    [Tooltip("Puntos a lo alto de la tela de particulas que lleva la imagen (mas = mas suave, mas pesado)")]
+    public int sheetResolution = 56;
+    [Tooltip("Fuerza de los resortes entre puntos vecinos de la tela (asi el empujon de la mano se propaga como una onda)")]
+    public float neighborSpring = 14f;
+    [Tooltip("Tamaño de las particulas sueltas del borde (multiplica el tamaño normal)")]
+    public float edgeParticleSize = 0.45f;
     [Tooltip("Obras que quedan como cuadro (las animadas)")]
     public string[] keepFlat = { "12 El pelele", "18 Vuelo de brujas" };
 
@@ -148,6 +154,14 @@ public class GoyaParticles : MonoBehaviour
         public Vector2[] uv;       // lugar de cada particula en la obra (0 a 1)
         public Vector3[] home;     // lugar de cada particula en la obra viva (con volumen)
         public float[] loose;      // 0 = adentro de la obra, 1 = en el borde (se deshace en el aire)
+        // Tela: una malla de particulas unidas por resortes que lleva la imagen con toda su definicion
+        public GameObject sheetGo;
+        public Mesh sheet;
+        public Sprite sheetSprite;
+        public int sx, sy;
+        public Vector3[] sHome, sPos, sVel, sRest;
+        public float[] sEdge;
+        public Color[] sColor;
         public float[] delay, seed;
         public bool[] released;
         public EffectState state;
@@ -369,6 +383,7 @@ public class GoyaParticles : MonoBehaviour
 
     void Hide(Effect e)
     {
+        HideSheet(e);
         e.ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
         e.go.SetActive(false);
         e.painting.renderer.enabled = false;
@@ -546,6 +561,7 @@ public class GoyaParticles : MonoBehaviour
 
     void Begin(Effect e)
     {
+        HideSheet(e);
         var p = e.painting;
         // Si la obra cambio por otro lado (por ejemplo al reiniciar con Backspace), recalcular
         if (e.sampled != p.renderer.sprite && !Sample(e)) return;
@@ -674,6 +690,7 @@ public class GoyaParticles : MonoBehaviour
 
     void StartFloating(Effect e)
     {
+        HideSheet(e);
         var p = e.painting;
         if (!Sample(e)) return;   // siempre: en tandas el cuadro pudo cambiar de lugar
 
@@ -847,8 +864,150 @@ public class GoyaParticles : MonoBehaviour
             e.vel[i] = Vector3.zero;
         }
         p.renderer.enabled = false;
+        BuildSheet(e, front, size);
         e.state = EffectState.Living;
         e.t = 0f;
+    }
+
+    void HideSheet(Effect e)
+    {
+        if (e.sheetGo != null && e.sheetGo.activeSelf) e.sheetGo.SetActive(false);
+    }
+
+    // La tela: una grilla de particulas (cada vertice es una) con la imagen pegada encima. Cada una tiene su lugar con
+    // volumen (lo claro adelante) y esta unida a sus 4 vecinas por resortes. Los bordes se vuelven transparentes y
+    // se deshacen en las particulas sueltas.
+    void BuildSheet(Effect e, Vector3 front, float size)
+    {
+        var p = e.painting;
+        var sprite = p.renderer.sprite;
+        var pixels = GetPixels(sprite);
+        if (sprite == null || pixels == null) return;
+        if (e.sheetGo == null)
+        {
+            e.sheetGo = new GameObject("Tela_" + p.name);
+            e.sheetGo.transform.SetParent(transform, false);
+            e.sheetGo.transform.position = Vector3.zero;   // vertices en coordenadas del mundo
+            e.sheet = new Mesh { name = "Tela" };
+            e.sheet.MarkDynamic();
+            e.sheetGo.AddComponent<MeshFilter>().sharedMesh = e.sheet;
+            var mr = e.sheetGo.AddComponent<MeshRenderer>();
+            mr.sharedMaterial = new Material(particleMat.shader);
+            mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            mr.receiveShadows = false;
+            mr.sortingOrder = 4;
+        }
+        var rend = e.sheetGo.GetComponent<MeshRenderer>();
+        rend.sharedMaterial.mainTexture = sprite.texture;
+
+        float w = p.halfW * 2f, h = p.halfH * 2f;
+        int sy = Mathf.Max(8, sheetResolution);
+        int sx = Mathf.Max(8, Mathf.RoundToInt(sy * w / h));
+        int n = (sx + 1) * (sy + 1);
+        if (e.sPos == null || e.sPos.Length != n)
+        {
+            e.sHome = new Vector3[n]; e.sPos = new Vector3[n]; e.sVel = new Vector3[n]; e.sRest = new Vector3[n];
+            e.sEdge = new float[n]; e.sColor = new Color[n];
+        }
+        e.sx = sx; e.sy = sy;
+        Rect r = sprite.textureRect;
+        float tw = sprite.texture.width, th = sprite.texture.height;
+        var uvs = new Vector2[n];
+        var tris = new int[sx * sy * 6];
+        Vector3 c = p.root.position, right = p.root.right, up = p.root.up;
+        for (int j = 0; j <= sy; j++)
+            for (int i = 0; i <= sx; i++)
+            {
+                int k = j * (sx + 1) + i;
+                float u = (float)i / sx, v = (float)j / sy;
+                Color col = pixels.GetPixelBilinear(u, v);
+                float lum = 0.3f * col.r + 0.59f * col.g + 0.11f * col.b;
+                float edge = Mathf.Min(Mathf.Min(u, 1f - u), Mathf.Min(v, 1f - v));
+                // Borde gastado: no es una linea recta, cambia con el ruido
+                float ragged = edgeDissolve * (0.6f + 0.8f * Mathf.PerlinNoise(u * 6f + p.phase, v * 6f));
+                float fade = ragged > 0f ? Mathf.Clamp01(edge / ragged) : 1f;
+                e.sEdge[k] = fade * fade * (3f - 2f * fade);
+                Vector3 flat = c + right * ((u - 0.5f) * w) + up * ((v - 0.5f) * h);
+                e.sHome[k] = flat + front * ((lum - 0.35f) * livingDepth * size);
+                e.sPos[k] = flat;            // arranca plana y se acomoda (sale el volumen)
+                e.sVel[k] = Vector3.zero;
+                uvs[k] = new Vector2((r.x + u * r.width) / tw, (r.y + v * r.height) / th);
+            }
+        // Largo de reposo de cada resorte con la vecina de la derecha y la de arriba (se guarda en sRest: x = derecha, y = arriba)
+        for (int j = 0; j <= sy; j++)
+            for (int i = 0; i <= sx; i++)
+            {
+                int k = j * (sx + 1) + i;
+                e.sRest[k] = Vector3.zero;
+            }
+        int t = 0;
+        for (int j = 0; j < sy; j++)
+            for (int i = 0; i < sx; i++)
+            {
+                int a = j * (sx + 1) + i, b = a + 1, d = a + sx + 1, f = d + 1;
+                tris[t++] = a; tris[t++] = d; tris[t++] = b;
+                tris[t++] = b; tris[t++] = d; tris[t++] = f;
+            }
+        e.sheet.Clear();
+        e.sheet.vertices = e.sPos;
+        e.sheet.uv = uvs;
+        e.sheet.colors = e.sColor;
+        e.sheet.triangles = tris;
+        e.sheet.bounds = new Bounds(Vector3.zero, Vector3.one * 100000f);
+        e.sheetSprite = sprite;
+        e.sheetGo.SetActive(true);
+    }
+
+    // Cada punto de la tela: resorte a su lugar, resortes con sus vecinas, freno, corrientes de aire y la mano
+    void UpdateSheet(Effect e, float dt, int pushes, Vector3 pushA, Vector3 pushB, float strength, Color tint, Color fogA, Color fogB, float alpha, float wind)
+    {
+        if (e.sheet == null || e.sPos == null) return;
+        if (!e.sheetGo.activeSelf) e.sheetGo.SetActive(true);
+        int sx = e.sx, sy = e.sy, w = sx + 1;
+        float r2 = handRadius * handRadius;
+        float tt = Time.time * 0.35f;
+        var pos = e.sPos; var home = e.sHome; var vel = e.sVel;
+        for (int j = 0; j <= sy; j++)
+            for (int i = 0; i <= sx; i++)
+            {
+                int k = j * w + i;
+                Vector3 x = pos[k], v = vel[k];
+                float loose = 1f - e.sEdge[k];
+                Vector3 a = (home[k] - x) * (spring * (1f - 0.6f * loose)) - v * damping;
+                // Vecinas: cada una tira para mantener la misma distancia que en reposo (la onda se propaga)
+                Vector3 off = x - home[k];
+                if (i > 0) a += ((pos[k - 1] - home[k - 1]) - off) * neighborSpring;
+                if (i < sx) a += ((pos[k + 1] - home[k + 1]) - off) * neighborSpring;
+                if (j > 0) a += ((pos[k - w] - home[k - w]) - off) * neighborSpring;
+                if (j < sy) a += ((pos[k + w] - home[k + w]) - off) * neighborSpring;
+                float sxn = x.x * 1.3f, syn = x.y * 1.3f, szn = x.z * 1.3f;
+                a += new Vector3(Mathf.PerlinNoise(syn + tt, szn) - 0.5f,
+                                 Mathf.PerlinNoise(szn + 3.1f, sxn + tt) - 0.45f,
+                                 Mathf.PerlinNoise(sxn + 7.7f + tt, syn) - 0.5f) * (flow * wind * (0.25f + 1.5f * loose));
+                if (pushes > 0)
+                {
+                    Vector3 d = x - pushA; float d2 = d.sqrMagnitude;
+                    if (d2 < r2 && d2 > 1e-6f) a += d / Mathf.Sqrt(d2) * strength * (1f - d2 / r2);
+                    if (pushes > 1)
+                    {
+                        d = x - pushB; d2 = d.sqrMagnitude;
+                        if (d2 < r2 && d2 > 1e-6f) a += d / Mathf.Sqrt(d2) * strength * (1f - d2 / r2);
+                    }
+                }
+                vel[k] = v + a * dt;
+            }
+        for (int k = 0; k < pos.Length; k++) pos[k] += vel[k] * dt;
+
+        // Color: Sprites/Default multiplica la imagen por el color de cada vertice. Niebla aproximada: oscurece hacia la niebla
+        Color mul = new Color(tint.r * (fogB.r - fogA.r), tint.g * (fogB.g - fogA.g), tint.b * (fogB.b - fogA.b), 1f);
+        for (int k = 0; k < pos.Length; k++)
+        {
+            Color c = mul;
+            c.a = alpha * e.sEdge[k];
+            e.sColor[k] = c;
+        }
+        e.sheet.vertices = pos;
+        e.sheet.colors = e.sColor;
     }
 
     void UpdateLiving(Effect e, float dt)
@@ -885,6 +1044,12 @@ public class GoyaParticles : MonoBehaviour
         if (env != null) { fogA = env.Fogged(Color.black, p.root.position); fogB = env.Fogged(Color.white, p.root.position); }
         float alpha = gallery.appear * p.visibility;
         float wind = 1f + gallery.agitation * agitationWind;
+        if (e.sheetSprite != p.renderer.sprite && p.renderer.sprite != null)
+        {
+            Vector3 toViewer = gallery.RigPosition - p.root.position; toViewer.y = 0f;
+            BuildSheet(e, Vector3.Dot(p.root.forward, toViewer) >= 0f ? p.root.forward : -p.root.forward, Mathf.Max(p.halfW, p.halfH));
+        }
+        UpdateSheet(e, dt, pushes, pushA, pushB, strength, tint, fogA, fogB, alpha, wind);
 
         for (int i = 0; i < e.count; i++)
         {
@@ -920,13 +1085,14 @@ public class GoyaParticles : MonoBehaviour
 
             Color32 c = e.toColor[i];
             float cr = c.r / 255f * tint.r, cg = c.g / 255f * tint.g, cb = c.b / 255f * tint.b;
+            // Adentro la imagen la lleva la tela: solo se ven las particulas sueltas del borde (el humo)
             Color col = new Color(fogA.r + cr * (fogB.r - fogA.r), fogA.g + cg * (fogB.g - fogA.g), fogA.b + cb * (fogB.b - fogA.b),
-                                  c.a / 255f * alpha * (1f - 0.85f * loose));
+                                  c.a / 255f * alpha * Mathf.Clamp01(loose * 2f) * (1f - 0.5f * loose));
             e.parts[i].startColor = col;
         }
 
         // Al aparecer, se van acomodando (no hay salto desde el plano)
-        Write(e, Mathf.Lerp(1f, 1.15f, Mathf.Clamp01(e.t)));
+        Write(e, edgeParticleSize);
     }
 
     // ---------------------------------------------------------------- remolino
