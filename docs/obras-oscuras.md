@@ -12,15 +12,20 @@ Rama: `obras-oscuras` (sale de `cardboard-xr`).
 - **Todo se apaga al avanzar:** cuanto más adentro del camino, más oscuros se tiñen los cuadros, las auras pasan de dorado a rojo y el sonido ambiente se pone más grave.
 - Si se apaga *Path Mode*, vuelve la galería de 180° con una obra a la vez (*One At A Time*, *Arc Degrees*, *Arc Slots*).
 
-## El juego: el reloj
+## Las rocas de la cueva (simulación física)
 
-Cuando aparece la galería arranca un reloj (`GoyaGame`, se agrega solo): hay 5 minutos para encontrar la mayor cantidad de obras. Arriba de la vista se ve el tiempo que queda y cuántas obras llevás (por ejemplo `3:12   7 / 26 obras`).
+Adentro de la cueva, con la antorcha prendida, se desprenden rocas del techo. Están hechas con la **física de Unity (PhysX)**: cada roca es un cuerpo rígido con masa (según su tamaño), gravedad, rebote y rozamiento, y choca con el piso, las paredes, las otras rocas y con vos (una cápsula invisible que te sigue). Nada está animado:
 
-- Cuenta como encontrada cada obra del camino que se arma, cada obra de la cueva que se alumbra de cerca (las Pinturas Negras, cuando ya aparecieron) y cada Pintura Negra por dentro a la que se entra.
-- En la cueva caen rocas del techo: primero se oye un retumbe y cae polvo, y después la roca, justo adelante de donde vas (más lejos si corrés). Para esquivarla hay que frenar o correr. Si te pega, perdés 15 segundos.
-- En los últimos 30 segundos el reloj se pone rojo y suena un tic.
-- Al terminar el tiempo ya no se puede caminar y se muestra cuántas encontraste; cruzar los brazos vuelve a empezar.
-- Se ajusta en **Goya Game** (duración, prender o apagar el reloj) y en **Goya Cave**, sección Rocas que caen (cada cuánto caen, el aviso, la distancia a la que pegan y cuánto tiempo restan). Los sonidos nuevos (`roca_derrumbe`, `roca_golpe`, `reloj_tic`) salen de `tools/sonidos/generar.py`.
+- Primero se oye un retumbe y cae polvo del techo (el aviso). Después se sueltan de 1 a 4 rocas juntas, que se chocan entre sí mientras caen.
+- Si una roca pega contra el piso rápido (más de 3,5 m/s), **se parte** en 3 a 6 pedazos que salen despedidos con la energía que traía, con una nube de polvo.
+- Los pedazos quedan como escombros: ruedan, se amontonan y **los empujás al caminar**. Los más viejos se hunden en el piso para que no se acumulen de más (*Max Rubble*).
+- Las rocas se desprenden donde vas a estar (adelante, más lejos si corrés). Para esquivarlas hay que frenar, correr o ir hacia un costado.
+- **Si una roca te pega, la llama de la antorcha se achica** (ilumina menos y más cerca). Con 3 golpes se apaga: levantando los dos brazos se vuelve a prender, pero más chica.
+- Se ajusta en **Goya Cave**, sección *Rocas que caen*: cada cuánto, cuántas por derrumbe, tamaño, a qué velocidad se parten, cuántos pedazos, el rebote y cuánto achica la llama cada golpe.
+
+## El reloj (apagado por ahora)
+
+`GoyaGame` tiene un reloj para encontrar la mayor cantidad de obras en 5 minutos, con el contador de obras arriba de la vista. **Está apagado**: para prenderlo, en **Goya Game** marcar *Timer* (se agrega solo al darle Play; para cambiarlo hay que hacerlo en Play o cambiar el valor por defecto en el script). Con el reloj prendido, cada roca que te pega además resta 15 segundos.
 
 ## Sistema complejo: la bandada de murciélagos
 

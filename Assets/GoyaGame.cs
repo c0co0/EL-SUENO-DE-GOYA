@@ -11,8 +11,8 @@ using UnityEngine;
 /// </summary>
 public class GoyaGame : MonoBehaviour
 {
-    [Tooltip("Prender o apagar el reloj")]
-    public bool timer = true;
+    [Tooltip("Prender o apagar el reloj (por ahora apagado: el foco esta en la bandada y las rocas)")]
+    public bool timer = false;
     [Tooltip("Segundos para recorrer el sueño")]
     public float duration = 300f;
     [Tooltip("Desde cuantos segundos el reloj se pone rojo y suena el tic")]
