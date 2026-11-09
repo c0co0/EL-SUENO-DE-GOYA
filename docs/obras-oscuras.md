@@ -139,6 +139,10 @@ Código: `Assets/GoyaCanvas.cs` (los soportes, la textura y los caminantes) y `G
 | `Walker Shrink` | Cuánto se achica en cada paso (más = trazos más cortos) |
 | `Walker Steps` | Pasos por cuadro (más = pinta más rápido) |
 | `Finish After` | Segundos máximos para terminar de pintarse sola después de juntar el polvo |
+| `Cloth Margin` | Borde de tela sin pintar alrededor de la obra |
+| `Bokeh` | Parte de las motas grandes y borrosas (casi ninguna) |
+
+Para que no quede todo amontonado, cada zona del camino mide 16 m (`Zone Length` en Goya Gallery, antes 9): las obras de un mismo lado quedan a unos 4 m una de otra. Las rocas son más chicas (apenas más anchas que la obra, la superan unos 20 cm arriba) y los árboles que iban con una obra quedan más atrás, para no salir de adentro de la roca.
 
 ## Las obras vivas (hechas de partículas)
 

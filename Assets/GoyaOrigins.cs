@@ -114,7 +114,7 @@ public class GoyaOrigins : MonoBehaviour
             {
                 // Con arboles fractales, el arbol recortado se cambia por uno fractal detras de la obra (la obra se forma del polvo)
                 if (pr.image.Contains("arbol") && GoyaFractalTrees.Replaces(gameObject))
-                    TreeSpots.Add(new Spot { image = pr.image, at = o.baseCenter + fwd * 1.8f + o.right * 0.6f, height = pr.height > 0f ? pr.height : 5f });
+                    TreeSpots.Add(new Spot { image = pr.image, at = o.baseCenter + fwd * 2.8f + o.right * 0.9f, height = pr.height > 0f ? pr.height : 5f });
                 else BuildProp(o, pr, p.name);
             }
 

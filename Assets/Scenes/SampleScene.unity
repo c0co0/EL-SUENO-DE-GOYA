@@ -476,7 +476,7 @@ MonoBehaviour:
   leftPainting: {fileID: -545039589660142352, guid: e96bc286d87c51b418966579b348b29c, type: 3}
   rightPainting: {fileID: -2269059245698471535, guid: ce41d6e58f713c644ac0da326d43acf3, type: 3}
   pathMode: 1
-  zoneLength: 9
+  zoneLength: 16
   corridorHalfWidth: 1.6
   pathMoveSpeed: 1.1
   gestureDistance: 7

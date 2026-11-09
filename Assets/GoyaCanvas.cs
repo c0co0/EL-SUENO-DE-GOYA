@@ -29,6 +29,10 @@ public class GoyaCanvas
     readonly int[] cellPainted;     // pixeles pintados por celda (para saber que falta)
     const int Cells = 16;
     int painted;
+    // La obra ocupa el centro de la tela; alrededor queda un borde de tela sin pintar (en la roca no hay borde)
+    readonly int ix0, iy0, iw, ih;
+    /// <summary>Proporcion del soporte que ocupa el borde, a cada lado.</summary>
+    public readonly float margin;
     bool dirty;
 
     // Caminantes
@@ -43,12 +47,15 @@ public class GoyaCanvas
 
     public static readonly Color Linen = new Color(0.86f, 0.8f, 0.68f, 1f);
 
-    public GoyaCanvas(Kind kind, Texture2D source, float aspect)
+    public GoyaCanvas(Kind kind, Texture2D source, float aspect, float margin)
     {
         this.kind = kind;
         this.source = source;
+        this.margin = kind == Kind.Cloth ? Mathf.Clamp(margin, 0f, 0.3f) : 0f;
         ch = 256;
         cw = Mathf.Clamp(Mathf.RoundToInt(ch * aspect), 64, 420);
+        ix0 = Mathf.RoundToInt(cw * this.margin); iy0 = Mathf.RoundToInt(ch * this.margin);
+        iw = cw - 2 * ix0; ih = ch - 2 * iy0;
         tex = new Texture2D(cw, ch, TextureFormat.RGBA32, false);
         tex.wrapMode = TextureWrapMode.Clamp;
         px = new Color32[cw * ch];
@@ -60,7 +67,10 @@ public class GoyaCanvas
             {
                 if (kind == Kind.Cloth)
                 {
-                    float weave = 0.93f + 0.04f * Mathf.Sin(x * 1.9f) * Mathf.Sin(y * 2.1f) + 0.05f * Mathf.PerlinNoise(x * 0.05f, y * 0.05f);
+                    // Lino viejo: trama, manchas y los bordes mas oscuros (gastados)
+                    float weave = 0.9f + 0.05f * Mathf.Sin(x * 1.9f) * Mathf.Sin(y * 2.1f) + 0.12f * (Mathf.PerlinNoise(x * 0.03f, y * 0.03f) - 0.5f);
+                    float ex = Mathf.Min(x, cw - 1 - x) / (float)cw, ey = Mathf.Min(y, ch - 1 - y) / (float)ch;
+                    weave *= Mathf.Lerp(0.72f, 1f, Mathf.Clamp01(Mathf.Min(ex, ey) * 14f));
                     Color c = Linen * weave; c.a = 1f;
                     basePx[y * cw + x] = c;
                 }
@@ -70,7 +80,7 @@ public class GoyaCanvas
     }
 
     /// <summary>Que parte de la obra ya esta pintada (0 a 1).</summary>
-    public float Coverage { get { return (float)painted / (cw * ch); } }
+    public float Coverage { get { return (float)painted / Mathf.Max(1, iw * ih); } }
     public int Walkers { get { return wx.Count; } }
 
     public void Clear()
@@ -88,7 +98,7 @@ public class GoyaCanvas
     {
         if (wx.Count >= MaxWalkers) return;
         float a = Random.value * Mathf.PI * 2f;
-        wx.Add(uv.x * (cw - 1)); wy.Add(uv.y * (ch - 1));
+        wx.Add(ix0 + uv.x * (iw - 1)); wy.Add(iy0 + uv.y * (ih - 1));
         vx.Add(Mathf.Cos(a) * Speed * 0.5f); vy.Add(Mathf.Sin(a) * Speed * 0.5f);
         ws.Add(Size * Random.Range(0.6f, 1.2f));
         wc.Add(new Color32(0, 0, 0, 0));
@@ -97,7 +107,7 @@ public class GoyaCanvas
     /// <summary>Caminantes en las partes que todavia no se pintaron (para terminar la obra).</summary>
     public void SpawnWhereMissing(int count)
     {
-        int cellPx = (cw / Cells) * (ch / Cells);
+        int cellPx = (iw / Cells) * (ih / Cells);
         for (int k = 0; k < count && wx.Count < MaxWalkers; k++)
         {
             // Una celda al azar entre las menos pintadas (unos intentos)
@@ -126,12 +136,12 @@ public class GoyaCanvas
                 float sp = Mathf.Sqrt(nvx * nvx + nvy * nvy);
                 if (sp > Speed) { nvx *= Speed / sp; nvy *= Speed / sp; }
                 float x = wx[i] + nvx, y = wy[i] + nvy;
-                if (x < 0f || x > cw - 1) { nvx = -nvx; x = Mathf.Clamp(x, 0f, cw - 1); }
-                if (y < 0f || y > ch - 1) { nvy = -nvy; y = Mathf.Clamp(y, 0f, ch - 1); }
+                if (x < ix0 || x > ix0 + iw - 1) { nvx = -nvx; x = Mathf.Clamp(x, ix0, ix0 + iw - 1); }
+                if (y < iy0 || y > iy0 + ih - 1) { nvy = -nvy; y = Mathf.Clamp(y, iy0, iy0 + ih - 1); }
                 wx[i] = x; wy[i] = y; vx[i] = nvx; vy[i] = nvy;
 
                 // El color de la pintura donde esta parado (con un poco de variacion, como pincel)
-                Color c = source.GetPixelBilinear(x / (cw - 1), y / (ch - 1));
+                Color c = source.GetPixelBilinear((x - ix0) / (iw - 1), (y - iy0) / (ih - 1));
                 float j = 1f + Random.Range(-0.06f, 0.06f);
                 Stamp(x, y, ws[i], new Color(c.r * j, c.g * j, c.b * j, 1f));
 
@@ -153,10 +163,10 @@ public class GoyaCanvas
 
     void Stamp(float cx, float cy, float r, Color col)
     {
-        int x0 = Mathf.Max(0, Mathf.FloorToInt(cx - r)), x1 = Mathf.Min(cw - 1, Mathf.CeilToInt(cx + r));
-        int y0 = Mathf.Max(0, Mathf.FloorToInt(cy - r)), y1 = Mathf.Min(ch - 1, Mathf.CeilToInt(cy + r));
+        int x0 = Mathf.Max(ix0, Mathf.FloorToInt(cx - r)), x1 = Mathf.Min(ix0 + iw - 1, Mathf.CeilToInt(cx + r));
+        int y0 = Mathf.Max(iy0, Mathf.FloorToInt(cy - r)), y1 = Mathf.Min(iy0 + ih - 1, Mathf.CeilToInt(cy + r));
         float r2 = r * r;
-        int cellW = Mathf.Max(1, cw / Cells), cellH = Mathf.Max(1, ch / Cells);
+        int cellW = Mathf.Max(1, iw / Cells), cellH = Mathf.Max(1, ih / Cells);
         for (int y = y0; y <= y1; y++)
             for (int x = x0; x <= x1; x++)
             {
@@ -174,7 +184,7 @@ public class GoyaCanvas
                 if (fresh)
                 {
                     painted++;
-                    int cell = Mathf.Min(Cells - 1, y / cellH) * Cells + Mathf.Min(Cells - 1, x / cellW);
+                    int cell = Mathf.Min(Cells - 1, (y - iy0) / cellH) * Cells + Mathf.Min(Cells - 1, (x - ix0) / cellW);
                     cellPainted[cell]++;
                 }
                 px[idx] = o32;
@@ -185,13 +195,13 @@ public class GoyaCanvas
     /// <summary>Termina la obra: lo que quedo sin pintar se completa con la pintura, un poco transparente (se ve la trama).</summary>
     public void FinishFill()
     {
-        for (int y = 0; y < ch; y++)
-            for (int x = 0; x < cw; x++)
+        for (int y = iy0; y < iy0 + ih; y++)
+            for (int x = ix0; x < ix0 + iw; x++)
             {
                 int idx = y * cw + x;
                 bool done = kind == Kind.Cloth ? px[idx].a == 254 : px[idx].a >= 240;
                 if (done) continue;
-                Color c = source.GetPixelBilinear((float)x / (cw - 1), (float)y / (ch - 1));
+                Color c = source.GetPixelBilinear((float)(x - ix0) / (iw - 1), (float)(y - iy0) / (ih - 1));
                 Color d = px[idx];
                 Color o = Color.Lerp(kind == Kind.Rock ? c : d, c, 0.75f);
                 o.a = kind == Kind.Rock ? 0.8f : 1f;
@@ -284,13 +294,13 @@ public class GoyaCanvas
     // Roca: una esfera "cuadrada" (superelipsoide) deformada con ruido, con la cara de adelante lisa para pintar
     static void Rock(List<Vector3> v, List<Color> c, List<Vector2> uv, List<int> t, Vector3 center, Vector3 right, Vector3 up, Vector3 front, float w, float h, float floorY)
     {
-        float top = center.y + h * 0.5f + 0.35f, bottom = floorY - 0.4f;
-        float W = w * 1.45f, H = top - bottom, D = 1.1f;
+        float top = center.y + h * 0.5f + 0.18f, bottom = floorY - 0.3f;
+        float W = w * 1.18f + 0.25f, H = top - bottom, D = 0.75f;
         float flat = D * 0.3f;   // la cara lisa queda a esta distancia del centro, hacia la persona
         Vector3 mid = new Vector3(center.x, (top + bottom) * 0.5f, center.z) - front * (flat + 0.012f);
         int la = 18, lo = 28;
         float seed = Random.value * 50f;
-        Color dark = new Color(0.30f, 0.23f, 0.17f), light = new Color(0.62f, 0.53f, 0.40f), green = new Color(0.36f, 0.35f, 0.22f);
+        Color dark = new Color(0.22f, 0.19f, 0.16f), light = new Color(0.52f, 0.47f, 0.39f), green = new Color(0.30f, 0.31f, 0.20f);
         int start = v.Count;
         for (int i = 0; i <= la; i++)
             for (int j = 0; j <= lo; j++)
@@ -298,17 +308,21 @@ public class GoyaCanvas
                 float th = Mathf.PI * i / la, ph = 2f * Mathf.PI * j / lo;
                 Vector3 n = new Vector3(Mathf.Sin(th) * Mathf.Cos(ph), Mathf.Cos(th), Mathf.Sin(th) * Mathf.Sin(ph));
                 Vector3 q = new Vector3(Sp(n.x), Sp(n.y), Sp(n.z));   // mas cuadrada
-                float noise = 0.88f + 0.24f * Mathf.PerlinNoise(n.x * 2.2f + seed, n.y * 2.2f + n.z * 1.7f);
+                // Bultos grandes y chicos (no un bloque liso); arriba se angosta
+                float noise = 0.86f + 0.2f * Mathf.PerlinNoise(n.x * 1.6f + seed, n.y * 1.6f + n.z * 1.3f)
+                            + 0.08f * Mathf.PerlinNoise(n.x * 5f + seed, n.y * 5f + n.z * 4f);
+                q.x *= 1f - 0.18f * Mathf.Clamp01(n.y);
                 float x = q.x * W * 0.5f * noise, y = q.y * H * 0.5f * noise, z = q.z * D * 0.5f * noise;
                 if (z > flat) z = flat + 0.015f * Mathf.PerlinNoise(x * 3f + seed, y * 3f);   // cara lisa
                 v.Add(mid + right * x + Vector3.up * y + front * z);
-                float lit = 0.65f + 0.35f * Mathf.Clamp01(Vector3.Dot(n, new Vector3(-0.3f, 0.8f, 0.5f).normalized));
+                float lit = 0.55f + 0.45f * Mathf.Clamp01(Vector3.Dot(n, new Vector3(-0.3f, 0.8f, 0.5f).normalized));
                 float patch = Mathf.PerlinNoise(x * 1.3f + seed, y * 1.3f);
                 Color cc = Color.Lerp(dark, light, patch) * lit;
                 cc = Color.Lerp(cc, green, Mathf.Clamp01(n.y) * 0.4f);
+                cc *= Mathf.Lerp(0.6f, 1f, Mathf.Clamp01((y + H * 0.5f) / 0.6f));   // mas oscura abajo, donde toca la tierra
                 cc.a = 1f;
                 c.Add(cc);
-                uv.Add(new Vector2(ph * 0.6f, y * 0.5f));
+                uv.Add(new Vector2((x + z) * 0.35f, y * 0.35f));   // pinceladas sin estirar
             }
         for (int i = 0; i < la; i++)
             for (int j = 0; j < lo; j++)

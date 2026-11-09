@@ -39,7 +39,7 @@ public class GoyaGallery : MonoBehaviour
     [Tooltip("Las obras se reparten a los costados de un camino que se recorre caminando; cada epoca es una zona con su propio ambiente (GoyaEnvironment)")]
     public bool pathMode = true;
     [Tooltip("Largo de cada zona (metros)")]
-    public float zoneLength = 9f;
+    public float zoneLength = 16f;
     [Tooltip("Medio ancho del camino por donde se puede caminar (metros)")]
     public float corridorHalfWidth = 1.6f;
     [Tooltip("Velocidad al caminar por el camino (metros por segundo)")]

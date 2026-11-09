@@ -115,7 +115,9 @@ public class GoyaParticles : MonoBehaviour
     [Range(0f, 1f)] public float dustAlpha = 0.55f;
     public Color dustColor = new Color(1f, 0.93f, 0.8f, 1f);
     [Tooltip("Tamaño de la nube (multiplica el tamaño de la obra)")]
-    public float dustSpread = 1.7f;
+    public float dustSpread = 1.25f;
+    [Tooltip("Parte de las motas que son grandes y borrosas (fuera de foco)")]
+    [Range(0f, 0.1f)] public float bokeh = 0.005f;
     [Tooltip("Profundidad de la nube (metros)")]
     public float dustDepth = 1.4f;
     [Tooltip("Tamaño de las motas (multiplica el tamaño normal)")]
@@ -149,6 +151,8 @@ public class GoyaParticles : MonoBehaviour
     public int walkerSteps = 3;
     [Tooltip("Cuando ya juntaste el polvo, los segundos maximos hasta que la obra termina de pintarse sola")]
     public float finishAfter = 20f;
+    [Tooltip("Borde de tela sin pintar alrededor de la obra (proporcion, a cada lado)")]
+    [Range(0f, 0.25f)] public float clothMargin = 0.08f;
 
     [Header("Obras vivas (camino): la obra armada sigue siendo particulas")]
     [Tooltip("Al armarse, la obra no vuelve a ser un cuadro plano: queda hecha de particulas con volumen, que respiran, se mecen con el aire, se deshilachan en los bordes y se apartan de la mano")]
@@ -759,7 +763,7 @@ public class GoyaParticles : MonoBehaviour
                 e.pos[i] = e.floatBase[i];
                 e.vel[i] = Vector3.zero;
                 float r = Random.value;
-                e.mote[i] = r < 0.03f ? Random.Range(1.8f, 2.8f) : Random.Range(0.5f, 1.2f);   // unas pocas, grandes y borrosas
+                e.mote[i] = r < bokeh ? Random.Range(1.8f, 2.8f) : Random.Range(0.5f, 1.2f);   // unas pocas, grandes y borrosas
             }
             e.gathered = false;
             p.reveal = 0f;
@@ -1142,7 +1146,7 @@ public class GoyaParticles : MonoBehaviour
         {
             if (e.canvas != null) e.canvas.DestroySupport();
             var kind = effects.IndexOf(e) % 2 == 0 ? GoyaCanvas.Kind.Cloth : GoyaCanvas.Kind.Rock;
-            e.canvas = new GoyaCanvas(kind, src, p.halfW / p.halfH);
+            e.canvas = new GoyaCanvas(kind, src, p.halfW / p.halfH, clothMargin);
             e.canvasSprite = sprite;
             if (supportMat == null)
             {
@@ -1155,7 +1159,8 @@ public class GoyaParticles : MonoBehaviour
             float floorY = gallery.RigPosition.y - (env != null ? env.eyeHeight : 1.6f);
             Vector3 right = Vector3.Cross(Vector3.up, front).normalized;
             if (right.sqrMagnitude < 0.5f) right = p.root.right;
-            e.canvas.BuildSupport(transform, p.root.position, right, Vector3.up, front, p.halfW * 2f, p.halfH * 2f, floorY, supportMat);
+            float grow = 1f / (1f - 2f * e.canvas.margin);   // la tela es mas grande que la obra (el borde)
+            e.canvas.BuildSupport(transform, p.root.position, right, Vector3.up, front, p.halfW * 2f * grow, p.halfH * 2f * grow, floorY, supportMat);
             e.canvas.TintSupport(Color.white, Color.clear);
         }
         e.canvas.MaxWalkers = maxWalkers;
@@ -1224,6 +1229,7 @@ public class GoyaParticles : MonoBehaviour
         }
 
         float w = p.halfW * 2f, h = p.halfH * 2f;
+        if (onCanvas) { float grow = 1f / (1f - 2f * e.canvas.margin); w *= grow; h *= grow; }
         int sy = Mathf.Max(8, sheetResolution);
         int sx = Mathf.Max(8, Mathf.RoundToInt(sy * w / h));
         int n = (sx + 1) * (sy + 1);
