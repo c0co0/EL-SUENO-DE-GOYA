@@ -22,6 +22,26 @@ Cuando aparece la galería arranca un reloj (`GoyaGame`, se agrega solo): hay 5 
 - Al terminar el tiempo ya no se puede caminar y se muestra cuántas encontraste; cruzar los brazos vuelve a empezar.
 - Se ajusta en **Goya Game** (duración, prender o apagar el reloj) y en **Goya Cave**, sección Rocas que caen (cada cuánto caen, el aviso, la distancia a la que pegan y cuánto tiempo restan). Los sonidos nuevos (`roca_derrumbe`, `roca_golpe`, `reloj_tic`) salen de `tools/sonidos/generar.py`.
 
+## Sistema complejo: la bandada de murciélagos
+
+Los murciélagos y búhos de *El sueño de la razón produce monstruos* vuelan en bandada (`GoyaFlock`, se agrega solo). Es una simulación de **flocking** (los *boids* de Craig Reynolds, 1987): no hay ninguna animación de la bandada; cada murciélago tiene posición, velocidad y miedo, mira solo a sus vecinos cercanos (0,8 m) y sigue seis reglas en cada cuadro:
+
+1. **Separación**: se aleja de los que están demasiado cerca.
+2. **Alineación**: copia la dirección promedio de sus vecinos.
+3. **Cohesión**: va hacia el centro de sus vecinos.
+4. **Nido**: gira delante de una obra todavía oculta. Las 3 obras ocultas más cercanas son nidos, y los murciélagos se reparten entre ellas según cuántos hay en cada una.
+5. **Miedo**: huye de la mano abierta que barre la obra (más fuerte cuanto más rápido se mueve), de las palmas y del fuego de la antorcha en la cueva.
+6. **Contagio**: el miedo de un murciélago pasa a sus vecinos, un poco más débil (82 %). Por eso el susto se propaga como una ola por la bandada, y se va calmando solo; cuando se calman, vuelven al nido.
+
+Lo que se ve (remolinos sobre las obras, olas de pánico, la bandada que se divide entre obras y se reagrupa) **emerge** de esas reglas. Es la parte central del juego:
+
+- Mientras una obra está tapada (8 murciélagos tranquilos o más delante de ella), **no se puede armar**. Si hacés el gesto de armar igual, se asustan pero la obra no aparece.
+- Para destaparla: pasá la **mano abierta** sobre la obra para espantarlos, y **armala** (dos brazos arriba) antes de que vuelvan.
+- Cuando una obra se arma deja de ser nido, y la bandada se va a tapar la siguiente obra oculta del camino. Por eso la bandada también marca dónde hay una obra escondida.
+- Sonido 3D: el aleteo sale del centro de la bandada y sube de volumen y de tono con el miedo; el primero que se asusta mucho chilla (`bandada_aleteo`, `murcielago_chillido_1..3`, de `tools/sonidos/generar.py`).
+- En la PC: mirá la obra y **mantené E** para espantarlos; soltá y volvé a apretar E para armarla.
+- Se ajusta en **Goya Flock**: cantidad (160; si el celular anda lento, bajarla), los pesos de cada regla, el radio y la fuerza del miedo, el contagio, la calma y cuántos murciélagos tapan una obra.
+
 ## Gestos
 
 | Gesto | Qué hace |
@@ -143,7 +163,7 @@ Desde la mitad de la zona roja hasta Saturno el camino entra en una cueva (`Goya
 | **Clic derecho + mover el mouse** | Mirar alrededor |
 | **W / S** o **flechas ↑ / ↓** | Caminar hacia adelante (hacia donde mirás) / hacia atrás |
 | **Flechas ← / →** | Girar |
-| **E** o **T** | Armar la obra que estás mirando, o desarmarla si ya está armada |
+| **E** o **T** | Armar la obra que estás mirando, o desarmarla si ya está armada. Mantener E espanta a los murciélagos que la tapan |
 | **O** | Sumar oscuridad (+25 %) |
 | **V** | Cambiar entre pantalla partida (visor) y una sola cámara |
 | **R** | Recentrar la vista |

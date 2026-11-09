@@ -106,6 +106,12 @@ public class GoyaCave : MonoBehaviour
     public int PaintingCount { get { return inside.Count; } }
     /// <summary>Obras de la cueva que ya se alumbraron (y, las negras, que ya aparecieron).</summary>
     public int FoundCount { get { return found.Count; } }
+    /// <summary>Donde esta el fuego de la antorcha, si esta prendida y en la mano (la bandada de murcielagos le huye).</summary>
+    public bool TorchFire(out Vector3 at)
+    {
+        at = fireAt != null ? fireAt.position : Vector3.zero;
+        return built && lit && !dropped && fireAt != null;
+    }
 
     /// <summary>Si un punto esta adentro de la cueva.</summary>
     public bool Inside(Vector3 p)

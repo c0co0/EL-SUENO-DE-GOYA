@@ -235,6 +235,9 @@ public class GoyaParticles : MonoBehaviour
             if (e.painting != target) continue;
             if (form && e.state == EffectState.Floating)
             {
+                // Tapada por la bandada de murcielagos: el gesto los asusta pero la obra no se arma
+                var bats = GoyaFlock.Instance;
+                if (bats != null && bats.Covered(target)) { bats.Scare(target.root.position, 1.8f, 0.6f); return; }
                 if (!e.go.activeSelf) { e.go.SetActive(true); e.ps.Play(); }
                 BeginAssemble(e);
             }

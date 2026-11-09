@@ -358,6 +358,30 @@ def juego():
     for i in range(3): save(f"roca_golpe_{i+1}", golpe(), 0.9)
     save("reloj_tic", tic(), 0.5)
 
+# ------------------------------------------------------------------ bandada de murcielagos
+def aleteo_loop(sec=10):
+    """Muchas alas: rafagas cortas de ruido a 9-14 aleteos por segundo, cada murcielago con su ritmo."""
+    out = np.zeros(int(sec * SR))
+    for _ in range(40):
+        rate = rng.uniform(9, 14); ph = rng.uniform(0, 1); amp = rng.uniform(0.3, 1.0)
+        tt = t(sec)
+        flap = np.maximum(0, np.sin(2 * np.pi * (rate * tt + ph))) ** 6
+        out += band(noise(sec), rng.uniform(300, 600), rng.uniform(1800, 3500)) * flap * amp * curve(sec, 0.5, 0.2, 1)
+    return loopify(reverb(out, 1.0, 0.2, 5000), 1.0)
+def chillido():
+    """Chillidos agudos y cortos (barridos de 7 a 3 kHz), de a varios."""
+    sec = 0.9; out = np.zeros(int(sec * SR))
+    for _ in range(rng.integers(3, 7)):
+        d = rng.uniform(0.02, 0.05); n = int(d * SR); tt = np.arange(n) / SR
+        f0, f1 = rng.uniform(5500, 8000), rng.uniform(2500, 3800)
+        f = f0 + (f1 - f0) * tt / d
+        y = np.sin(2 * np.pi * np.cumsum(f) / SR) * np.sin(np.pi * tt / d) ** 2
+        place(out, y, rng.uniform(0, sec - d - 0.01))
+    return reverb(out, 1.0, 0.3, 8000)
+def bandada():
+    save("bandada_aleteo", aleteo_loop(), 0.7, loop=True)
+    for i in range(3): save(f"murcielago_chillido_{i+1}", chillido(), 0.6)
+
 # ------------------------------------------------------------------
 if __name__ == "__main__":
     for i in range(6): save(f"pasos_{i+1}", paso(), 0.8)
@@ -380,3 +404,4 @@ if __name__ == "__main__":
     for v in range(2): save(f"cueva_cama_{v+1}", cama_cueva(), 0.7, loop=True)
     for i in range(5): save(f"cueva_gota_{i+1}", gota(), 0.5)
     juego()
+    bandada()
