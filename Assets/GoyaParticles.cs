@@ -108,6 +108,34 @@ public class GoyaParticles : MonoBehaviour
     [Tooltip("Cuanto se mece el polvo (metros)")]
     public float airDrift = 0.35f;
 
+    [Header("Polvo que se junta (camino): como Dust de Robert Hodgin")]
+    [Tooltip("Cada obra oculta es una nube de motas de polvo iluminadas. La mano mueve el aire: el polvo se arremolina y lo que queda cerca de la mano se va acomodando en su lugar de la obra. Cuando se junto bastante, la obra se forma")]
+    public bool gatherDust = true;
+    [Tooltip("Que tanto se ven las motas (0 a 1)")]
+    [Range(0f, 1f)] public float dustAlpha = 0.55f;
+    public Color dustColor = new Color(1f, 0.93f, 0.8f, 1f);
+    [Tooltip("Tamaño de la nube (multiplica el tamaño de la obra)")]
+    public float dustSpread = 1.7f;
+    [Tooltip("Profundidad de la nube (metros)")]
+    public float dustDepth = 1.4f;
+    [Tooltip("Tamaño de las motas (multiplica el tamaño normal)")]
+    public float dustSize = 0.55f;
+    [Tooltip("Fuerza con que la mano mueve el aire (empuja y arremolina el polvo)")]
+    public float handAir = 5f;
+    [Tooltip("Hasta donde llega el aire que mueve la mano (metros)")]
+    public float airRadius = 0.9f;
+    [Tooltip("Distancia a la mano a la que una mota queda atrapada y va a su lugar en la obra")]
+    public float catchRadius = 0.35f;
+    [Tooltip("Que tan seguido se atrapan las motas cercanas (por segundo)")]
+    public float catchRate = 2.5f;
+    [Tooltip("Resorte y freno de las motas atrapadas (hacia su lugar en la obra)")]
+    public float settleSpring = 3.2f;
+    public float settleDamping = 2.4f;
+    [Tooltip("Segundos que tarda una mota atrapada en tomar el color de la obra")]
+    public float settleTime = 2.5f;
+    [Tooltip("Con esta parte del polvo juntado, el resto se junta solo y la obra se forma")]
+    [Range(0.1f, 1f)] public float formAt = 0.7f;
+
     [Header("Obras vivas (camino): la obra armada sigue siendo particulas")]
     [Tooltip("Al armarse, la obra no vuelve a ser un cuadro plano: queda hecha de particulas con volumen, que respiran, se mecen con el aire, se deshilachan en los bordes y se apartan de la mano")]
     public bool livingPaintings = true;
@@ -154,6 +182,9 @@ public class GoyaParticles : MonoBehaviour
         public Vector2[] uv;       // lugar de cada particula en la obra (0 a 1)
         public Vector3[] home;     // lugar de cada particula en la obra viva (con volumen)
         public float[] loose;      // 0 = adentro de la obra, 1 = en el borde (se deshace en el aire)
+        public float[] caught;     // polvo: 0 = suelta en el aire, > 0 = segundos desde que la mano la atrapo
+        public float[] mote;       // polvo: tamaño de cada mota (algunas grandes y borrosas, como fuera de foco)
+        public bool gathered;      // polvo: ya se junto bastante, el resto va solo
         // Tela: una malla de particulas unidas por resortes que lleva la imagen con toda su definicion
         public GameObject sheetGo;
         public Mesh sheet;
@@ -254,13 +285,13 @@ public class GoyaParticles : MonoBehaviour
                 case EffectState.Floating:
                     if (!together && (forceAll || (gallery.swipeGestures && p.swipe >= gallery.swipeDistance))) { BeginAssemble(e); break; }
                     // En el camino solo se anima el polvo de las obras cercanas (son muchas); si es invisible, ninguna
-                    if (airAlpha <= 0f || (path && Vector3.Distance(p.root.position, gallery.RigPosition) > visibleDistance))
+                    if ((Dust() ? dustAlpha : airAlpha) <= 0f || (path && Vector3.Distance(p.root.position, gallery.RigPosition) > visibleDistance))
                     {
                         if (e.go.activeSelf) e.go.SetActive(false);
                         break;
                     }
                     if (!e.go.activeSelf) { e.go.SetActive(true); e.ps.Play(); }
-                    UpdateFloating(e);
+                    if (Dust()) UpdateDust(e, dt); else UpdateFloating(e);
                     break;
             }
         }
@@ -696,6 +727,20 @@ public class GoyaParticles : MonoBehaviour
 
         AirPositions(e, e.floatBase);
         for (int i = 0; i < e.count; i++) e.fromColor[i] = AirColor(e.toColor[i]);
+        if (Dust())
+        {
+            if (e.caught == null || e.caught.Length != e.count) { e.caught = new float[e.count]; e.mote = new float[e.count]; }
+            for (int i = 0; i < e.count; i++)
+            {
+                e.caught[i] = 0f;
+                e.pos[i] = e.floatBase[i];
+                e.vel[i] = Vector3.zero;
+                float r = Random.value;
+                e.mote[i] = r < 0.08f ? Random.Range(2f, 3.5f) : Random.Range(0.5f, 1.2f);   // unas pocas, grandes y borrosas
+            }
+            e.gathered = false;
+            p.reveal = 0f;
+        }
 
         p.renderer.enabled = false;
         e.go.SetActive(true);
@@ -710,13 +755,14 @@ public class GoyaParticles : MonoBehaviour
     {
         var p = e.painting;
         Vector3 right = p.root.right, up = p.root.up, fwd = p.root.forward;
-        float w = p.halfW * 2f * airSpread, h = p.halfH * 2f * airSpread;
+        float spread = Dust() ? dustSpread : airSpread, depth = Dust() ? dustDepth : airDepth;
+        float w = p.halfW * 2f * spread, h = p.halfH * 2f * spread;
         for (int i = 0; i < e.count; i++)
         {
             into[i] = e.target[i]
                     + right * ((Random.value - 0.5f) * w)
                     + up * ((Random.value - 0.5f) * h + 0.15f)
-                    + fwd * ((Random.value - 0.5f) * airDepth);
+                    + fwd * ((Random.value - 0.5f) * depth);
         }
     }
 
@@ -825,6 +871,118 @@ public class GoyaParticles : MonoBehaviour
         return c + new Vector3(Mathf.Sin(ang) * r, y, Mathf.Cos(ang) * r);
     }
 
+
+
+    // ---------------------------------------------------------------- polvo que se junta
+
+    bool Dust() { return gatherDust && gallery != null && gallery.pathMode && gallery.PathLength > 0f; }
+
+    // Cada mota es una particula con velocidad. Sueltas: las mece el aire y vuelven despacio a su lugar en la nube.
+    // La mano mueve el aire: empuja y arremolina las motas cercanas, y las que quedan muy cerca se atrapan.
+    // Atrapadas: un resorte las lleva a su lugar en la obra y de a poco toman su color.
+    void UpdateDust(Effect e, float dt)
+    {
+        var p = e.painting;
+        dt = Mathf.Min(dt, 0.04f);
+        e.t += dt;
+        float time = Time.time;
+        int n = e.count;
+
+        // Donde esta la mano: el punto de la obra que señala (o el puntero con E en la PC) y las palmas
+        var bats = GoyaFlock.Instance;
+        bool blocked = bats != null && bats.Covered(p);   // tapada por los murcielagos: primero hay que espantarlos
+        int hands = 0;
+        Vector3 h0 = Vector3.zero, h1 = Vector3.zero;
+        if (p.hovered) { h0 = p.hitPoint; hands = 1; }
+        Vector3 palm;
+        float reachCloud = Mathf.Max(p.halfW, p.halfH) * dustSpread + dustDepth;
+        if (GoyaHands.Palm(out palm) && Vector3.Distance(palm, p.root.position) < reachCloud)
+        {
+            if (hands == 0) h0 = palm; else h1 = palm;
+            hands++;
+        }
+        float boost = 0.5f + gallery.agitation * 2.5f;     // mano rapida = mas aire
+        float air2 = airRadius * airRadius, catch2 = catchRadius * catchRadius;
+        Vector3 normal = p.root.forward;
+        float catchChance = blocked ? 0f : catchRate * boost * dt;
+
+        Color tint = gallery.CurrentTint();
+        float appear = gallery.appear;
+        int caughtCount = 0;
+        float settled = float.MaxValue;
+        for (int i = 0; i < n; i++)
+        {
+            Vector3 x = e.pos[i], v = e.vel[i];
+            Vector3 a;
+            float sd = e.seed[i] * 31f;
+            if (e.caught[i] <= 0f)
+            {
+                // Aire quieto con corrientes suaves; vuelve despacio a su lugar en la nube
+                a = new Vector3(Mathf.Sin(x.y * 1.7f + time * 0.5f + sd), Mathf.Sin(x.z * 1.3f + time * 0.4f + sd) * 0.6f + 0.15f, Mathf.Cos(x.x * 1.5f + time * 0.45f + sd)) * 0.25f
+                  + (e.floatBase[i] - x) * 0.35f - v * 0.9f;
+                // La mano mueve el aire
+                for (int k = 0; k < hands; k++)
+                {
+                    Vector3 d = (k == 0 ? h0 : h1) - x;
+                    float d2 = d.sqrMagnitude;
+                    if (d2 > air2 || d2 < 1e-6f) continue;
+                    float dist = Mathf.Sqrt(d2), w = 1f - dist / airRadius;
+                    a += d / dist * (handAir * 0.6f * w * boost);                          // hacia la mano
+                    a += Vector3.Cross(normal, d / dist) * (handAir * w * boost);        // remolino
+                    if (d2 < catch2 && Random.value < catchChance) e.caught[i] = 0.0001f;
+                }
+                if (e.gathered) e.caught[i] = 0.0001f;
+            }
+            else
+            {
+                e.caught[i] += dt;
+                a = (e.target[i] - x) * settleSpring - v * settleDamping;
+                caughtCount++;
+                if (e.caught[i] < settled) settled = e.caught[i];
+            }
+            v += a * dt;
+            x += v * dt;
+            e.vel[i] = v;
+            e.pos[i] = x;
+
+            // Color y tamaño: mota de luz -> pincelada de la obra
+            float k2 = e.caught[i] > 0f ? Smooth(e.caught[i] / Mathf.Max(0.1f, settleTime)) : 0f;
+            Color dust = dustColor;
+            dust.a = dustAlpha * (e.mote[i] > 1.5f ? 0.35f : 1f) * (0.7f + 0.3f * Mathf.Sin(time * 2f + sd));   // titilan
+            Color32 c = Color32.Lerp(dust, Tinted(e.toColor[i], tint), k2);
+            c.a = (byte)(c.a * appear);
+            e.parts[i].startColor = c;
+            e.parts[i].position = x;
+            e.parts[i].velocity = Vector3.zero;
+            e.parts[i].startLifetime = 1000f;
+            e.parts[i].remainingLifetime = 1000f;
+            e.parts[i].startSize = e.size * Mathf.Lerp(dustSize * e.mote[i], 1f, k2);
+        }
+        e.ps.SetParticles(e.parts, n);
+
+        float progress = (float)caughtCount / n;
+        p.reveal = progress;
+        if (!e.gathered && progress >= formAt)
+        {
+            e.gathered = true;   // el resto se junta solo
+            if (OnReform != null) OnReform(p);
+        }
+        // Todas atrapadas y acomodadas: la obra esta formada y queda viva
+        if (caughtCount == n && settled >= settleTime)
+        {
+            gallery.MarkRevealed(p);
+            p.swipe = 0f;
+            e.nextAllowed = Time.time + cooldown;
+            if (Living(e)) StartLiving(e);
+            else
+            {
+                p.renderer.enabled = true;
+                e.ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+                e.go.SetActive(false);
+                e.state = EffectState.Idle;
+            }
+        }
+    }
 
     // ---------------------------------------------------------------- obras vivas
 
@@ -1099,7 +1257,7 @@ public class GoyaParticles : MonoBehaviour
 
     bool UseVortex(Effect e)
     {
-        return vortex && gallery.pathMode && gallery.PathLength > 0f && gallery.Origins != null && gallery.Origins.Has(e.painting);
+        return vortex && !Dust() && gallery.pathMode && gallery.PathLength > 0f && gallery.Origins != null && gallery.Origins.Has(e.painting);
     }
 
     Vector3 VortexCenter(Effect e)

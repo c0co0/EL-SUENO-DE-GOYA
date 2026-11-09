@@ -110,7 +110,13 @@ public class GoyaOrigins : MonoBehaviour
             o.width = Mathf.Max(1.2f, p.halfW * 2.2f);
 
             Prop pr;
-            if (chosen.TryGetValue(p, out pr)) BuildProp(o, pr, p.name);
+            if (chosen.TryGetValue(p, out pr))
+            {
+                // Con arboles fractales, el arbol recortado se cambia por uno fractal detras de la obra (la obra se forma del polvo)
+                if (pr.image.Contains("arbol") && GoyaFractalTrees.Replaces(gameObject))
+                    TreeSpots.Add(new Spot { image = pr.image, at = o.baseCenter + fwd * 1.8f + o.right * 0.6f, height = pr.height > 0f ? pr.height : 5f });
+                else BuildProp(o, pr, p.name);
+            }
 
             // Sombra blanda en el piso
             var sh = new GameObject("Sombra_" + p.name);
@@ -287,6 +293,10 @@ public class GoyaOrigins : MonoBehaviour
     }
 
     public bool Has(GoyaGallery.Painting p) { return p != null && origins.ContainsKey(p); }
+
+    /// <summary>Lugares donde iban los arboles recortados de las obras (GoyaFractalTrees pone ahi arboles fractales).</summary>
+    public struct Spot { public string image; public Vector3 at; public float height; }
+    public readonly List<Spot> TreeSpots = new List<Spot>();
 
     /// <summary>Cuanto se ve el arbol/roca de esta obra (GoyaParticles lo baja al armarla y lo sube al desarmarla).</summary>
     public void SetPresence(GoyaGallery.Painting p, float value)

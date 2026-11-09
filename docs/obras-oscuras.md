@@ -108,6 +108,18 @@ Al salir de la cueva, cuatro Pinturas Negras se recorren por dentro, una detrás
 
 `GoyaTerrain` (lo agrega solo el ambiente) arma un terreno de verdad: plano en el camino, con lomas a los costados que tapan lo que está detrás, y que baja hasta el lago a lo lejos. Tiene las pinceladas del suelo de *Duelo a garrotazos* y los colores del camino de *La gallina ciega* y la tierra de *La cometa*. Hay matas de pasto: muchas y chicas cerca del camino, menos y más grandes lejos, alrededor de los árboles y al pie de cada obra, que quedan un poco enterrados. Lo lejano se aclara con bruma (perspectiva aérea) y todo se oscurece con cada época.
 
+## Las obras se forman juntando polvo
+
+Inspirado en *Dust* de Robert Hodgin (motas de polvo iluminadas que se arremolinan cuando la mano mueve el aire). Cada obra oculta es una **nube de motas de luz** que flota donde va a estar la obra (`GoyaParticles`, *Gather Dust*):
+
+- Cada mota es una partícula con velocidad. Sueltas, las mecen corrientes suaves y vuelven despacio a su lugar en la nube. Titilan, y algunas son grandes y borrosas, como fuera de foco.
+- **La mano mueve el aire**: señalando la nube (o con E en la PC), el polvo cercano se arremolina y va hacia la mano. Cuanto más rápido movés la mano, más aire.
+- Las motas que quedan muy cerca de la mano **se atrapan**: un resorte las lleva a su lugar en la obra y de a poco toman el color de la pintura. Así vas acomodando el polvo y la obra aparece por partes, donde pasaste la mano.
+- Cuando juntaste el 70 % (*Form At*), el resto se junta solo y la obra queda formada (y viva, ver abajo).
+- Si los murciélagos la tapan, la mano los espanta pero no junta polvo: primero hay que sacarlos.
+- El gesto de los dos brazos arriba sigue armándola de golpe.
+- Se ajusta en **Goya Particles**, sección *Polvo que se junta*: color y brillo de las motas, tamaño de la nube, fuerza y alcance del aire de la mano, distancia a la que se atrapan, el resorte y cuánto hay que juntar.
+
 ## Las obras vivas (hechas de partículas)
 
 Cuando una obra del camino se arma, **ya no vuelve a ser un cuadro plano**: queda hecha de sus partículas (`GoyaParticles`, *Living Paintings*). Flotan a la altura de la vista, sin marco, y se mezclan con el aire del lugar:
@@ -143,7 +155,7 @@ Copian la paleta y el porte de los árboles que ya teníamos:
 - **Crecen cuando te acercás**: cada generación de ramas aparece después de la anterior, así se ve la recursión.
 - **Se mecen**: cada rama suma el vaivén de su madre, por eso las puntas se mueven más que el tronco.
 - **Las hojas son un sistema de partículas** (como en la Unidad 5: posición, velocidad, aceleración y vida). El viento a veces arranca una hoja, que cae con gravedad, rozamiento y vaivén, se desvanece y después vuelve a brotar en su rama. Con las manos agitadas sopla más fuerte.
-- Están los 6 árboles de **Goya Origins** más 2 al azar por zona (*Extra Per Zone*). Los árboles de los que nacen obras siguen siendo los recortes.
+- Son **todos** los árboles: los 6 sueltos de **Goya Origins**, los que estaban detrás de las obras (*La cometa*, *La gallina ciega*, *La nevada*), ahora fractales y un poco atrás, y 2 más al azar por zona (*Extra Per Zone*).
 - Para volver a los árboles recortados: destildar *Fractal Trees* en **Goya Fractal Trees**.
 
 ## Pinturas animadas: El pelele y Vuelo de brujas

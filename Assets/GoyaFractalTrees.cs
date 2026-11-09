@@ -15,7 +15,7 @@ using UnityEngine;
 /// cada hoja tiene posicion, velocidad y vida; el viento a veces las arranca, caen girando y se desvanecen,
 /// y despues vuelven a brotar en su rama. Con las manos agitadas sopla mas fuerte.
 ///
-/// Reemplaza a los arboles recortados sueltos de GoyaOrigins (los arboles de los que nacen obras siguen igual).
+/// Reemplaza a todos los arboles recortados de GoyaOrigins (los sueltos y los que estaban detras de las obras).
 /// Se agrega solo y funciona en modo camino.
 /// </summary>
 public class GoyaFractalTrees : MonoBehaviour
@@ -203,6 +203,13 @@ public class GoyaFractalTrees : MonoBehaviour
                 Kind k = o.image.Contains("gallina") ? Kind.Gallina : o.image.Contains("nevada") ? Kind.Nevada : Kind.Cometa;
                 float z = c.z + (o.zone + o.along) * gallery.zoneLength;
                 Add(k, new Vector3(c.x + o.side, floorY, z), Mathf.Max(3f, o.height), rnd);
+            }
+        // Donde iban los arboles recortados de los que nacian obras
+        if (origins != null)
+            foreach (var sp in origins.TreeSpots)
+            {
+                Kind k = sp.image.Contains("gallina") ? Kind.Gallina : sp.image.Contains("nevada") ? Kind.Nevada : Kind.Cometa;
+                Add(k, new Vector3(sp.at.x, floorY, sp.at.z), Mathf.Max(3f, sp.height), rnd);
             }
         // Mas arboles, al azar a los costados del camino
         for (int zone = 0; zone < Mathf.Min(zones, gallery.ZoneCount); zone++)
