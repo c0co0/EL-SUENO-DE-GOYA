@@ -477,9 +477,7 @@ public class GoyaCave : MonoBehaviour
         dropHint = d.AddComponent<TextMesh>();
         dropHint.font = font;
         d.GetComponent<MeshRenderer>().sharedMaterial = font.material;
-        dropHint.text = "Levantá los dos brazos
-con las manos abiertas
-para soltar la antorcha.";
+        dropHint.text = "Levantá los dos brazos\ncon las manos abiertas\npara soltar la antorcha.";
         dropHint.fontSize = 48;
         dropHint.characterSize = 0.008f;
         dropHint.anchor = TextAnchor.MiddleCenter;
