@@ -130,8 +130,10 @@ public class GoyaOrigins : MonoBehaviour
         // Arboles sueltos: miran al camino y se apoyan en las lomas (cuando el terreno esta listo)
         var c = gallery.Center;
         int n = 0;
+        bool fractal = GoyaFractalTrees.Replaces(gameObject);   // los hace GoyaFractalTrees
         foreach (var t in trees)
         {
+            if (fractal) break;
             if (t == null || t.zone >= gallery.ZoneCount) continue;
             float z = c.z + (t.zone + t.along) * gallery.zoneLength;
             var cave = gallery.Cave;

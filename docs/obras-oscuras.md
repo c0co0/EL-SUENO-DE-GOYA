@@ -122,6 +122,30 @@ Cuando una obra del camino se arma, **ya no vuelve a ser un cuadro plano**: qued
 - Si el celular anda lento: bajar *Sheet Resolution*, *Particle Count* o *Living Distance* (las obras más lejanas que eso no se simulan).
 - Para volver a las obras en relieve apoyadas en el piso (`GoyaRelief`): destildar *Living Paintings*.
 
+## Árboles fractales
+
+Los árboles sueltos del paisaje ya no son recortes de las pinturas: se generan por **recursión** (`GoyaFractalTrees`, se agrega solo), como el árbol de la Unidad 5:
+
+1. Dibujar una rama.
+2. Al final de la rama abrir 2 ramas (a veces 3) más cortas y más finas, giradas un ángulo.
+3. Repetir hasta la profundidad elegida (5 a 7 generaciones) o hasta que las ramas sean muy cortas.
+
+Es un **fractal estocástico**: las reglas son fijas, pero el ángulo, el largo y la cantidad de ramas tienen azar, así que no hay dos árboles iguales. Además las ramas se reparten alrededor de su madre cada 137,5° (como las hojas en las plantas), para que el árbol tenga volumen, y buscan la luz (hacia arriba) y el viento (hacia un costado).
+
+Copian la paleta y el porte de los árboles que ya teníamos:
+
+| Tipo | Como en | Reglas |
+|---|---|---|
+| Cometa | *La cometa* | Tronco claro y torcido, matas de hojas verde oliva |
+| Gallina | *La gallina ciega* | Tronco grueso ocre, copa alta y rala, verde pálido |
+| Nevada | *La nevada* | Pelado, gris, doblado por el viento, muchas ramitas finas |
+
+- **Crecen cuando te acercás**: cada generación de ramas aparece después de la anterior, así se ve la recursión.
+- **Se mecen**: cada rama suma el vaivén de su madre, por eso las puntas se mueven más que el tronco.
+- **Las hojas son un sistema de partículas** (como en la Unidad 5: posición, velocidad, aceleración y vida). El viento a veces arranca una hoja, que cae con gravedad, rozamiento y vaivén, se desvanece y después vuelve a brotar en su rama. Con las manos agitadas sopla más fuerte.
+- Están los 6 árboles de **Goya Origins** más 2 al azar por zona (*Extra Per Zone*). Los árboles de los que nacen obras siguen siendo los recortes.
+- Para volver a los árboles recortados: destildar *Fractal Trees* en **Goya Fractal Trees**.
+
 ## Pinturas animadas: El pelele y Vuelo de brujas
 
 - Cuando *El pelele* está armado, las mujeres lo tiran con la manta: sale por arriba del cuadro dando vueltas, cae y la manta se hunde (`GoyaAnimated`). Capas generadas con `tools/paisaje/pelele.py`.
