@@ -12,9 +12,9 @@ Rama: `obras-oscuras` (sale de `cardboard-xr`).
 - **Todo se apaga al avanzar:** cuanto más adentro del camino, más oscuros se tiñen los cuadros, las auras pasan de dorado a rojo y el sonido ambiente se pone más grave.
 - Si se apaga *Path Mode*, vuelve la galería de 180° con una obra a la vez (*One At A Time*, *Arc Degrees*, *Arc Slots*).
 
-## Las rocas de la cueva (simulación física)
+## Las rocas de la cueva (simulación física, apagadas)
 
-Adentro de la cueva, con la antorcha prendida, se desprenden rocas del techo. Están hechas con la **física de Unity (PhysX)**: cada roca es un cuerpo rígido con masa (según su tamaño), gravedad, rebote y rozamiento, y choca con el piso, las paredes, las otras rocas y con vos (una cápsula invisible que te sigue). Nada está animado:
+**Están apagadas** (en **Goya Cave**, *Falling Rocks*). Cuando se prenden: adentro de la cueva, con la antorcha prendida, se desprenden rocas del techo. Están hechas con la **física de Unity (PhysX)**: cada roca es un cuerpo rígido con masa (según su tamaño), gravedad, rebote y rozamiento, y choca con el piso, las paredes, las otras rocas y con vos (una cápsula invisible que te sigue). Nada está animado:
 
 - Primero se oye un retumbe y cae polvo del techo (el aviso). Después se sueltan de 1 a 4 rocas juntas, que se chocan entre sí mientras caen.
 - Si una roca pega contra el piso rápido (más de 3,5 m/s), **se parte** en 3 a 6 pedazos que salen despedidos con la energía que traía, con una nube de polvo.
@@ -108,9 +108,18 @@ Al salir de la cueva, cuatro Pinturas Negras se recorren por dentro, una detrás
 
 `GoyaTerrain` (lo agrega solo el ambiente) arma un terreno de verdad: plano en el camino, con lomas a los costados que tapan lo que está detrás, y que baja hasta el lago a lo lejos. Tiene las pinceladas del suelo de *Duelo a garrotazos* y los colores del camino de *La gallina ciega* y la tierra de *La cometa*. Hay matas de pasto: muchas y chicas cerca del camino, menos y más grandes lejos, alrededor de los árboles y al pie de cada obra, que quedan un poco enterrados. Lo lejano se aclara con bruma (perspectiva aérea) y todo se oscurece con cada época.
 
-## Las obras son parte del lugar (relieve)
+## Las obras vivas (hechas de partículas)
 
-Las obras del camino (antes de la cueva) ya no flotan: están apoyadas en el piso, un poco enterradas entre el pasto, con los bordes gastados y en relieve (`GoyaRelief`, se agrega solo). Las figuras de cada obra (los recortes de `Assets/Resources/Cortes`) sobresalen, el resto es una lámina gruesa que se afina hacia los bordes, con luz y sombra en las pinceladas. Se ajusta en el componente Goya Relief: cuánto sobresalen las figuras (`figureDepth`), el grosor (`baseDepth`), las pinceladas (`detailDepth`), cuánto se comen los bordes (`roughEdge`) y cuánto quedan enterradas (`sink`). Las obras animadas quedan planas (`flat`), porque sus capas van encima.
+Cuando una obra del camino se arma, **ya no vuelve a ser un cuadro plano**: queda hecha de sus partículas (`GoyaParticles`, *Living Paintings*). Flotan a la altura de la vista, sin marco, y se mezclan con el aire del lugar:
+
+- **Volumen**: cada partícula tiene su lugar en la obra, y lo claro sale hacia adelante y lo oscuro se hunde (*Living Depth*). Al caminar alrededor se nota la profundidad.
+- **Sin marco**: las partículas del borde quedan sueltas, más lejos del plano y más transparentes, como humo (*Edge Dissolve*, *Edge Drift*).
+- **Simulación**: cada partícula es un punto con velocidad, atado a su lugar por un resorte con freno (*Spring*, *Damping*). Encima actúa un campo de corrientes de aire que cambia con el tiempo (*Flow*, más fuerte en los bordes y cuando las manos se agitan).
+- **La mano las aparta**: donde la mano (o el puntero) toca la obra, las partículas se corren (*Hand Push*, *Hand Radius*). Cuando la mano se va, el resorte las devuelve y la obra ondula hasta quedarse quieta.
+- Toman el color de la época (más oscura con el movimiento) y la niebla del lugar, igual que antes.
+- Los dos puños la desarman como siempre. Las animadas (*El pelele*, *Vuelo de brujas*) quedan como cuadro (*Keep Flat*), porque sus capas van encima.
+- Si el celular anda lento: bajar *Particle Count* o *Living Distance* (las obras más lejanas que eso no se simulan).
+- Para volver a las obras en relieve apoyadas en el piso (`GoyaRelief`): destildar *Living Paintings*.
 
 ## Pinturas animadas: El pelele y Vuelo de brujas
 

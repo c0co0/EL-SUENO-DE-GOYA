@@ -55,7 +55,7 @@ public class GoyaCave : MonoBehaviour
 
     [Header("Rocas que caen (simulacion fisica)")]
     [Tooltip("Adentro de la cueva se desprenden rocas del techo. Caen con gravedad, rebotan, chocan entre si, se parten al pegar contra el piso y quedan como escombros que podes patear")]
-    public bool fallingRocks = true;
+    public bool fallingRocks = false;
     [Tooltip("Segundos entre un derrumbe y el siguiente (al azar entre los dos)")]
     public Vector2 rockInterval = new Vector2(4f, 8f);
     [Tooltip("Rocas por derrumbe (al azar entre los dos)")]

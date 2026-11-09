@@ -108,7 +108,31 @@ public class GoyaParticles : MonoBehaviour
     [Tooltip("Cuanto se mece el polvo (metros)")]
     public float airDrift = 0.35f;
 
-    public enum EffectState { Idle, Scatter, Reform, Floating }
+    [Header("Obras vivas (camino): la obra armada sigue siendo particulas")]
+    [Tooltip("Al armarse, la obra no vuelve a ser un cuadro plano: queda hecha de particulas con volumen, que respiran, se mecen con el aire, se deshilachan en los bordes y se apartan de la mano")]
+    public bool livingPaintings = true;
+    [Tooltip("Volumen: cuanto salen hacia adelante las partes claras (metros, se multiplica por el tamaño de la obra)")]
+    public float livingDepth = 0.22f;
+    [Tooltip("Ancho del borde que se deshace en el aire (proporcion del cuadro)")]
+    [Range(0f, 0.4f)] public float edgeDissolve = 0.16f;
+    [Tooltip("Cuanto se alejan del cuadro las particulas del borde (metros)")]
+    public float edgeDrift = 0.45f;
+    [Tooltip("Fuerza del resorte que lleva cada particula a su lugar")]
+    public float spring = 7f;
+    [Tooltip("Freno de cada particula (con poco freno tiemblan mas)")]
+    public float damping = 2.6f;
+    [Tooltip("Fuerza del aire que las mece (un campo de corrientes que cambia con el tiempo)")]
+    public float flow = 0.9f;
+    [Tooltip("Fuerza con que la mano (o el puntero) aparta las particulas")]
+    public float handPush = 6f;
+    [Tooltip("Radio de la mano que aparta (metros)")]
+    public float handRadius = 0.45f;
+    [Tooltip("Las obras vivas mas lejanas que esto (metros) no se simulan ni se dibujan")]
+    public float livingDistance = 14f;
+    [Tooltip("Obras que quedan como cuadro (las animadas)")]
+    public string[] keepFlat = { "12 El pelele", "18 Vuelo de brujas" };
+
+    public enum EffectState { Idle, Scatter, Reform, Floating, Living }
 
     class Effect
     {
@@ -121,6 +145,9 @@ public class GoyaParticles : MonoBehaviour
         public Vector3[] target, pos, vel, startPos, floatBase;
         public Color32[] fromColor, toColor;
         public Sprite sampled;     // obra con la que se calcularon target y toColor
+        public Vector2[] uv;       // lugar de cada particula en la obra (0 a 1)
+        public Vector3[] home;     // lugar de cada particula en la obra viva (con volumen)
+        public float[] loose;      // 0 = adentro de la obra, 1 = en el borde (se deshace en el aire)
         public float[] delay, seed;
         public bool[] released;
         public EffectState state;
@@ -204,6 +231,12 @@ public class GoyaParticles : MonoBehaviour
                     UpdateReform(e, dt);
                     break;
 
+                case EffectState.Living:
+                    // Sin armar (Backspace): vuelve a ser polvo
+                    if (gallery.assembleFromDust && !p.revealed) { StartFloating(e); break; }
+                    UpdateLiving(e, dt);
+                    break;
+
                 case EffectState.Floating:
                     if (!together && (forceAll || (gallery.swipeGestures && p.swipe >= gallery.swipeDistance))) { BeginAssemble(e); break; }
                     // En el camino solo se anima el polvo de las obras cercanas (son muchas); si es invisible, ninguna
@@ -241,7 +274,7 @@ public class GoyaParticles : MonoBehaviour
                 if (!e.go.activeSelf) { e.go.SetActive(true); e.ps.Play(); }
                 BeginAssemble(e);
             }
-            else if (brk && e.state == EffectState.Idle && target.revealed && Time.time >= e.nextAllowed)
+            else if (brk && (e.state == EffectState.Idle || e.state == EffectState.Living) && target.revealed && Time.time >= e.nextAllowed)
                 Begin(e);
             return;
         }
@@ -466,6 +499,8 @@ public class GoyaParticles : MonoBehaviour
             float fu = (col + Random.value) / cols;
             float fv = Mathf.Clamp01((row + Random.value) / rows);
             e.target[i] = center + right * ((fu - 0.5f) * w) + up * ((fv - 0.5f) * h);
+            if (e.uv == null || e.uv.Length != n) e.uv = new Vector2[n];
+            e.uv[i] = new Vector2(fu, fv);
             e.toColor[i] = pixels.GetPixelBilinear(fu, fv);
         }
 
@@ -750,12 +785,13 @@ public class GoyaParticles : MonoBehaviour
             if (e.assembling) gallery.MarkRevealed(e.painting);
             e.painting.swipe = 0f;   // que el mismo barrido no la desarme apenas se arma
             e.assembling = false;
+            e.nextAllowed = Time.time + cooldown;
+            e.touch = 0f;
+            if (Living(e)) { StartLiving(e); return; }
             e.painting.renderer.enabled = true;
             e.ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
             e.go.SetActive(false);
             e.state = EffectState.Idle;
-            e.nextAllowed = Time.time + cooldown;
-            e.touch = 0f;
         }
     }
 
@@ -770,6 +806,127 @@ public class GoyaParticles : MonoBehaviour
         float r = Mathf.Lerp(ra, rb, k);
         float y = Mathf.Lerp(va.y, vb.y, k) + Mathf.Sin(k * Mathf.PI) * travelArc;
         return c + new Vector3(Mathf.Sin(ang) * r, y, Mathf.Cos(ang) * r);
+    }
+
+
+    // ---------------------------------------------------------------- obras vivas
+
+    bool Living(Effect e)
+    {
+        var p = e.painting;
+        if (!livingPaintings || p.locked || !gallery.pathMode || gallery.PathLength <= 0f) return false;
+        if (p.original != null)
+            foreach (var f in keepFlat) if (!string.IsNullOrEmpty(f) && p.original.name.StartsWith(f)) return false;
+        return true;
+    }
+
+    // Cada particula tiene su lugar en la obra, con volumen: lo claro sale hacia adelante, lo oscuro se hunde.
+    // Las del borde quedan sueltas, mas lejos del plano y mas transparentes: la obra no tiene marco, se deshace en el aire.
+    void StartLiving(Effect e)
+    {
+        var p = e.painting;
+        int n = e.count;
+        if (e.home == null || e.home.Length != n) { e.home = new Vector3[n]; e.loose = new float[n]; }
+        Vector3 toViewer = gallery.RigPosition - p.root.position; toViewer.y = 0f;
+        Vector3 front = Vector3.Dot(p.root.forward, toViewer) >= 0f ? p.root.forward : -p.root.forward;
+        float size = Mathf.Max(p.halfW, p.halfH);
+        for (int i = 0; i < n; i++)
+        {
+            Vector2 uv = e.uv != null ? e.uv[i] : new Vector2(0.5f, 0.5f);
+            float edge = Mathf.Min(Mathf.Min(uv.x, 1f - uv.x), Mathf.Min(uv.y, 1f - uv.y));   // 0 en el borde, 0.5 en el centro
+            float loose = edgeDissolve > 0f ? 1f - Mathf.Clamp01(edge / edgeDissolve) : 0f;
+            loose *= loose;
+            Color32 c = e.toColor[i];
+            float lum = (0.3f * c.r + 0.59f * c.g + 0.11f * c.b) / 255f;
+            float depth = (lum - 0.35f) * livingDepth * size + (e.seed[i] - 0.5f) * 0.04f * size;
+            // Las del borde se alejan del plano y hacia afuera, como humo
+            Vector3 outward = (p.root.right * (uv.x - 0.5f) + p.root.up * (uv.y - 0.5f)).normalized;
+            Vector3 drift = (outward * 0.6f + front * (e.seed[i] - 0.5f) * 1.6f + Vector3.up * 0.3f) * edgeDrift * loose * (0.5f + e.seed[i]);
+            e.home[i] = e.target[i] + front * depth + drift;
+            e.loose[i] = loose;
+            e.vel[i] = Vector3.zero;
+        }
+        p.renderer.enabled = false;
+        e.state = EffectState.Living;
+        e.t = 0f;
+    }
+
+    void UpdateLiving(Effect e, float dt)
+    {
+        var p = e.painting;
+        bool near = Vector3.Distance(p.root.position, gallery.RigPosition) < livingDistance;
+        if (!near)
+        {
+            if (e.go.activeSelf) e.go.SetActive(false);
+            return;
+        }
+        if (!e.go.activeSelf) { e.go.SetActive(true); e.ps.Play(); }
+        e.t += dt;
+        dt = Mathf.Min(dt, 0.04f);
+        float time = Time.time;
+
+        // Lo que aparta las particulas: el punto de la obra que toca la mano (o el puntero) y las palmas
+        int pushes = 0;
+        Vector3 pushA = Vector3.zero, pushB = Vector3.zero;
+        float strength = handPush * (0.5f + gallery.agitation * 2f);
+        if (p.hovered) { pushA = p.hitPoint; pushes = 1; }
+        Vector3 palm;
+        if (GoyaHands.Palm(out palm) && Vector3.Distance(palm, p.root.position) < Mathf.Max(p.halfW, p.halfH) + 1f)
+        {
+            if (pushes == 0) pushA = palm; else pushB = palm;
+            pushes++;
+        }
+        float r2 = handRadius * handRadius;
+
+        // Color: la epoca (oscuridad), la niebla del lugar y la aparicion de la galeria, igual que el cuadro plano
+        Color tint = gallery.CurrentTint();
+        var env = gallery.GetComponent<GoyaEnvironment>();
+        Color fogA = Color.black, fogB = Color.white;
+        if (env != null) { fogA = env.Fogged(Color.black, p.root.position); fogB = env.Fogged(Color.white, p.root.position); }
+        float alpha = gallery.appear * p.visibility;
+        float wind = 1f + gallery.agitation * agitationWind;
+
+        for (int i = 0; i < e.count; i++)
+        {
+            float loose = e.loose[i];
+            Vector3 x = e.pos[i];
+            Vector3 v = e.vel[i];
+
+            // Resorte hacia su lugar (mas flojo en los bordes) y freno
+            Vector3 a = (e.home[i] - x) * (spring * (1f - 0.75f * loose)) - v * damping;
+
+            // Corrientes de aire: un campo de ruido que cambia con el tiempo; en los bordes sopla mas
+            float sx = x.x * 1.3f, sy = x.y * 1.3f, sz = x.z * 1.3f, tt = time * 0.35f;
+            a += new Vector3(Mathf.PerlinNoise(sy + tt, sz) - 0.5f,
+                             Mathf.PerlinNoise(sz + 3.1f, sx + tt) - 0.45f,
+                             Mathf.PerlinNoise(sx + 7.7f + tt, sy) - 0.5f) * (flow * wind * (0.35f + 2.5f * loose));
+
+            // La mano las aparta; cuando se va, el resorte las devuelve (y se ve la onda)
+            if (pushes > 0)
+            {
+                Vector3 d = x - pushA; float d2 = d.sqrMagnitude;
+                if (d2 < r2 && d2 > 1e-6f) a += d / Mathf.Sqrt(d2) * strength * (1f - d2 / r2);
+                if (pushes > 1)
+                {
+                    d = x - pushB; d2 = d.sqrMagnitude;
+                    if (d2 < r2 && d2 > 1e-6f) a += d / Mathf.Sqrt(d2) * strength * (1f - d2 / r2);
+                }
+            }
+
+            v += a * dt;
+            x += v * dt;
+            e.vel[i] = v;
+            e.pos[i] = x;
+
+            Color32 c = e.toColor[i];
+            float cr = c.r / 255f * tint.r, cg = c.g / 255f * tint.g, cb = c.b / 255f * tint.b;
+            Color col = new Color(fogA.r + cr * (fogB.r - fogA.r), fogA.g + cg * (fogB.g - fogA.g), fogA.b + cb * (fogB.b - fogA.b),
+                                  c.a / 255f * alpha * (1f - 0.85f * loose));
+            e.parts[i].startColor = col;
+        }
+
+        // Al aparecer, se van acomodando (no hay salto desde el plano)
+        Write(e, Mathf.Lerp(1f, 1.15f, Mathf.Clamp01(e.t)));
     }
 
     // ---------------------------------------------------------------- remolino
@@ -920,11 +1077,12 @@ public class GoyaParticles : MonoBehaviour
             if (e.assembling) gallery.MarkRevealed(e.painting);
             e.assembling = false;
             e.painting.swipe = 0f;
+            e.nextAllowed = Time.time + cooldown;
+            if (Living(e)) { StartLiving(e); return; }
             e.painting.renderer.enabled = true;
             e.ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
             e.go.SetActive(false);
             e.state = EffectState.Idle;
-            e.nextAllowed = Time.time + cooldown;
         }
         else
         {

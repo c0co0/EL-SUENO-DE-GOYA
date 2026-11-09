@@ -372,10 +372,14 @@ public class GoyaGallery : MonoBehaviour
         if (cave == null) cave = gameObject.AddComponent<GoyaCave>();
         cave.Build(this);
 
-        // Las demas obras son parte del lugar: apoyadas en el piso y en relieve
-        relief = GetComponent<GoyaRelief>();
-        if (relief == null) relief = gameObject.AddComponent<GoyaRelief>();
-        relief.Build(this);
+        // Relieve en el piso: solo si las obras no son de particulas (GoyaParticles, "Living Paintings")
+        var parts = GetComponent<GoyaParticles>();
+        if (parts == null || !parts.livingPaintings)
+        {
+            relief = GetComponent<GoyaRelief>();
+            if (relief == null) relief = gameObject.AddComponent<GoyaRelief>();
+            relief.Build(this);
+        }
 
         // Cada obra nace del suelo, de un arbol o de una roca
         origins = GetComponent<GoyaOrigins>();
