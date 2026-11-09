@@ -121,28 +121,34 @@ Inspirado en *Dust* de Robert Hodgin (motas de polvo iluminadas que se arremolin
 - El gesto de los dos brazos arriba sigue armándola de golpe.
 - Se ajusta en **Goya Particles**, sección *Polvo que se junta*: color y brillo de las motas, tamaño de la nube, fuerza y alcance del aire de la mano, distancia a la que se atrapan, el resorte y cuánto hay que juntar.
 
-## Las obras se pintan sobre telas y rocas (caminantes)
+## Las obras se pintan sobre telas colgadas de los árboles (caminantes)
 
-Cada obra del camino tiene su soporte en la escenografía, con la obra más o menos a la altura de la vista: una **tela colgada** entre dos palos con un travesaño, o una **roca** con una cara lisa (se alternan, una y una). La tela empieza en blanco (lino con trama) y la roca muestra la piedra.
+Afuera hay **solo tres obras**, una por época: *La cometa*, *El pelele* y *Vuelo de brujas* (`Only Paintings` en Goya Gallery; vacío = todas). Las de la cueva y las pinturas negras siguen igual.
 
-Cuando juntás el polvo con la mano, cada mota que llega a su lugar en la tela o la roca se apaga y en ese punto **nace un caminante**, como en el video de Processing de partículas que dibujan. Cada caminante es una partícula con posición, velocidad y una aceleración al azar en cada paso. Toma el color de la pintura donde está parado, deja una pincelada redonda y se achica hasta morir. La obra aparece trazo por trazo, en los lugares donde fuiste juntando el polvo.
+Cada obra es una **tela colgada de la rama baja de un árbol** fractal que crece al costado, atada con dos sogas, más o menos a la altura de la vista. La tela empieza en blanco (lino viejo con los bordes gastados) y tiene un borde sin pintar alrededor de la obra.
 
-Cuando ya juntaste bastante (`Form At`), nacen caminantes solos en las partes que faltan, hasta que la obra queda pintada (o pasan `Finish After` segundos y se completa sola). La tela se mece con el aire y con la mano (cuelga del travesaño, es la malla de resortes de las obras vivas), y la roca queda quieta. Los soportes toman la niebla y el tinte de la época como el resto del paisaje. Si desarmás la obra (dos puños), la tela vuelve a quedar en blanco y se puede pintar de nuevo.
+Cuando juntás el polvo con la mano, cada mota que llega a la tela se apaga y en ese punto **nace un caminante**, como en el video de Processing: una partícula con posición, velocidad y aceleración al azar que toma el color de la pintura donde está, deja una pincelada y se achica hasta morir.
 
-Código: `Assets/GoyaCanvas.cs` (los soportes, la textura y los caminantes) y `GoyaParticles` (sección **Obras pintadas sobre telas y rocas**).
+**Definición:** la tela tiene 512 píxeles de alto y los caminantes leen la pintura en alta resolución. Pintan de lo grueso a lo fino: las primeras pinceladas son grandes y, a medida que la tela se cubre, nacen más chicas. Al terminar, lo pintado se afina hacia la pintura (se ven las pinceladas pero con definición) y después siguen naciendo caminantes chiquitos que afinan los detalles mientras la mirás (`Detail Walkers`).
+
+Las rocas están apagadas (`Use Rocks`). La tela se mece con el aire y con la mano.
+
+Código: `Assets/GoyaCanvas.cs` (la tela, la rama, las sogas y los caminantes) y `GoyaParticles` (sección **Obras pintadas sobre telas y rocas**). El árbol lo planta `GoyaFractalTrees.Plant`.
 
 | Valor | Qué hace |
 |---|---|
-| `Paint On Surfaces` | Apagado: vuelve a la obra de partículas flotando, sin soporte |
+| `Paint On Surfaces` | Apagado: vuelve a la obra de partículas flotando, sin tela |
 | `Max Walkers` | Caminantes a la vez en cada obra (más = se pinta más rápido) |
 | `Walker Size` | Tamaño de la pincelada al nacer |
 | `Walker Shrink` | Cuánto se achica en cada paso (más = trazos más cortos) |
 | `Walker Steps` | Pasos por cuadro (más = pinta más rápido) |
 | `Finish After` | Segundos máximos para terminar de pintarse sola después de juntar el polvo |
+| `Detail Walkers` | Caminantes chiquitos por cuadro que siguen afinando la obra terminada |
 | `Cloth Margin` | Borde de tela sin pintar alrededor de la obra |
+| `Use Rocks` | Una y una en roca en vez de tela |
 | `Bokeh` | Parte de las motas grandes y borrosas (casi ninguna) |
 
-Para que no quede todo amontonado, cada zona del camino mide 16 m (`Zone Length` en Goya Gallery, antes 9): las obras de un mismo lado quedan a unos 4 m una de otra. Las rocas son más chicas (apenas más anchas que la obra, la superan unos 20 cm arriba) y los árboles que iban con una obra quedan más atrás, para no salir de adentro de la roca.
+Cada zona del camino mide 16 m (`Zone Length` en Goya Gallery).
 
 ## Las obras vivas (hechas de partículas)
 
@@ -188,7 +194,7 @@ Copian la paleta y el porte de los árboles que ya teníamos:
 - Cuando *El pelele* está armado, las mujeres lo tiran con la manta: sale por arriba del cuadro dando vueltas, cae y la manta se hunde (`GoyaAnimated`). Capas generadas con `tools/paisaje/pelele.py`.
 - Cuando *Vuelo de brujas* está armado, el grupo de brujas que lleva al hombre flota en el cielo: sube y baja despacio, se mece y gira (`GoyaVuelo`). Capas generadas con `tools/paisaje/vuelo.py` a partir del recorte de `Cortes`.
 - Las capas están en `Assets/Resources/Animadas`. Los dos componentes se agregan solos y se ajustan en el Inspector (velocidad, altura, giro).
-- **En tela o roca la animación la pintan los caminantes.** Las capas no se muestran: la animación corre igual, y cada caminante toma el color de cómo se ve la obra en ese momento (el fondo, la manta y la figura en su lugar actual). Cuando la obra ya está pintada, siguen naciendo caminantes en la parte que se mueve, así que la figura se mueve pintada y deja una estela de pinceladas que los demás tapan enseguida. En **Goya Particles**: `Anim Walkers` (caminantes nuevos por cuadro; más = movimiento más nítido) y `Anim Brush` (tamaño de esas pinceladas).
+- **En tela o roca la animación la pintan los caminantes.** Las capas no se muestran: la animación corre igual, y cada caminante toma el color de cómo se ve la obra en ese momento (el fondo, la manta y la figura en su lugar actual). Cuando la obra ya está pintada, siguen naciendo caminantes rápidos de pinceladas cortas en la parte que se mueve, así que la figura se mueve pintada y deja una estela de pinceladas que los demás tapan enseguida. En **Goya Particles**: `Anim Walkers` (caminantes nuevos por cuadro; más = movimiento más nítido) y `Anim Brush` (tamaño de esas pinceladas).
 
 ## De dónde nacen las obras
 

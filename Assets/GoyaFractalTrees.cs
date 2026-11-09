@@ -204,8 +204,10 @@ public class GoyaFractalTrees : MonoBehaviour
                 float z = c.z + (o.zone + o.along) * gallery.zoneLength;
                 Add(k, new Vector3(c.x + o.side, floorY, z), Mathf.Max(3f, o.height), rnd);
             }
-        // Donde iban los arboles recortados de los que nacian obras
-        if (origins != null)
+        // Donde iban los arboles recortados de los que nacian obras (si las obras cuelgan de arboles, esos ya estan)
+        var gp = GetComponent<GoyaParticles>();
+        bool hanging = gp != null && gp.paintOnSurfaces && gp.gatherDust && gp.livingPaintings;
+        if (origins != null && !hanging)
             foreach (var sp in origins.TreeSpots)
             {
                 Kind k = sp.image.Contains("gallina") ? Kind.Gallina : sp.image.Contains("nevada") ? Kind.Nevada : Kind.Cometa;
@@ -222,9 +224,22 @@ public class GoyaFractalTrees : MonoBehaviour
                 Add(k, new Vector3(c.x + side, floorY, z), 4f + (float)rnd.NextDouble() * 2.5f, rnd);
             }
         built = true;
+        foreach (var pl in pending) Add(Kind.Gallina, pl.root, pl.height, rnd, true);
+        pending.Clear();
     }
 
-    void Add(Kind kind, Vector3 root, float height, System.Random rnd)
+    struct Pending { public Vector3 root; public float height; }
+    readonly List<Pending> pending = new List<Pending>();
+    readonly System.Random plantRnd = new System.Random(311);
+
+    /// <summary>Un arbol de tronco derecho en ese lugar (del que cuelga la tela de una obra). root.y = el piso.</summary>
+    public void Plant(Vector3 root, float height)
+    {
+        if (!built) { pending.Add(new Pending { root = root, height = height }); return; }
+        Add(Kind.Gallina, root, height, plantRnd, true);
+    }
+
+    void Add(Kind kind, Vector3 root, float height, System.Random rnd, bool straight = false)
     {
         var cave = gallery.Cave;
         if (cave != null && cave.Footprint(root.x, root.z)) return;
@@ -233,7 +248,7 @@ public class GoyaFractalTrees : MonoBehaviour
         float side = Mathf.Sign(root.x - gallery.Center.x);
         Vector3 leanDir = kind == Kind.Nevada ? new Vector3(1f, 0f, 0.3f).normalized : new Vector3(-side * ((float)rnd.NextDouble() - 0.3f), 0f, (float)rnd.NextDouble() - 0.5f).normalized;
         float h = height * 0.7f;   // la suma de las ramas hace al arbol mas alto que el tronco solo
-        Grow(t, -1, root, (Vector3.up + leanDir * t.style.lean * 0.6f).normalized, h * t.style.trunk, height * t.style.radius, 0, leanDir, rnd);
+        Grow(t, -1, root, (Vector3.up + leanDir * (straight ? 0f : t.style.lean * 0.6f)).normalized, h * t.style.trunk, height * t.style.radius, 0, leanDir, rnd);
         BuildMesh(t);
         if (t.style.leaves) BuildLeaves(t, rnd);
         trees.Add(t);

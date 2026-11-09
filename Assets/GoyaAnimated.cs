@@ -14,7 +14,7 @@ public class GoyaAnimated : MonoBehaviour
     [Tooltip("Nombre (o comienzo del nombre) de la obra que se anima")]
     public string painting = "12 El pelele";
     [Tooltip("Segundos de cada salto")]
-    public float period = 2.2f;
+    public float period = 1.6f;
     [Tooltip("Parte del salto en que el pelele esta en la manta (0 a 1)")]
     [Range(0.05f, 0.6f)] public float contact = 0.18f;
     [Tooltip("Altura del salto, en proporcion al alto del cuadro (0.3 = sale por arriba)")]

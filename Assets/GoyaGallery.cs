@@ -57,6 +57,8 @@ public class GoyaGallery : MonoBehaviour
     public bool changeAllTogether = true;
     [Tooltip("Cuantas obras de la lista tiene cada epoca, en orden. Las tandas nunca mezclan epocas")]
     public int[] epochSizes = { 6, 7, 5, 4, 5 };
+    [Tooltip("Camino: solo estas obras quedan afuera, cada una en su epoca (el comienzo del nombre). Vacio = todas. Las de la cueva siguen igual")]
+    public string[] onlyPaintings = { "02 La cometa", "12 El pelele", "18 Vuelo de brujas" };
     [Tooltip("En cuantas tandas se reparte cada epoca")]
     public int batchesPerEpoch = 2;
     [Tooltip("Sin epocas cargadas: cuantas obras por tanda. Si se cambian de a una: cuantos cuadros hay en el anillo")]
@@ -335,16 +337,37 @@ public class GoyaGallery : MonoBehaviour
             }
         if (used < n) sizes.Add(n - used);   // obras fuera de las epocas: una zona mas al final
 
+        // Solo algunas obras afuera: las demas no se crean (las que caen adentro de la cueva quedan)
+        var caveC = GetComponent<GoyaCave>();
+        float caveZ = caveC != null ? (caveC.startZone + caveC.startAt) * zoneLength : float.MaxValue;
+        bool filter = onlyPaintings != null && System.Array.Exists(onlyPaintings, f => !string.IsNullOrEmpty(f));
         int start = 0;
         for (int zone = 0; zone < sizes.Count; zone++)
         {
-            int count = sizes[zone];
-            for (int j = 0; j < count; j++)
+            int full = sizes[zone];
+            var keep = new List<int>();
+            var keepZ = new List<float>();
+            int listedCount = 0;
+            for (int j = 0; j < full; j++)
             {
                 int idx = start + j;
-                float side = j % 2 == 0 ? -1f : 1f;
-                float t = count == 1 ? 0.5f : (float)j / (count - 1);
-                float z = zone * zoneLength + 2f + t * (zoneLength - 3.5f);
+                float zz = zone * zoneLength + 2f + (full == 1 ? 0.5f : (float)j / (full - 1)) * (zoneLength - 3.5f);
+                bool listed = !filter || System.Array.Exists(onlyPaintings, f => !string.IsNullOrEmpty(f) && sequence[idx].name.StartsWith(f));
+                if (listed || zz >= caveZ + 0.8f) { keep.Add(idx); keepZ.Add(listed ? -1f : zz); if (listed) listedCount++; }
+            }
+            int count = keep.Count, li = 0;
+            for (int j = 0; j < count; j++)
+            {
+                int idx = keep[j];
+                float side = (j + zone) % 2 == 0 ? -1f : 1f;
+                float z = keepZ[j];
+                if (z < 0f)
+                {
+                    // Las elegidas se reparten en su zona (si hay una sola, va al medio)
+                    float t = listedCount == 1 ? 0.5f : (float)li / (listedCount - 1);
+                    li++;
+                    z = zone * zoneLength + 2f + t * (zoneLength - 3.5f);
+                }
                 float depth = (j / 2) % 2 == 0 ? 0f : 1.3f;     // una de cada dos parejas queda mas atras
                 float x = side * (corridorHalfWidth + 0.8f + depth);
                 Vector3 pos = center + new Vector3(x, 0.12f * ((j % 3) - 1), z);
@@ -355,7 +378,7 @@ public class GoyaGallery : MonoBehaviour
                 p.darkIndex = p.originalIndex = idx;
                 p.zone = zone;
             }
-            start += count;
+            start += full;
         }
 
         ZoneCount = sizes.Count;

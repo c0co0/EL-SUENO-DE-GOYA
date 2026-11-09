@@ -19,6 +19,9 @@ public class GoyaCanvas
     public readonly Texture2D tex;
     public readonly int cw, ch;
     public GameObject support;
+    /// <summary>Donde crece el arbol del que cuelga la tela, y su alto.</summary>
+    public Vector3 TreeRoot;
+    public float TreeHeight = 6f;
     public Vector3 supportAt;        // donde estaba la obra cuando se armo el soporte
     Mesh supportMesh;
     Color[] supportBase, supportTinted;
@@ -28,6 +31,8 @@ public class GoyaCanvas
     readonly Texture2D source;      // copia chica de la pintura (para leer sus colores)
     readonly int[] cellPainted;     // pixeles pintados por celda (para saber que falta)
     const int Cells = 16;
+    const int Res = 512;              // alto de la tela en pixeles (mas = mas definicion)
+    const float Px = Res / 256f;      // los tamaños se dan para una tela de 256
     int painted;
     // La obra ocupa el centro de la tela; alrededor queda un borde de tela sin pintar (en la roca no hay borde)
     readonly int ix0, iy0, iw, ih;
@@ -36,7 +41,7 @@ public class GoyaCanvas
     bool dirty;
 
     // Caminantes
-    readonly List<float> wx = new List<float>(), wy = new List<float>(), vx = new List<float>(), vy = new List<float>(), ws = new List<float>();
+    readonly List<float> wx = new List<float>(), wy = new List<float>(), vx = new List<float>(), vy = new List<float>(), ws = new List<float>(), wk = new List<float>();
     readonly List<Color32> wc = new List<Color32>();
 
     public int MaxWalkers = 260;
@@ -56,8 +61,8 @@ public class GoyaCanvas
         this.kind = kind;
         this.source = source;
         this.margin = kind == Kind.Cloth ? Mathf.Clamp(margin, 0f, 0.3f) : 0f;
-        ch = 256;
-        cw = Mathf.Clamp(Mathf.RoundToInt(ch * aspect), 64, 420);
+        ch = Res;
+        cw = Mathf.Clamp(Mathf.RoundToInt(ch * aspect), 128, Res * 8 / 5);
         ix0 = Mathf.RoundToInt(cw * this.margin); iy0 = Mathf.RoundToInt(ch * this.margin);
         iw = cw - 2 * ix0; ih = ch - 2 * iy0;
         tex = new Texture2D(cw, ch, TextureFormat.RGBA32, false);
@@ -92,27 +97,30 @@ public class GoyaCanvas
         System.Array.Copy(basePx, px, px.Length);
         System.Array.Clear(cellPainted, 0, cellPainted.Length);
         painted = 0;
-        wx.Clear(); wy.Clear(); vx.Clear(); vy.Clear(); ws.Clear(); wc.Clear();
+        wx.Clear(); wy.Clear(); vx.Clear(); vy.Clear(); ws.Clear(); wc.Clear(); wk.Clear();
         tex.SetPixels32(px);
         tex.Apply(false);
     }
 
     /// <summary>Nace un caminante en ese lugar de la obra (u, v de 0 a 1).</summary>
-    public void Spawn(Vector2 uv, float sizeK = 1f)
+    public void Spawn(Vector2 uv, float sizeK = 1f, float fast = 1f)
     {
         if (wx.Count >= MaxWalkers) return;
         float a = Random.value * Mathf.PI * 2f;
         wx.Add(ix0 + uv.x * (iw - 1)); wy.Add(iy0 + uv.y * (ih - 1));
-        vx.Add(Mathf.Cos(a) * Speed * 0.5f); vy.Add(Mathf.Sin(a) * Speed * 0.5f);
-        ws.Add(Size * sizeK * Random.Range(0.6f, 1.2f));
+        vx.Add(Mathf.Cos(a) * Speed * Px * 0.5f); vy.Add(Mathf.Sin(a) * Speed * Px * 0.5f);
+        // De lo grueso a lo fino: al principio pinceladas grandes, a medida que se cubre la tela, mas chicas (mas detalle)
+        float fine = Mathf.Lerp(1f, 0.4f, Coverage);
+        ws.Add(Size * Px * sizeK * fine * Random.Range(0.6f, 1.2f));
+        wk.Add(fast);
         wc.Add(new Color32(0, 0, 0, 0));
     }
 
     /// <summary>Caminantes nuevos dentro de una parte de la obra (u, v de 0 a 1): donde se mueve una obra animada.</summary>
-    public void SpawnIn(Rect area, int count, float sizeK)
+    public void SpawnIn(Rect area, int count, float sizeK, float fast)
     {
         for (int k = 0; k < count && wx.Count < MaxWalkers; k++)
-            Spawn(new Vector2(Mathf.Clamp01(area.x + Random.value * area.width), Mathf.Clamp01(area.y + Random.value * area.height)), sizeK);
+            Spawn(new Vector2(Mathf.Clamp01(area.x + Random.value * area.width), Mathf.Clamp01(area.y + Random.value * area.height)), sizeK, fast);
     }
 
     Color Sample(float u, float v)
@@ -147,10 +155,11 @@ public class GoyaCanvas
             for (int i = wx.Count - 1; i >= 0; i--)
             {
                 // Aceleracion al azar, velocidad limitada (camina sin rumbo fijo)
-                float ax = Random.Range(-0.35f, 0.35f), ay = Random.Range(-0.35f, 0.35f);
+                float fast = wk[i], max = Speed * Px * fast;
+                float ax = Random.Range(-0.35f, 0.35f) * Px * fast, ay = Random.Range(-0.35f, 0.35f) * Px * fast;
                 float nvx = vx[i] + ax, nvy = vy[i] + ay;
                 float sp = Mathf.Sqrt(nvx * nvx + nvy * nvy);
-                if (sp > Speed) { nvx *= Speed / sp; nvy *= Speed / sp; }
+                if (sp > max) { nvx *= max / sp; nvy *= max / sp; }
                 float x = wx[i] + nvx, y = wy[i] + nvy;
                 if (x < ix0 || x > ix0 + iw - 1) { nvx = -nvx; x = Mathf.Clamp(x, ix0, ix0 + iw - 1); }
                 if (y < iy0 || y > iy0 + ih - 1) { nvy = -nvy; y = Mathf.Clamp(y, iy0, iy0 + ih - 1); }
@@ -158,15 +167,15 @@ public class GoyaCanvas
 
                 // El color de la pintura donde esta parado (con un poco de variacion, como pincel)
                 Color c = Sample((x - ix0) / (iw - 1), (y - iy0) / (ih - 1));
-                float j = 1f + Random.Range(-0.06f, 0.06f);
+                float j = 1f + Random.Range(-0.03f, 0.03f);
                 Stamp(x, y, ws[i], new Color(c.r * j, c.g * j, c.b * j, 1f));
 
-                ws[i] -= Shrink;
+                ws[i] -= Shrink * Px * fast;
                 if (ws[i] < 0.6f)
                 {
                     int last = wx.Count - 1;
-                    wx[i] = wx[last]; wy[i] = wy[last]; vx[i] = vx[last]; vy[i] = vy[last]; ws[i] = ws[last]; wc[i] = wc[last];
-                    wx.RemoveAt(last); wy.RemoveAt(last); vx.RemoveAt(last); vy.RemoveAt(last); ws.RemoveAt(last); wc.RemoveAt(last);
+                    wx[i] = wx[last]; wy[i] = wy[last]; vx[i] = vx[last]; vy[i] = vy[last]; ws[i] = ws[last]; wc[i] = wc[last]; wk[i] = wk[last];
+                    wx.RemoveAt(last); wy.RemoveAt(last); vx.RemoveAt(last); vy.RemoveAt(last); ws.RemoveAt(last); wc.RemoveAt(last); wk.RemoveAt(last);
                 }
             }
         if (dirty)
@@ -188,7 +197,7 @@ public class GoyaCanvas
             {
                 float dx = x - cx, dy = y - cy, d2 = dx * dx + dy * dy;
                 if (d2 > r2) continue;
-                float k = 0.85f * (1f - d2 / r2 * 0.5f);
+                float k = 0.95f * (1f - d2 / r2 * 0.4f);
                 int idx = y * cw + x;
                 Color32 dst = px[idx];
                 bool fresh = kind == Kind.Cloth ? dst.a == 255 : dst.a < 240;   // todavia sin pintar
@@ -216,12 +225,15 @@ public class GoyaCanvas
             {
                 int idx = y * cw + x;
                 bool done = kind == Kind.Cloth ? px[idx].a == 254 : px[idx].a >= 240;
-                if (done) continue;
                 Color c = Sample((float)(x - ix0) / (iw - 1), (float)(y - iy0) / (ih - 1));
                 Color d = px[idx];
-                Color o = Color.Lerp(kind == Kind.Rock ? c : d, c, 0.75f);
-                o.a = kind == Kind.Rock ? 0.8f : 1f;
-                px[idx] = o;
+                // Lo pintado se afina hacia la pintura (quedan las pinceladas pero con definicion); lo que falta, se completa
+                Color o = done ? Color.Lerp(d, c, 0.55f) : Color.Lerp(kind == Kind.Rock ? c : d, c, 0.85f);
+                o.a = kind == Kind.Rock ? (done ? d.a : 0.8f) : 1f;
+                Color32 o32 = o;
+                if (kind == Kind.Cloth) o32.a = 254;
+                px[idx] = o32;
+                if (!done) painted++;
             }
         tex.SetPixels32(px);
         tex.Apply(false);
@@ -239,14 +251,37 @@ public class GoyaCanvas
         float top = center.y + h * 0.5f;
         if (kind == Kind.Cloth)
         {
-            Color wood = new Color(0.36f, 0.26f, 0.17f);
-            float px0 = w * 0.5f + 0.05f, poleTop = top + 0.18f, poleBottom = floorY - 0.3f;
+            // Cuelga de la rama baja de un arbol que crece al costado: la rama sale del tronco, pasa por arriba
+            // de la tela y se va afinando; dos sogas la atan
+            Color bark = new Color(0.33f, 0.25f, 0.18f);
+            float trunkX = w * 0.5f + 0.45f, branchY = top + 0.32f;
+            Vector3 c0 = new Vector3(center.x, 0f, center.z) - front * 0.12f;
+            TreeRoot = new Vector3(c0.x, floorY, c0.z) + right * trunkX;
+            TreeHeight = Mathf.Max(5.5f, (branchY - floorY) * 2.3f);
+            const int segs = 10;
+            Vector3 prev = Vector3.zero;
+            for (int k = 0; k <= segs; k++)
+            {
+                float t = (float)k / segs;
+                float x = Mathf.Lerp(trunkX, -w * 0.5f - 0.35f, t);
+                float y = branchY + 0.18f * (1f - t) * (1f - t) - 0.12f * Mathf.Sin(t * Mathf.PI) + 0.05f * Mathf.Sin(t * 9f);
+                Vector3 pt = new Vector3(c0.x, y, c0.z) + right * x;
+                if (k > 0)
+                {
+                    Vector3 mid = (prev + pt) * 0.5f, dir = pt - prev;
+                    float r = Mathf.Lerp(0.09f, 0.025f, t);
+                    Box(verts, cols, uvs, tris, mid, dir.normalized, Vector3.Cross(front, dir).normalized, front, new Vector3(dir.magnitude + r, r * 2f, r * 2f), bark * (0.85f + 0.15f * t));
+                }
+                prev = pt;
+            }
+            // Sogas: de la rama a las puntas de arriba de la tela
             for (int s = -1; s <= 1; s += 2)
             {
-                Vector3 b = new Vector3(center.x, 0f, center.z) + right * (px0 * s);
-                Box(verts, cols, uvs, tris, new Vector3(b.x, (poleTop + poleBottom) * 0.5f, b.z), right, Vector3.up, front, new Vector3(0.07f, poleTop - poleBottom, 0.07f), wood);
+                float x = s * (w * 0.5f - 0.04f), t = Mathf.InverseLerp(trunkX, -w * 0.5f - 0.35f, x);
+                float y = branchY + 0.18f * (1f - t) * (1f - t) - 0.12f * Mathf.Sin(t * Mathf.PI) + 0.05f * Mathf.Sin(t * 9f);
+                Vector3 a = new Vector3(c0.x, y, c0.z) + right * x, b = new Vector3(center.x, top, center.z) + right * x;
+                Box(verts, cols, uvs, tris, (a + b) * 0.5f, right, Vector3.up, front, new Vector3(0.015f, Mathf.Max(0.02f, a.y - b.y), 0.015f), new Color(0.55f, 0.47f, 0.35f));
             }
-            Box(verts, cols, uvs, tris, new Vector3(center.x, top + 0.05f, center.z), right, Vector3.up, front, new Vector3(w + 0.3f, 0.06f, 0.06f), wood * 0.9f);
         }
         else
         {

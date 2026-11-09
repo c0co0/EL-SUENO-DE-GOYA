@@ -11,9 +11,9 @@ public class GoyaVuelo : MonoBehaviour
     [Tooltip("Nombre (o comienzo del nombre) de la obra que se anima")]
     public string painting = "18 Vuelo de brujas";
     [Tooltip("Segundos de cada subida y bajada")]
-    public float period = 4.5f;
+    public float period = 2.6f;
     [Tooltip("Cuanto sube y baja (proporcion del alto del cuadro)")]
-    public float rise = 0.035f;
+    public float rise = 0.05f;
     [Tooltip("Cuanto se mece de costado (proporcion del ancho)")]
     public float sway = 0.03f;
     [Tooltip("Cuanto gira (grados)")]

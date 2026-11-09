@@ -151,6 +151,10 @@ public class GoyaParticles : MonoBehaviour
     public int walkerSteps = 3;
     [Tooltip("Cuando ya juntaste el polvo, los segundos maximos hasta que la obra termina de pintarse sola")]
     public float finishAfter = 20f;
+    [Tooltip("Algunas obras en rocas en vez de telas (una y una)")]
+    public bool useRocks = false;
+    [Tooltip("Obra ya pintada: caminantes chiquitos por cuadro que siguen afinando los detalles (mas = mas definicion)")]
+    public int detailWalkers = 6;
     [Tooltip("Borde de tela sin pintar alrededor de la obra (proporcion, a cada lado)")]
     [Range(0f, 0.25f)] public float clothMargin = 0.08f;
 
@@ -583,14 +587,19 @@ public class GoyaParticles : MonoBehaviour
 
     // Copia chica de cada obra para leer sus colores (asi no hace falta tildar Read/Write)
     readonly Dictionary<Sprite, Texture2D> pixelCache = new Dictionary<Sprite, Texture2D>();
+    readonly Dictionary<Sprite, Texture2D> detailCache = new Dictionary<Sprite, Texture2D>();
 
-    public Texture2D GetPixels(Sprite sprite)
+    public Texture2D GetPixels(Sprite sprite) { return GetPixels(sprite, false); }
+
+    /// <summary>detail: copia grande (1024), para que los caminantes pinten con definicion.</summary>
+    public Texture2D GetPixels(Sprite sprite, bool detail)
     {
         if (sprite == null) return null;
         Texture2D cached;
-        if (pixelCache.TryGetValue(sprite, out cached)) return cached;
+        var cache = detail ? detailCache : pixelCache;
+        if (cache.TryGetValue(sprite, out cached)) return cached;
 
-        const int maxSide = 512;
+        int maxSide = detail ? 1024 : 512;
         Rect r = sprite.rect;
         Texture2D src = sprite.texture;
         float k = Mathf.Min(1f, maxSide / Mathf.Max(r.width, r.height));
@@ -611,7 +620,7 @@ public class GoyaParticles : MonoBehaviour
         RenderTexture.ReleaseTemporary(rt);
 
         copy.wrapMode = TextureWrapMode.Clamp;
-        pixelCache[sprite] = copy;
+        cache[sprite] = copy;
         return copy;
     }
 
@@ -1131,9 +1140,9 @@ public class GoyaParticles : MonoBehaviour
     static readonly Dictionary<GoyaGallery.Painting, Anim> anims = new Dictionary<GoyaGallery.Painting, Anim>();
 
     [Tooltip("Obras animadas en tela o roca: caminantes nuevos por cuadro en la parte que se mueve (mas = se ve mas nitido el movimiento, mas pesado)")]
-    public int animWalkers = 30;
+    public int animWalkers = 150;
     [Tooltip("Tamaño de la pincelada de esos caminantes (proporcion de Walker Size)")]
-    public float animBrush = 0.6f;
+    public float animBrush = 0.45f;
 
     /// <summary>Una obra animada avisa como se ve en cada momento (u, v de la obra) y que parte se mueve.</summary>
     public static void RegisterAnimation(GoyaGallery.Painting p, System.Func<float, float, Color> sample, Rect area)
@@ -1154,8 +1163,9 @@ public class GoyaParticles : MonoBehaviour
         Anim a;
         if (!anims.TryGetValue(e.painting, out a)) { e.canvas.Sampler = null; return; }
         e.canvas.Sampler = a.sample;
-        e.canvas.MaxWalkers = maxWalkers * 2;
-        if (e.state == EffectState.Living && e.canvas.Coverage >= 0.95f) e.canvas.SpawnIn(a.area, animWalkers, animBrush);
+        e.canvas.MaxWalkers = maxWalkers * 3;
+        // Pinceladas cortas y rapidas: la figura no deja tanta estela y se mueve a su velocidad
+        if (e.state == EffectState.Living && e.canvas.Coverage >= 0.95f) e.canvas.SpawnIn(a.area, animWalkers, animBrush, 3f);
     }
 
     bool OnSurface(Effect e)
@@ -1173,13 +1183,13 @@ public class GoyaParticles : MonoBehaviour
         var p = e.painting;
         if (!livingPaintings || !Living(e)) return false;
         var sprite = p.renderer.sprite;
-        var src = GetPixels(sprite);
+        var src = GetPixels(sprite, true);
         if (src == null || p.halfH <= 0f) return false;
         bool moved = e.canvas != null && (e.canvas.supportAt - p.root.position).sqrMagnitude > 0.09f;
         if (e.canvas == null || e.canvasSprite != sprite || moved)
         {
             if (e.canvas != null) e.canvas.DestroySupport();
-            var kind = effects.IndexOf(e) % 2 == 0 ? GoyaCanvas.Kind.Cloth : GoyaCanvas.Kind.Rock;
+            var kind = useRocks && effects.IndexOf(e) % 2 == 1 ? GoyaCanvas.Kind.Rock : GoyaCanvas.Kind.Cloth;
             e.canvas = new GoyaCanvas(kind, src, p.halfW / p.halfH, clothMargin);
             e.canvasSprite = sprite;
             if (supportMat == null)
@@ -1196,8 +1206,14 @@ public class GoyaParticles : MonoBehaviour
             float grow = 1f / (1f - 2f * e.canvas.margin);   // la tela es mas grande que la obra (el borde)
             e.canvas.BuildSupport(transform, p.root.position, right, Vector3.up, front, p.halfW * 2f * grow, p.halfH * 2f * grow, floorY, supportMat);
             e.canvas.TintSupport(Color.white, Color.clear);
+            // La tela cuelga de la rama de un arbol: el arbol (fractal) crece al costado
+            if (kind == GoyaCanvas.Kind.Cloth)
+            {
+                var forest = gallery.GetComponent<GoyaFractalTrees>();
+                if (forest != null) forest.Plant(e.canvas.TreeRoot, e.canvas.TreeHeight);
+            }
         }
-        e.canvas.MaxWalkers = anims.ContainsKey(p) ? maxWalkers * 2 : maxWalkers;
+        e.canvas.MaxWalkers = anims.ContainsKey(p) ? maxWalkers * 3 : maxWalkers;
         e.canvas.Size = walkerSize;
         e.canvas.Shrink = walkerShrink;
         e.canvas.StepsPerFrame = walkerSteps;
@@ -1402,7 +1418,12 @@ public class GoyaParticles : MonoBehaviour
             if (e.go.activeSelf) e.go.SetActive(false);
             dt = Mathf.Min(dt, 0.04f);
             Animate(e);
-            if (e.canvas.Coverage >= 0.95f && anims.ContainsKey(p)) e.canvas.Step();
+            if (e.canvas.Coverage >= 0.95f)
+            {
+                // Ya pintada: caminantes chiquitos siguen afinando los detalles (la obra gana definicion mientras la miras)
+                e.canvas.SpawnIn(new Rect(0f, 0f, 1f, 1f), detailWalkers, 0.22f, 1f);
+                e.canvas.Step();
+            }
             if (e.canvas.Coverage < 0.95f)
             {
                 // Armada con el gesto (sin juntar polvo): los caminantes la pintan igual
