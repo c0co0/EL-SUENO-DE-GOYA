@@ -115,6 +115,7 @@ Inspirado en *Dust* de Robert Hodgin (motas de polvo iluminadas que se arremolin
 - Cada mota es una partícula con velocidad. Sueltas, las mecen corrientes suaves y vuelven despacio a su lugar en la nube. Titilan, y algunas son grandes y borrosas, como fuera de foco.
 - **La mano mueve el aire**: señalando la nube (o con E en la PC), el polvo cercano se arremolina y va hacia la mano. Cuanto más rápido movés la mano, más aire.
 - Las motas que quedan muy cerca de la mano **se atrapan**: un resorte las lleva a su lugar en la obra y de a poco toman el color de la pintura. Así vas acomodando el polvo y la obra aparece por partes, donde pasaste la mano.
+- Cuando una mota llega a su lugar, se apaga y en ese punto **aparece la pintura** (la tela de la obra viva). No hay un cambio de una forma a otra: la obra que queda es la misma que fuiste revelando.
 - Cuando juntaste el 70 % (*Form At*), el resto se junta solo y la obra queda formada (y viva, ver abajo).
 - Si los murciélagos la tapan, la mano los espanta pero no junta polvo: primero hay que sacarlos.
 - El gesto de los dos brazos arriba sigue armándola de golpe.
@@ -129,6 +130,7 @@ Cuando una obra del camino se arma, **ya no vuelve a ser un cuadro plano**: qued
 - **Sin marco**: el borde de la tela se vuelve transparente de forma irregular, y ahí siguen las partículas sueltas, más chicas, alejándose como humo (*Edge Dissolve*, *Edge Drift*, *Edge Particle Size*).
 - **Simulación**: cada partícula es un punto con velocidad, atado a su lugar por un resorte con freno (*Spring*, *Damping*). Encima actúa un campo de corrientes de aire que cambia con el tiempo (*Flow*, más fuerte en los bordes y cuando las manos se agitan).
 - **La mano las aparta**: donde la mano (o el puntero) toca la obra, las partículas se corren (*Hand Push*, *Hand Radius*). Cuando la mano se va, el resorte las devuelve y la obra ondula hasta quedarse quieta.
+- **Las figuras quedan paradas en el paisaje**: con el recorte de cada obra (`Assets/Resources/Cortes`), el fondo de la pintura queda transparente (*Background Alpha*, 30 %) y las figuras enteras. Así no se ve un rectángulo flotando.
 - Toman el color de la época (más oscura con el movimiento) y la niebla del lugar, igual que antes.
 - Los dos puños la desarman como siempre. Las animadas (*El pelele*, *Vuelo de brujas*) quedan como cuadro (*Keep Flat*), porque sus capas van encima.
 - Si el celular anda lento: bajar *Sheet Resolution*, *Particle Count* o *Living Distance* (las obras más lejanas que eso no se simulan).

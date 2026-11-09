@@ -161,6 +161,8 @@ public class GoyaParticles : MonoBehaviour
     public int sheetResolution = 56;
     [Tooltip("Fuerza de los resortes entre puntos vecinos de la tela (asi el empujon de la mano se propaga como una onda)")]
     public float neighborSpring = 14f;
+    [Tooltip("Opacidad del fondo de la pintura (las figuras quedan enteras: asi se paran en el paisaje en lugar de ser un rectangulo). Usa los recortes de Assets/Resources/Cortes")]
+    [Range(0f, 1f)] public float backgroundAlpha = 0.3f;
     [Tooltip("Tamaño de las particulas sueltas del borde (multiplica el tamaño normal)")]
     public float edgeParticleSize = 0.45f;
     [Tooltip("Obras que quedan como cuadro (las animadas)")]
@@ -192,7 +194,10 @@ public class GoyaParticles : MonoBehaviour
         public int sx, sy;
         public Vector3[] sHome, sPos, sVel, sRest;
         public float[] sEdge;
+        public float[] sShow;      // cuanto se ve la tela en cada punto: crece donde se acomodo el polvo
+        public float[] sGoal;
         public Color[] sColor;
+        public float fade;         // obra viva: 0 = recien armada (se ven las particulas), 1 = se ve la tela
         public float[] delay, seed;
         public bool[] released;
         public EffectState state;
@@ -736,10 +741,17 @@ public class GoyaParticles : MonoBehaviour
                 e.pos[i] = e.floatBase[i];
                 e.vel[i] = Vector3.zero;
                 float r = Random.value;
-                e.mote[i] = r < 0.08f ? Random.Range(2f, 3.5f) : Random.Range(0.5f, 1.2f);   // unas pocas, grandes y borrosas
+                e.mote[i] = r < 0.03f ? Random.Range(1.8f, 2.8f) : Random.Range(0.5f, 1.2f);   // unas pocas, grandes y borrosas
             }
             e.gathered = false;
             p.reveal = 0f;
+            // La tela de la obra, invisible: va apareciendo donde se acomoda el polvo
+            if (livingPaintings && Living(e))
+            {
+                Vector3 toViewer = gallery.RigPosition - p.root.position; toViewer.y = 0f;
+                BuildSheet(e, Vector3.Dot(p.root.forward, toViewer) >= 0f ? p.root.forward : -p.root.forward, Mathf.Max(p.halfW, p.halfH));
+                e.fade = 0f;
+            }
         }
 
         p.renderer.enabled = false;
@@ -948,9 +960,16 @@ public class GoyaParticles : MonoBehaviour
             // Color y tamaño: mota de luz -> pincelada de la obra
             float k2 = e.caught[i] > 0f ? Smooth(e.caught[i] / Mathf.Max(0.1f, settleTime)) : 0f;
             Color dust = dustColor;
-            dust.a = dustAlpha * (e.mote[i] > 1.5f ? 0.35f : 1f) * (0.7f + 0.3f * Mathf.Sin(time * 2f + sd));   // titilan
+            dust.a = dustAlpha * (e.mote[i] > 1.5f ? 0.2f : 1f) * (0.7f + 0.3f * Mathf.Sin(time * 2f + sd));   // titilan
             Color32 c = Color32.Lerp(dust, Tinted(e.toColor[i], tint), k2);
-            c.a = (byte)(c.a * appear);
+            float gone = 1f;
+            if (e.caught[i] > settleTime * 0.7f && e.sheetGo != null && e.sheetGo.activeSelf)
+            {
+                // Llego: la tela aparece en ese lugar y la mota se apaga (no hay salto de una cosa a la otra)
+                Reveal(e, e.uv[i]);
+                gone = Mathf.Clamp01(1f - (e.caught[i] - settleTime * 0.7f) / 1.2f);
+            }
+            c.a = (byte)(c.a * appear * gone);
             e.parts[i].startColor = c;
             e.parts[i].position = x;
             e.parts[i].velocity = Vector3.zero;
@@ -959,6 +978,15 @@ public class GoyaParticles : MonoBehaviour
             e.parts[i].startSize = e.size * Mathf.Lerp(dustSize * e.mote[i], 1f, k2);
         }
         e.ps.SetParticles(e.parts, n);
+        if (e.sheetGo != null && e.sheetGo.activeSelf)
+        {
+            int pushes = 0;
+            if (hands > 0 && !blocked) pushes = hands;
+            Color fogA = Color.black, fogB = Color.white;
+            var env = gallery.GetComponent<GoyaEnvironment>();
+            if (env != null) { fogA = env.Fogged(Color.black, p.root.position); fogB = env.Fogged(Color.white, p.root.position); }
+            UpdateSheet(e, dt, pushes, h0, h1, handPush * boost, tint, fogA, fogB, appear * p.visibility, 1f + gallery.agitation * agitationWind);
+        }
 
         float progress = (float)caughtCount / n;
         p.reveal = progress;
@@ -982,6 +1010,24 @@ public class GoyaParticles : MonoBehaviour
                 e.state = EffectState.Idle;
             }
         }
+    }
+
+    // Marca la tela como visible alrededor de un punto de la obra (u, v de 0 a 1)
+    void Reveal(Effect e, Vector2 uv)
+    {
+        if (e.sGoal == null) return;
+        int sx = e.sx, sy = e.sy;
+        int ci = Mathf.RoundToInt(uv.x * sx), cj = Mathf.RoundToInt(uv.y * sy);
+        for (int dj = -2; dj <= 2; dj++)
+            for (int di = -2; di <= 2; di++)
+            {
+                int i = ci + di, j = cj + dj;
+                if (i < 0 || j < 0 || i > sx || j > sy) continue;
+                float w = 1f - (di * di + dj * dj) / 9f;
+                if (w <= 0f) continue;
+                int k = j * (sx + 1) + i;
+                if (w > e.sGoal[k]) e.sGoal[k] = w;
+            }
     }
 
     // ---------------------------------------------------------------- obras vivas
@@ -1022,7 +1068,10 @@ public class GoyaParticles : MonoBehaviour
             e.vel[i] = Vector3.zero;
         }
         p.renderer.enabled = false;
-        BuildSheet(e, front, size);
+        bool hasSheet = e.sheetGo != null && e.sheetGo.activeSelf && e.sheetSprite == p.renderer.sprite;
+        if (!hasSheet) BuildSheet(e, front, size);
+        // Juntada con el polvo: la tela ya fue apareciendo. Armada de golpe (gesto): la tela aparece mientras se van las particulas
+        e.fade = hasSheet && e.gathered ? 1f : 0f;
         e.state = EffectState.Living;
         e.t = 0f;
     }
@@ -1050,13 +1099,23 @@ public class GoyaParticles : MonoBehaviour
             e.sheet.MarkDynamic();
             e.sheetGo.AddComponent<MeshFilter>().sharedMesh = e.sheet;
             var mr = e.sheetGo.AddComponent<MeshRenderer>();
-            mr.sharedMaterial = new Material(particleMat.shader);
+            var obra = Resources.Load<Shader>("Shaders/GoyaObraViva");
+            mr.sharedMaterial = new Material(obra != null ? obra : particleMat.shader);
             mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             mr.receiveShadows = false;
             mr.sortingOrder = 4;
         }
         var rend = e.sheetGo.GetComponent<MeshRenderer>();
-        rend.sharedMaterial.mainTexture = sprite.texture;
+        var mat = rend.sharedMaterial;
+        mat.mainTexture = sprite.texture;
+        // Recorte de las figuras: el fondo de la pintura queda mas transparente
+        var cut = Resources.Load<Sprite>("Cortes/" + sprite.name);
+        if (mat.HasProperty("_Mask"))
+        {
+            mat.SetTexture("_Mask", cut != null ? cut.texture : Texture2D.whiteTexture);
+            mat.SetFloat("_HasMask", cut != null ? 1f : 0f);
+            mat.SetFloat("_Bg", backgroundAlpha);
+        }
 
         float w = p.halfW * 2f, h = p.halfH * 2f;
         int sy = Mathf.Max(8, sheetResolution);
@@ -1065,12 +1124,13 @@ public class GoyaParticles : MonoBehaviour
         if (e.sPos == null || e.sPos.Length != n)
         {
             e.sHome = new Vector3[n]; e.sPos = new Vector3[n]; e.sVel = new Vector3[n]; e.sRest = new Vector3[n];
-            e.sEdge = new float[n]; e.sColor = new Color[n];
+            e.sEdge = new float[n]; e.sColor = new Color[n]; e.sShow = new float[n]; e.sGoal = new float[n];
         }
         e.sx = sx; e.sy = sy;
         Rect r = sprite.textureRect;
         float tw = sprite.texture.width, th = sprite.texture.height;
         var uvs = new Vector2[n];
+        var uvs2 = new Vector2[n];
         var tris = new int[sx * sy * 6];
         Vector3 c = p.root.position, right = p.root.right, up = p.root.up;
         for (int j = 0; j <= sy; j++)
@@ -1090,6 +1150,8 @@ public class GoyaParticles : MonoBehaviour
                 e.sPos[k] = flat;            // arranca plana y se acomoda (sale el volumen)
                 e.sVel[k] = Vector3.zero;
                 uvs[k] = new Vector2((r.x + u * r.width) / tw, (r.y + v * r.height) / th);
+                uvs2[k] = new Vector2(u, v);
+                e.sShow[k] = 0f; e.sGoal[k] = 0f;
             }
         // Largo de reposo de cada resorte con la vecina de la derecha y la de arriba (se guarda en sRest: x = derecha, y = arriba)
         for (int j = 0; j <= sy; j++)
@@ -1109,6 +1171,7 @@ public class GoyaParticles : MonoBehaviour
         e.sheet.Clear();
         e.sheet.vertices = e.sPos;
         e.sheet.uv = uvs;
+        e.sheet.uv2 = uvs2;
         e.sheet.colors = e.sColor;
         e.sheet.triangles = tris;
         e.sheet.bounds = new Bounds(Vector3.zero, Vector3.one * 100000f);
@@ -1161,7 +1224,9 @@ public class GoyaParticles : MonoBehaviour
         for (int k = 0; k < pos.Length; k++)
         {
             Color c = mul;
-            c.a = alpha * e.sEdge[k];
+            e.sShow[k] = Mathf.MoveTowards(e.sShow[k], Mathf.Max(e.sGoal[k], e.fade), dt * 0.8f);
+            float sh = e.sShow[k];
+            c.a = alpha * e.sEdge[k] * sh * sh * (3f - 2f * sh);
             e.sColor[k] = c;
         }
         e.sheet.vertices = pos;
@@ -1207,6 +1272,7 @@ public class GoyaParticles : MonoBehaviour
             Vector3 toViewer = gallery.RigPosition - p.root.position; toViewer.y = 0f;
             BuildSheet(e, Vector3.Dot(p.root.forward, toViewer) >= 0f ? p.root.forward : -p.root.forward, Mathf.Max(p.halfW, p.halfH));
         }
+        e.fade = Mathf.MoveTowards(e.fade, 1f, dt / 1.5f);
         UpdateSheet(e, dt, pushes, pushA, pushB, strength, tint, fogA, fogB, alpha, wind);
 
         for (int i = 0; i < e.count; i++)
@@ -1245,7 +1311,7 @@ public class GoyaParticles : MonoBehaviour
             float cr = c.r / 255f * tint.r, cg = c.g / 255f * tint.g, cb = c.b / 255f * tint.b;
             // Adentro la imagen la lleva la tela: solo se ven las particulas sueltas del borde (el humo)
             Color col = new Color(fogA.r + cr * (fogB.r - fogA.r), fogA.g + cg * (fogB.g - fogA.g), fogA.b + cb * (fogB.b - fogA.b),
-                                  c.a / 255f * alpha * Mathf.Clamp01(loose * 2f) * (1f - 0.5f * loose));
+                                  c.a / 255f * alpha * Mathf.Max(Mathf.Clamp01(loose * 2f) * (1f - 0.5f * loose) * Mathf.Clamp01(e.t), 1f - e.fade));
             e.parts[i].startColor = col;
         }
 
