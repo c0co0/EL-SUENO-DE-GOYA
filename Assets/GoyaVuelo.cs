@@ -46,9 +46,11 @@ public class GoyaVuelo : MonoBehaviour
 
         var src = target.renderer;
         bool on = src.enabled && target.revealed && src.sprite == target.original;
+        // En tela o roca no se ven las capas: los caminantes pintan la animacion (igual tiene que correr)
+        bool painted = !on && GoyaLayers.Particles != null && GoyaLayers.Particles.PaintedOnSurface(target);
         back.enabled = figure.enabled = on;
         back.color = figure.color = src.color;
-        if (!on) { t = 0f; return; }
+        if (!on && !painted) { t = 0f; return; }
 
         t += Time.deltaTime;
         float w = paintingSize.x / 100f, h = paintingSize.y / 100f;
@@ -82,6 +84,10 @@ public class GoyaVuelo : MonoBehaviour
         figure = Layer("Vuelo_Brujas", grupo, figureCenter, 2);
         figureBase = figure.transform.localPosition;
         figureScale = figure.transform.localScale;
+        var layers = new[] { back, figure };
+        var pix = new Texture2D[layers.Length];
+        Rect area = GoyaLayers.Area(target.root, target.original, figure, sway + 0.04f, sway + 0.04f, rise + 0.04f, rise + 0.04f);
+        GoyaParticles.RegisterAnimation(target, (u, v) => GoyaLayers.Sample(target.root, target.original, layers, pix, u, v), area);
     }
 
     // Cada capa es hija del cuadro, con el mismo tamaño de pixel: queda justo encima de la pintura

@@ -45,6 +45,10 @@ public class GoyaCanvas
     public float Speed = 1.4f;       // velocidad maxima (pixeles por paso)
     public int StepsPerFrame = 3;
 
+    /// <summary>Si esta, los caminantes toman el color de aca (u, v de la obra) en vez de la pintura fija:
+    /// asi pintan una obra animada, cuadro a cuadro.</summary>
+    public System.Func<float, float, Color> Sampler;
+
     public static readonly Color Linen = new Color(0.86f, 0.8f, 0.68f, 1f);
 
     public GoyaCanvas(Kind kind, Texture2D source, float aspect, float margin)
@@ -94,14 +98,26 @@ public class GoyaCanvas
     }
 
     /// <summary>Nace un caminante en ese lugar de la obra (u, v de 0 a 1).</summary>
-    public void Spawn(Vector2 uv)
+    public void Spawn(Vector2 uv, float sizeK = 1f)
     {
         if (wx.Count >= MaxWalkers) return;
         float a = Random.value * Mathf.PI * 2f;
         wx.Add(ix0 + uv.x * (iw - 1)); wy.Add(iy0 + uv.y * (ih - 1));
         vx.Add(Mathf.Cos(a) * Speed * 0.5f); vy.Add(Mathf.Sin(a) * Speed * 0.5f);
-        ws.Add(Size * Random.Range(0.6f, 1.2f));
+        ws.Add(Size * sizeK * Random.Range(0.6f, 1.2f));
         wc.Add(new Color32(0, 0, 0, 0));
+    }
+
+    /// <summary>Caminantes nuevos dentro de una parte de la obra (u, v de 0 a 1): donde se mueve una obra animada.</summary>
+    public void SpawnIn(Rect area, int count, float sizeK)
+    {
+        for (int k = 0; k < count && wx.Count < MaxWalkers; k++)
+            Spawn(new Vector2(Mathf.Clamp01(area.x + Random.value * area.width), Mathf.Clamp01(area.y + Random.value * area.height)), sizeK);
+    }
+
+    Color Sample(float u, float v)
+    {
+        return Sampler != null ? Sampler(u, v) : source.GetPixelBilinear(u, v);
     }
 
     /// <summary>Caminantes en las partes que todavia no se pintaron (para terminar la obra).</summary>
@@ -141,7 +157,7 @@ public class GoyaCanvas
                 wx[i] = x; wy[i] = y; vx[i] = nvx; vy[i] = nvy;
 
                 // El color de la pintura donde esta parado (con un poco de variacion, como pincel)
-                Color c = source.GetPixelBilinear((x - ix0) / (iw - 1), (y - iy0) / (ih - 1));
+                Color c = Sample((x - ix0) / (iw - 1), (y - iy0) / (ih - 1));
                 float j = 1f + Random.Range(-0.06f, 0.06f);
                 Stamp(x, y, ws[i], new Color(c.r * j, c.g * j, c.b * j, 1f));
 
@@ -201,7 +217,7 @@ public class GoyaCanvas
                 int idx = y * cw + x;
                 bool done = kind == Kind.Cloth ? px[idx].a == 254 : px[idx].a >= 240;
                 if (done) continue;
-                Color c = source.GetPixelBilinear((float)(x - ix0) / (iw - 1), (float)(y - iy0) / (ih - 1));
+                Color c = Sample((float)(x - ix0) / (iw - 1), (float)(y - iy0) / (ih - 1));
                 Color d = px[idx];
                 Color o = Color.Lerp(kind == Kind.Rock ? c : d, c, 0.75f);
                 o.a = kind == Kind.Rock ? 0.8f : 1f;

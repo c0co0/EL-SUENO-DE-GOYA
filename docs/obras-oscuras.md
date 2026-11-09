@@ -188,6 +188,7 @@ Copian la paleta y el porte de los árboles que ya teníamos:
 - Cuando *El pelele* está armado, las mujeres lo tiran con la manta: sale por arriba del cuadro dando vueltas, cae y la manta se hunde (`GoyaAnimated`). Capas generadas con `tools/paisaje/pelele.py`.
 - Cuando *Vuelo de brujas* está armado, el grupo de brujas que lleva al hombre flota en el cielo: sube y baja despacio, se mece y gira (`GoyaVuelo`). Capas generadas con `tools/paisaje/vuelo.py` a partir del recorte de `Cortes`.
 - Las capas están en `Assets/Resources/Animadas`. Los dos componentes se agregan solos y se ajustan en el Inspector (velocidad, altura, giro).
+- **En tela o roca la animación la pintan los caminantes.** Las capas no se muestran: la animación corre igual, y cada caminante toma el color de cómo se ve la obra en ese momento (el fondo, la manta y la figura en su lugar actual). Cuando la obra ya está pintada, siguen naciendo caminantes en la parte que se mueve, así que la figura se mueve pintada y deja una estela de pinceladas que los demás tapan enseguida. En **Goya Particles**: `Anim Walkers` (caminantes nuevos por cuadro; más = movimiento más nítido) y `Anim Brush` (tamaño de esas pinceladas).
 
 ## De dónde nacen las obras
 

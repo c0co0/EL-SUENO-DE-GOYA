@@ -584,7 +584,7 @@ public class GoyaParticles : MonoBehaviour
     // Copia chica de cada obra para leer sus colores (asi no hace falta tildar Read/Write)
     readonly Dictionary<Sprite, Texture2D> pixelCache = new Dictionary<Sprite, Texture2D>();
 
-    Texture2D GetPixels(Sprite sprite)
+    public Texture2D GetPixels(Sprite sprite)
     {
         if (sprite == null) return null;
         Texture2D cached;
@@ -1022,6 +1022,7 @@ public class GoyaParticles : MonoBehaviour
         bool painted = true;
         if (OnSurface(e))
         {
+            Animate(e);
             e.canvas.Step();
             if (e.gathered)
             {
@@ -1083,6 +1084,7 @@ public class GoyaParticles : MonoBehaviour
         var p = e.painting;
         if (!livingPaintings || p.locked || !gallery.pathMode || gallery.PathLength <= 0f) return false;
         if (p.original != null)
+            if (!paintOnSurfaces || !gatherDust)   // en tela o roca las animadas tambien se pintan (los caminantes pintan la animacion)
             foreach (var f in keepFlat) if (!string.IsNullOrEmpty(f) && p.original.name.StartsWith(f)) return false;
         return true;
     }
@@ -1124,6 +1126,38 @@ public class GoyaParticles : MonoBehaviour
 
     // ---------------------------------------------------------------- telas y rocas
 
+    // Obras animadas (El pelele, Vuelo de brujas): su animacion les da el color en cada momento y la parte que se mueve
+    class Anim { public System.Func<float, float, Color> sample; public Rect area; }
+    static readonly Dictionary<GoyaGallery.Painting, Anim> anims = new Dictionary<GoyaGallery.Painting, Anim>();
+
+    [Tooltip("Obras animadas en tela o roca: caminantes nuevos por cuadro en la parte que se mueve (mas = se ve mas nitido el movimiento, mas pesado)")]
+    public int animWalkers = 30;
+    [Tooltip("Tamaño de la pincelada de esos caminantes (proporcion de Walker Size)")]
+    public float animBrush = 0.6f;
+
+    /// <summary>Una obra animada avisa como se ve en cada momento (u, v de la obra) y que parte se mueve.</summary>
+    public static void RegisterAnimation(GoyaGallery.Painting p, System.Func<float, float, Color> sample, Rect area)
+    {
+        if (p != null) anims[p] = new Anim { sample = sample, area = area };
+    }
+
+    /// <summary>La obra esta en su tela o roca y la pintan los caminantes (la animacion tiene que correr aunque sus capas no se vean).</summary>
+    public bool PaintedOnSurface(GoyaGallery.Painting p)
+    {
+        foreach (var e in effects) if (e.painting == p) return OnSurface(e);
+        return false;
+    }
+
+    // Los caminantes de una obra animada no paran: siguen pintando lo que se mueve, y la obra se mueve pintada
+    void Animate(Effect e)
+    {
+        Anim a;
+        if (!anims.TryGetValue(e.painting, out a)) { e.canvas.Sampler = null; return; }
+        e.canvas.Sampler = a.sample;
+        e.canvas.MaxWalkers = maxWalkers * 2;
+        if (e.state == EffectState.Living && e.canvas.Coverage >= 0.95f) e.canvas.SpawnIn(a.area, animWalkers, animBrush);
+    }
+
     bool OnSurface(Effect e)
     {
         return paintOnSurfaces && Dust() && e.canvas != null && e.canvasSprite != null && e.canvasSprite == e.painting.renderer.sprite
@@ -1163,7 +1197,7 @@ public class GoyaParticles : MonoBehaviour
             e.canvas.BuildSupport(transform, p.root.position, right, Vector3.up, front, p.halfW * 2f * grow, p.halfH * 2f * grow, floorY, supportMat);
             e.canvas.TintSupport(Color.white, Color.clear);
         }
-        e.canvas.MaxWalkers = maxWalkers;
+        e.canvas.MaxWalkers = anims.ContainsKey(p) ? maxWalkers * 2 : maxWalkers;
         e.canvas.Size = walkerSize;
         e.canvas.Shrink = walkerShrink;
         e.canvas.StepsPerFrame = walkerSteps;
@@ -1367,6 +1401,8 @@ public class GoyaParticles : MonoBehaviour
             // Pintada en la tela o la roca: no quedan particulas sueltas, la obra es la pintura del soporte
             if (e.go.activeSelf) e.go.SetActive(false);
             dt = Mathf.Min(dt, 0.04f);
+            Animate(e);
+            if (e.canvas.Coverage >= 0.95f && anims.ContainsKey(p)) e.canvas.Step();
             if (e.canvas.Coverage < 0.95f)
             {
                 // Armada con el gesto (sin juntar polvo): los caminantes la pintan igual
