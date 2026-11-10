@@ -98,6 +98,8 @@ public class GoyaTerrain : MonoBehaviour
 
                 // Color: camino ocre al centro, pasto con manchas, mas seco en lo alto, sombra en las laderas
                 float ax = Mathf.Abs(x - origin.x);
+                float fork = gallery.ForkOffset(z);   // al comienzo el camino se abre en tres
+                if (fork > 0f) ax = Mathf.Min(ax, Mathf.Min(Mathf.Abs(x - origin.x - fork), Mathf.Abs(x - origin.x + fork)) * 1.15f);
                 float patch = Mathf.PerlinNoise(x * 0.18f + 3f, z * 0.18f + 9f);
                 Color c = Color.Lerp(grassA, grassB, patch);
                 c = Color.Lerp(c, dry, Mathf.Clamp01(h / hillHeight) * 0.5f * Mathf.PerlinNoise(x * 0.3f, z * 0.3f + 20f));

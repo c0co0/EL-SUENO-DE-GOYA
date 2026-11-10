@@ -320,7 +320,7 @@ public class GoyaCanvas
         support = null; supportMesh = null;
     }
 
-    static void Box(List<Vector3> v, List<Color> c, List<Vector2> uv, List<int> t, Vector3 center, Vector3 rx, Vector3 ry, Vector3 rz, Vector3 size, Color col)
+    public static void Box(List<Vector3> v, List<Color> c, List<Vector2> uv, List<int> t, Vector3 center, Vector3 rx, Vector3 ry, Vector3 rz, Vector3 size, Color col)
     {
         Vector3 hx = rx * size.x * 0.5f, hy = ry * size.y * 0.5f, hz = rz * size.z * 0.5f;
         Vector3[] n = { rx, -rx, ry, -ry, rz, -rz };

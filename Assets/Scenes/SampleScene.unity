@@ -478,7 +478,7 @@ MonoBehaviour:
   pathMode: 1
   zoneLength: 16
   corridorHalfWidth: 1.6
-  pathMoveSpeed: 1.1
+  pathMoveSpeed: 1.6
   gestureDistance: 7
   paintingSequence:
   - {fileID: 21300000, guid: 0f3328e1b78849b9b3c1bd68c8d7239f, type: 3}

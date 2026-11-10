@@ -28,7 +28,8 @@ public class GoyaVuelo : MonoBehaviour
     SpriteRenderer back, figure;
     Vector3 figureBase;
     float t;
-    bool searched;
+    bool searched;    // faltan las capas: no se busca mas
+    int nextSearch;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     static void Auto()
@@ -41,8 +42,10 @@ public class GoyaVuelo : MonoBehaviour
     {
         if (gallery == null) gallery = GetComponent<GoyaGallery>();
         if (gallery == null || gallery.paintings.Count == 0) return;
-        if (!searched) { searched = true; Setup(); }
+        // Se busca la obra hasta encontrarla (con la bifurcacion, aparece recien cuando elegis el camino)
+        if (target == null && !searched && Time.frameCount >= nextSearch) { nextSearch = Time.frameCount + 30; Setup(); }
         if (target == null) return;
+        if (target.original == null || !target.original.name.StartsWith(painting)) return;
 
         var src = target.renderer;
         bool on = src.enabled && target.revealed && src.sprite == target.original;
@@ -69,7 +72,7 @@ public class GoyaVuelo : MonoBehaviour
     void Setup()
     {
         foreach (var p in gallery.paintings)
-            if (p.original != null && p.original.name.StartsWith(painting) && !p.locked) { target = p; break; }
+            if (p.original != null && !gallery.WaitingRoute(p) && p.original.name.StartsWith(painting) && !p.locked) { target = p; break; }
         if (target == null) return;
 
         var fondo = Resources.Load<Sprite>("Animadas/vuelo_fondo");
@@ -78,6 +81,7 @@ public class GoyaVuelo : MonoBehaviour
         {
             Debug.LogWarning("[Animada] Faltan las capas de Vuelo de brujas en Assets/Resources/Animadas");
             target = null;
+            searched = true;
             return;
         }
         back = Layer("Vuelo_Fondo", fondo, Vector2.zero, 1);

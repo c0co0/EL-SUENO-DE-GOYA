@@ -281,6 +281,7 @@ public class GoyaParticles : MonoBehaviour
             {
                 case EffectState.Idle:
                     if (!p.active) break;   // cuadro que sobra en esta tanda
+                    if (gallery.WaitingRoute(p)) { p.renderer.enabled = false; break; }   // todavia no elegiste camino: no se sabe que obra va aca
                     // Sin armar (al empezar, o despues de Backspace): vuelve a ser polvo
                     if (gallery.assembleFromDust && !p.revealed) { StartFloating(e); break; }
                     if (together) break;

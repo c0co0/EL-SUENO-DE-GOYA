@@ -127,6 +127,18 @@ Inspirado en *Dust* de Robert Hodgin (motas de polvo iluminadas que se arremolin
 
 ## Las obras se pintan sobre telas colgadas de los árboles (caminantes)
 
+### Tres caminos al comienzo
+
+Al empezar, el camino se abre en tres (se ve en la tierra del piso) y se vuelve a juntar unos metros más adelante. Al comienzo de cada uno hay un cartel de madera con sus tres obras en chiquito. **Por el que pasás decide qué obras te tocan** (se elige al llegar a la mitad de la bifurcación; si pasás por el medio sin decidir, te toca el del medio). Hasta que elegís, las obras no aparecen.
+
+| Camino | Obras |
+|---|---|
+| Izquierda (`Route Left`) | La gallina ciega, La familia de Carlos IV, El aquelarre |
+| Medio (`Only Paintings`) | La cometa, El pelele, Vuelo de brujas |
+| Derecha (`Route Right`) | La nevada, Majas en el balcón, El entierro de la sardina |
+
+Todo en **Goya Gallery**: `Fork At Start` (apagado: un solo camino), `Fork Width` (cuánto se separan) y `Fork Length` (largo de la bifurcación). Cada lista va en orden de época, una obra por época. La caminata ahora es más rápida (`Path Move Speed` 1,6, antes 1,1).
+
 Afuera hay **solo tres obras**, una por época: *La cometa*, *El pelele* y *Vuelo de brujas* (`Only Paintings` en Goya Gallery; vacío = todas). Las de la cueva y las pinturas negras siguen igual.
 
 Cada obra es una **tela colgada de la rama baja de un árbol** fractal que crece al costado, atada con dos sogas, más o menos a la altura de la vista. La tela empieza en blanco (lino viejo con los bordes gastados) y tiene un borde sin pintar alrededor de la obra.

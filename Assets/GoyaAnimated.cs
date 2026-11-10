@@ -34,7 +34,8 @@ public class GoyaAnimated : MonoBehaviour
     SpriteRenderer back, blanket, figure;
     Vector3 figureBase, blanketBase;
     float t;
-    bool searched;
+    bool searched;    // faltan las capas: no se busca mas
+    int nextSearch;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     static void Auto()
@@ -47,8 +48,10 @@ public class GoyaAnimated : MonoBehaviour
     {
         if (gallery == null) gallery = GetComponent<GoyaGallery>();
         if (gallery == null || gallery.paintings.Count == 0) return;
-        if (!searched) { searched = true; Setup(); }
+        // Se busca la obra hasta encontrarla (con la bifurcacion, aparece recien cuando elegis el camino)
+        if (target == null && !searched && Time.frameCount >= nextSearch) { nextSearch = Time.frameCount + 30; Setup(); }
         if (target == null) return;
+        if (target.original == null || !target.original.name.StartsWith(painting)) return;
 
         var src = target.renderer;
         bool on = src.enabled && target.revealed && src.sprite == target.original;
@@ -88,7 +91,7 @@ public class GoyaAnimated : MonoBehaviour
     void Setup()
     {
         foreach (var p in gallery.paintings)
-            if (p.original != null && p.original.name.StartsWith(painting)) { target = p; break; }
+            if (p.original != null && !gallery.WaitingRoute(p) && p.original.name.StartsWith(painting)) { target = p; break; }
         if (target == null) return;
 
         var fondo = Resources.Load<Sprite>("Animadas/pelele_fondo");
@@ -98,6 +101,7 @@ public class GoyaAnimated : MonoBehaviour
         {
             Debug.LogWarning("[Animada] Faltan las capas de El pelele en Assets/Resources/Animadas");
             target = null;
+            searched = true;
             return;
         }
         back = Layer("Pelele_Fondo", fondo, Vector2.zero, 1);

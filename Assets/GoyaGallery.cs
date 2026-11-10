@@ -43,7 +43,7 @@ public class GoyaGallery : MonoBehaviour
     [Tooltip("Medio ancho del camino por donde se puede caminar (metros)")]
     public float corridorHalfWidth = 1.6f;
     [Tooltip("Velocidad al caminar por el camino (metros por segundo)")]
-    public float pathMoveSpeed = 1.1f;
+    public float pathMoveSpeed = 1.6f;
     [Tooltip("Cuanto mas rapido se va al correr (dos dedos levantados, o Shift en la PC)")]
     public float runMultiplier = 2.4f;
     [Tooltip("Hasta que distancia (metros) los gestos de armar y desarmar alcanzan a la obra que se mira")]
@@ -59,6 +59,19 @@ public class GoyaGallery : MonoBehaviour
     public int[] epochSizes = { 6, 7, 5, 4, 5 };
     [Tooltip("Camino: solo estas obras quedan afuera, cada una en su epoca (el comienzo del nombre). Vacio = todas. Las de la cueva siguen igual")]
     public string[] onlyPaintings = { "02 La cometa", "12 El pelele", "18 Vuelo de brujas" };
+    [Header("Bifurcacion al comienzo: tres caminos")]
+    [Tooltip("Al comienzo el camino se abre en tres. El que elegis (por donde pasas) decide que obras te tocan; despues los tres se vuelven a juntar")]
+    public bool forkAtStart = true;
+    [Tooltip("Camino de la izquierda: sus obras, una por epoca, en el mismo orden que Only Paintings")]
+    public string[] routeLeft = { "01 La gallina ciega", "10 La familia de Carlos IV", "17 El aquelarre" };
+    [Tooltip("Camino del medio: Only Paintings")]
+    public string routeMiddleNote = "= Only Paintings";
+    [Tooltip("Camino de la derecha")]
+    public string[] routeRight = { "05 La nevada", "08 Majas en el balcon", "15 El entierro de la sardina" };
+    [Tooltip("Cuanto se separan los caminos de los costados (metros)")]
+    public float forkWidth = 3f;
+    [Tooltip("Largo de la bifurcacion, desde que se abre hasta que se junta (metros)")]
+    public float forkLength = 7f;
     [Tooltip("En cuantas tandas se reparte cada epoca")]
     public int batchesPerEpoch = 2;
     [Tooltip("Sin epocas cargadas: cuantas obras por tanda. Si se cambian de a una: cuantos cuadros hay en el anillo")]
@@ -202,6 +215,86 @@ public class GoyaGallery : MonoBehaviour
 
     /// <summary>Centro del anillo (donde empieza la persona).</summary>
     public Vector3 Center { get { return center; } }
+
+    // ---------------------------------------------------------------- bifurcacion
+    List<Sprite> pathSequence;
+    readonly List<Painting> routeSlots = new List<Painting>();
+    /// <summary>Camino elegido: -1 = todavia no, 0 izquierda, 1 medio, 2 derecha.</summary>
+    public int Route { get; private set; } = 1;
+    public bool Forks { get { return forkAtStart && pathMode && routeLeft != null && routeLeft.Length > 0 && routeRight != null && routeRight.Length > 0; } }
+    /// <summary>Esta obra espera a que elijas camino (todavia no se sabe cual es).</summary>
+    public bool WaitingRoute(Painting p) { return Route < 0 && routeSlots.Contains(p); }
+    public Painting[] RouteSlots { get { return routeSlots.ToArray(); } }
+
+    /// <summary>Cuanto se separan del centro los caminos de los costados en ese punto (0 = ya se juntaron).</summary>
+    public float ForkOffset(float z)
+    {
+        if (!Forks) return 0f;
+        float t = (z - center.z - 0.5f) / Mathf.Max(1f, forkLength);
+        if (t <= 0f || t >= 1f) return 0f;
+        return forkWidth * Mathf.Sin(t * Mathf.PI);
+    }
+    public float ForkGateZ { get { return center.z + 0.5f + forkLength * 0.5f; } }
+
+    public string[] RouteNames(int r) { return r == 0 ? routeLeft : r == 2 ? routeRight : onlyPaintings; }
+
+    // Un cartel de madera al comienzo de cada camino con sus tres obras chiquitas: asi sabes que te toca
+    void BuildForkSigns()
+    {
+        float eye = environment != null ? environment.eyeHeight : 1.6f;
+        float floorY = RigPosition.y - eye;
+        var sh = Resources.Load<Shader>("Shaders/GoyaTerreno");
+        var woodMat = new Material(sh != null ? sh : Shader.Find("Sprites/Default")) { mainTexture = Resources.Load<Texture2D>("Paisaje/pinceladas") };
+        float zSign = center.z + 0.5f + forkLength * 0.22f;   // donde los caminos ya se separaron
+        for (int r = 0; r < 3; r++)
+        {
+            float off = ForkOffset(zSign) * (r - 1);
+            float side = r == 0 ? -1f : 1f;
+            Vector3 post = new Vector3(center.x + off + side * 0.95f, 0f, zSign);
+            var go = new GameObject("Cartel_Camino" + r);
+            go.transform.SetParent(transform, false);
+            go.transform.position = Vector3.zero;
+            var v = new List<Vector3>(); var c = new List<Color>(); var uv = new List<Vector2>(); var t = new List<int>();
+            Color wood = new Color(0.36f, 0.27f, 0.19f);
+            float top = RigPosition.y - 0.05f;
+            GoyaCanvas.Box(v, c, uv, t, new Vector3(post.x, (floorY - 0.2f + top) * 0.5f, post.z), Vector3.right, Vector3.up, Vector3.forward, new Vector3(0.08f, top - floorY + 0.2f, 0.08f), wood);
+            float plankX = post.x - side * 0.45f;
+            GoyaCanvas.Box(v, c, uv, t, new Vector3(plankX, top - 0.2f, post.z - 0.03f), Vector3.right, Vector3.up, Vector3.forward, new Vector3(1.0f, 0.36f, 0.04f), wood * 0.85f);
+            var mesh = new Mesh { name = go.name };
+            mesh.SetVertices(v); mesh.SetColors(c); mesh.SetUVs(0, uv); mesh.SetTriangles(t, 0); mesh.RecalculateBounds();
+            go.AddComponent<MeshFilter>().sharedMesh = mesh;
+            go.AddComponent<MeshRenderer>().sharedMaterial = woodMat;
+            // Las tres obras del camino, chiquitas, sobre la tabla
+            var names = RouteNames(r);
+            for (int k = 0; k < 3 && k < names.Length; k++)
+            {
+                var sp = pathSequence.Find(x => x != null && !string.IsNullOrEmpty(names[k]) && x.name.StartsWith(names[k]));
+                if (sp == null) continue;
+                var th = new GameObject("Mini_" + sp.name);
+                th.transform.SetParent(go.transform, false);
+                var sr = th.AddComponent<SpriteRenderer>();
+                sr.sprite = sp;
+                float k0 = 0.26f / Mathf.Max(sp.bounds.size.x, sp.bounds.size.y);
+                th.transform.localScale = Vector3.one * k0;
+                th.transform.position = new Vector3(plankX + (k - 1) * 0.31f, top - 0.2f, post.z - 0.06f);
+            }
+        }
+    }
+
+    void ChooseRoute(int r)
+    {
+        Route = r;
+        var names = RouteNames(r);
+        for (int k = 0; k < routeSlots.Count && k < names.Length; k++)
+        {
+            var sp = pathSequence != null ? pathSequence.Find(x => x != null && !string.IsNullOrEmpty(names[k]) && x.name.StartsWith(names[k])) : null;
+            if (sp == null) continue;
+            var p = routeSlots[k];
+            p.original = sp;
+            SetSprite(p, sp);
+        }
+        Debug.Log("[Camino] Elegiste el camino " + (r == 0 ? "de la izquierda" : r == 2 ? "de la derecha" : "del medio"));
+    }
 
     /// <summary>Donde esta la persona ahora.</summary>
     public Vector3 RigPosition { get { return rig != null ? rig.position : transform.position; } }
@@ -375,11 +468,15 @@ public class GoyaGallery : MonoBehaviour
                 var rot = Quaternion.LookRotation(new Vector3(side, 0f, 0.45f).normalized);
                 var p = CreatePaintingAt(sequence[idx], "Obra" + idx, pos, rot, 1f + 0.3f * depth);
                 if (p == null) continue;
+                if (keepZ[j] < 0f && filter) routeSlots.Add(p);
                 p.darkIndex = p.originalIndex = idx;
                 p.zone = zone;
             }
             start += full;
         }
+
+        pathSequence = sequence;
+        Route = Forks ? -1 : 1;
 
         ZoneCount = sizes.Count;
         PathLength = ZoneCount * zoneLength;
@@ -389,6 +486,7 @@ public class GoyaGallery : MonoBehaviour
         environment = GetComponent<GoyaEnvironment>();
         if (environment == null) environment = gameObject.AddComponent<GoyaEnvironment>();
         diorama.Build(this);
+        if (Forks) BuildForkSigns();
 
         // En la mitad de la zona de la guerra empieza la cueva: sus obras quedan en las paredes
         cave = GetComponent<GoyaCave>();
@@ -744,8 +842,28 @@ public class GoyaGallery : MonoBehaviour
         if (pathMode && PathLength > 0f)
         {
             // Dentro del camino: entre las obras de los costados, del principio al final
-            offset.x = Mathf.Clamp(offset.x, -corridorHalfWidth, corridorHalfWidth);
             offset.z = Mathf.Clamp(offset.z, -1f, WalkLength);
+            float off = ForkOffset(center.z + offset.z);
+            if (off > 0f)
+            {
+                // En la bifurcacion: antes de elegir se puede ir por cualquiera; despues, por el elegido hasta que se juntan
+                if (Route < 0) offset.x = Mathf.Clamp(offset.x, -off - 0.9f, off + 0.9f);
+                else
+                {
+                    float b = (Route - 1) * off;
+                    offset.x = Mathf.MoveTowards(rig.position.x - center.x, Mathf.Clamp(offset.x, b - 0.9f, b + 0.9f), Mathf.Max(0.02f, 4f * dt));
+                }
+                if (Route < 0 && center.z + offset.z >= ForkGateZ)
+                {
+                    float x = offset.x;
+                    ChooseRoute(Mathf.Abs(x + off) < Mathf.Abs(x) ? 0 : Mathf.Abs(x - off) < Mathf.Abs(x) ? 2 : 1);
+                }
+            }
+            else
+            {
+                if (Route < 0 && center.z + offset.z > ForkGateZ) ChooseRoute(1);   // paso sin elegir: el del medio
+                offset.x = Mathf.MoveTowards(rig.position.x - center.x, Mathf.Clamp(offset.x, -corridorHalfWidth, corridorHalfWidth), Mathf.Max(0.02f, 4f * dt));
+            }
             rig.position = new Vector3(center.x + offset.x, rig.position.y, center.z + offset.z);
             return;
         }
