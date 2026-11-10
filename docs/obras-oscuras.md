@@ -29,6 +29,8 @@ Rama: `obras-oscuras` (sale de `cardboard-xr`).
 
 ## Sistema complejo: la bandada de murciélagos
 
+**Ahora vuela lejos** (`Far Away`, prendido): dos rondas en el cielo, a unos 24 m al costado del camino y 9 m de alto, que acompañan de lejos mientras caminás. No se cruza en el camino ni tapa las obras. Se ajusta con `Far Distance`, `Far Height` y `Far Size`. Apagando `Far Away` vuelve lo de abajo (anida en las obras y hay que espantarla).
+
 Los murciélagos y búhos de *El sueño de la razón produce monstruos* vuelan en bandada (`GoyaFlock`, se agrega solo). Es una simulación de **flocking** (los *boids* de Craig Reynolds, 1987): no hay ninguna animación de la bandada; cada murciélago tiene posición, velocidad y miedo, mira solo a sus vecinos cercanos (0,8 m) y sigue seis reglas en cada cuadro:
 
 1. **Separación**: se aleja de los que están demasiado cerca.
@@ -109,6 +111,8 @@ Al salir de la cueva, cuatro Pinturas Negras se recorren por dentro, una detrás
 `GoyaTerrain` (lo agrega solo el ambiente) arma un terreno de verdad: plano en el camino, con lomas a los costados que tapan lo que está detrás, y que baja hasta el lago a lo lejos. Tiene las pinceladas del suelo de *Duelo a garrotazos* y los colores del camino de *La gallina ciega* y la tierra de *La cometa*. Hay matas de pasto: muchas y chicas cerca del camino, menos y más grandes lejos, alrededor de los árboles y al pie de cada obra, que quedan un poco enterrados. Lo lejano se aclara con bruma (perspectiva aérea) y todo se oscurece con cada época.
 
 ## Las obras se forman juntando polvo
+
+**Ahora no hay polvo flotando** (`Loose Dust`, apagado): las motas sueltas son invisibles. Aparecen recién cuando la mano las junta, y se ven volar de la mano a la tela, donde nace el caminante. Prendiendo `Loose Dust` vuelve la nube de motas.
 
 Inspirado en *Dust* de Robert Hodgin (motas de polvo iluminadas que se arremolinan cuando la mano mueve el aire). Cada obra oculta es una **nube de motas de luz** que flota donde va a estar la obra (`GoyaParticles`, *Gather Dust*):
 

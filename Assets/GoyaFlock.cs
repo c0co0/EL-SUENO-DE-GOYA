@@ -66,6 +66,14 @@ public class GoyaFlock : MonoBehaviour
     [Header("Nidos (obras ocultas)")]
     [Tooltip("Obras ocultas a menos de esta distancia se vuelven nidos")]
     public float roostRange = 15f;
+    [Tooltip("La bandada vuela lejos, sobre el paisaje (no se cruza en el camino ni tapa las obras). Apagado: anida en las obras y hay que espantarla")]
+    public bool farAway = true;
+    [Tooltip("Lejos: distancia al costado del camino (metros)")]
+    public float farDistance = 24f;
+    [Tooltip("Lejos: altura sobre la vista (metros)")]
+    public float farHeight = 9f;
+    [Tooltip("Lejos: radio de la ronda que dan en el cielo (metros)")]
+    public float farSize = 7f;
     [Tooltip("Cuantas obras ocultas tapa la bandada a la vez")]
     public int maxRoosts = 3;
     [Tooltip("Murcielagos tranquilos delante de la obra que alcanzan para taparla")]
@@ -145,7 +153,8 @@ public class GoyaFlock : MonoBehaviour
         flap = new float[n]; flapRate = new float[n];
         homeAngle = new float[n]; homeRadius = new float[n]; homeSpeed = new float[n];
         roostOf = new int[n];
-        Vector3 start = gallery.RigPosition + Vector3.up * 3f + Vector3.forward * 6f;
+        Vector3 start = farAway ? gallery.RigPosition + new Vector3(farDistance, farHeight, 20f)
+                                : gallery.RigPosition + Vector3.up * 3f + Vector3.forward * 6f;
         for (int i = 0; i < n; i++)
         {
             pos[i] = start + Random.insideUnitSphere * 2.5f;
@@ -248,6 +257,21 @@ public class GoyaFlock : MonoBehaviour
     void UpdateRoosts()
     {
         Vector3 rig = gallery.RigPosition;
+        if (farAway)
+        {
+            // Dos rondas en el cielo, adelante y a los costados del camino: acompañan de lejos mientras caminas
+            if (roosts.Count != 2 || roosts[0].p != null) { roosts.Clear(); roosts.Add(new Roost()); roosts.Add(new Roost()); for (int i = 0; i < pos.Length; i++) roostOf[i] = i % 2; }
+            for (int k = 0; k < 2; k++)
+            {
+                var r = roosts[k];
+                float side = k == 0 ? 1f : -1f;
+                Vector3 c = gallery.Center;
+                r.center = new Vector3(c.x + side * farDistance, rig.y + farHeight + 2f * k, rig.z + 18f + 10f * k);
+                r.normal = Vector3.up; r.right = Vector3.right; r.up = Vector3.forward;   // ronda horizontal
+                r.members = pos.Length / 2;
+            }
+            return;
+        }
         var keep = new List<GoyaGallery.Painting>();
         var candidates = new List<GoyaGallery.Painting>();
         foreach (var p in gallery.paintings)
@@ -412,7 +436,7 @@ public class GoyaFlock : MonoBehaviour
             {
                 var r = roosts[ro];
                 homeAngle[i] += homeSpeed[i] * dt;
-                float hw = r.p.halfW * 0.95f, hh = r.p.halfH * 0.95f;
+                float hw = r.p != null ? r.p.halfW * 0.95f : farSize, hh = r.p != null ? r.p.halfH * 0.95f : farSize;
                 Vector3 home = r.center + r.normal * 0.35f
                              + r.right * (Mathf.Cos(homeAngle[i]) * homeRadius[i] * hw)
                              + r.up * (Mathf.Sin(homeAngle[i]) * homeRadius[i] * hh);
@@ -425,7 +449,7 @@ public class GoyaFlock : MonoBehaviour
 
                 // Esta tapando la obra?
                 Vector3 local = p - r.center;
-                if (fear < 0.5f && Mathf.Abs(Vector3.Dot(local, r.right)) < r.p.halfW && Mathf.Abs(Vector3.Dot(local, r.up)) < r.p.halfH
+                if (r.p != null && fear < 0.5f && Mathf.Abs(Vector3.Dot(local, r.right)) < r.p.halfW && Mathf.Abs(Vector3.Dot(local, r.up)) < r.p.halfH
                     && Mathf.Abs(Vector3.Dot(local, r.normal)) < 1.0f)
                     r.covering++;
             }

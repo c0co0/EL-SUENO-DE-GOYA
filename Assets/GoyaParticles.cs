@@ -113,6 +113,8 @@ public class GoyaParticles : MonoBehaviour
     public bool gatherDust = true;
     [Tooltip("Que tanto se ven las motas (0 a 1)")]
     [Range(0f, 1f)] public float dustAlpha = 0.55f;
+    [Tooltip("Se ve el polvo suelto flotando en el aire. Apagado: no hay nada flotando; las motas aparecen cuando la mano las junta y vuelan a la tela")]
+    public bool looseDust = false;
     public Color dustColor = new Color(1f, 0.93f, 0.8f, 1f);
     [Tooltip("Tamaño de la nube (multiplica el tamaño de la obra)")]
     public float dustSpread = 1.25f;
@@ -994,6 +996,7 @@ public class GoyaParticles : MonoBehaviour
             float k2 = e.caught[i] > 0f ? Smooth(e.caught[i] / Mathf.Max(0.1f, settleTime)) : 0f;
             Color dust = dustColor;
             dust.a = dustAlpha * (e.mote[i] > 1.5f ? 0.2f : 1f) * (0.7f + 0.3f * Mathf.Sin(time * 2f + sd));   // titilan
+            if (!looseDust) dust.a = 0f;   // sin polvo flotando: las motas aparecen recien cuando la mano las junta
             Color32 c = Color32.Lerp(dust, Tinted(e.toColor[i], tint), k2);
             float gone = 1f;
             bool surface = OnSurface(e);
