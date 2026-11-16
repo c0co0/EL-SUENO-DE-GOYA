@@ -253,6 +253,7 @@ Desde la mitad de la zona roja hasta Saturno el camino entra en una cueva (`Goya
 | **W / S** o **flechas ↑ / ↓** | Caminar hacia adelante (hacia donde mirás) / hacia atrás |
 | **Flechas ← / →** | Girar |
 | **E** o **T** | Armar la obra que estás mirando, o desarmarla si ya está armada |
+| **Z** / **X** (o **Av Pág** / **Re Pág**) | Mirar para abajo / para arriba (sin celular). **R** vuelve la vista al frente |
 | **O** | Sumar oscuridad (+25 %) |
 | **V** | Cambiar entre pantalla partida (visor) y una sola cámara |
 | **R** | Recentrar la vista |

@@ -9,7 +9,7 @@ using UnityEngine.XR;
 /// Controles en el celular:
 ///   - Tocar la pantalla con 1 dedo (o el boton del Cardboard): fija "adelante".
 ///   - Tocar con 2 dedos: alterna entre modo visor (2 ojos) y modo normal (pantalla completa).
-/// En el editor: tecla V alterna el modo, tecla R recentra.
+/// En el editor: tecla V alterna el modo, tecla R recentra, Z / X (o Av Pag / Re Pag) bajan y suben la vista.
 ///
 /// Celulares SIN giroscopio (ej. Samsung Galaxy A04): se usa el acelerometro.
 ///   - Mirar arriba / abajo: funciona igual (inclinar la cabeza adelante / atras).
@@ -277,6 +277,9 @@ public class StereoGyroRig : MonoBehaviour
         // Flechas izquierda / derecha: girar (adelante / atras camina, lo maneja GoyaGallery)
         if (Input.GetKey(KeyCode.LeftArrow)) editorYaw -= 90f * Time.deltaTime;
         if (Input.GetKey(KeyCode.RightArrow)) editorYaw += 90f * Time.deltaTime;
+        // Mirar para abajo y para arriba con el teclado (sin celular): Z baja la vista, X la sube
+        if (Input.GetKey(KeyCode.Z) || Input.GetKey(KeyCode.PageDown)) editorPitch = Mathf.Min(85f, editorPitch + 60f * Time.deltaTime);
+        if (Input.GetKey(KeyCode.X) || Input.GetKey(KeyCode.PageUp)) editorPitch = Mathf.Max(-85f, editorPitch - 60f * Time.deltaTime);
         if (Input.GetKeyDown(KeyCode.R))
         {
             editorYaw = 0f;
