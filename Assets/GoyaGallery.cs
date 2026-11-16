@@ -59,10 +59,8 @@ public class GoyaGallery : MonoBehaviour
     public int[] epochSizes = { 6, 7, 5, 4, 5 };
     [Tooltip("Camino: solo estas obras quedan afuera, cada una en su epoca (el comienzo del nombre). Vacio = todas. Las de la cueva siguen igual")]
     public string[] onlyPaintings = { "02 La cometa", "12 El pelele", "18 Vuelo de brujas" };
-    [Tooltip("Camino: afuera de la cueva sale una obra al azar de cada epoca, distinta en cada recorrido (no se usa Only Paintings)")]
+    [Tooltip("Camino: en cada etapa de afuera (cartones, la corte, brujas) sale una obra al azar de esa etapa, distinta en cada recorrido (no se usa Only Paintings)")]
     public bool randomPaintings = true;
-    [Tooltip("Al azar: de estas obras salen las de afuera (el comienzo del nombre), sin repetir")]
-    public string[] randomPool = { "01 ", "02 ", "03 ", "04 ", "05 ", "06 ", "12 El pelele", "18 Vuelo de brujas" };
     [Header("Bifurcacion al comienzo: tres caminos")]
     [Tooltip("Al comienzo el camino se abre en tres. El que elegis (por donde pasas) decide que obras te tocan; despues los tres se vuelven a juntar")]
     public bool forkAtStart = false;
@@ -484,17 +482,6 @@ public class GoyaGallery : MonoBehaviour
             start += full;
         }
 
-        // Al azar: cada lugar de afuera toma una obra distinta de la lista (mezclada)
-        if (randomPaintings && randomPool != null && routeSlots.Count > 0)
-        {
-            var pool = sequence.FindAll(sp => sp != null && System.Array.Exists(randomPool, f => !string.IsNullOrEmpty(f) && sp.name.StartsWith(f)));
-            for (int k = pool.Count - 1; k > 0; k--) { int r = Random.Range(0, k + 1); var tmp = pool[k]; pool[k] = pool[r]; pool[r] = tmp; }
-            for (int k = 0; k < routeSlots.Count && k < pool.Count; k++)
-            {
-                routeSlots[k].original = pool[k];
-                SetSprite(routeSlots[k], pool[k]);
-            }
-        }
         pathSequence = sequence;
         Route = Forks ? -1 : 1;
 
