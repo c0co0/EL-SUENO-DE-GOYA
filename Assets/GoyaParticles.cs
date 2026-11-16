@@ -150,9 +150,9 @@ public class GoyaParticles : MonoBehaviour
     [Tooltip("Cuanto se achica la pincelada en cada paso (mas = trazos mas cortos)")]
     public float walkerShrink = 0.035f;
     [Tooltip("Pasos de cada caminante por cuadro (mas = pinta mas rapido)")]
-    public int walkerSteps = 3;
+    public int walkerSteps = 5;
     [Tooltip("Cuando ya juntaste el polvo, los segundos maximos hasta que la obra termina de pintarse sola")]
-    public float finishAfter = 20f;
+    public float finishAfter = 8f;
     [Tooltip("Algunas obras en rocas en vez de telas (una y una)")]
     public bool useRocks = false;
     [Tooltip("Obra ya pintada: caminantes chiquitos por cuadro que siguen afinando los detalles (mas = mas definicion)")]
@@ -1006,7 +1006,7 @@ public class GoyaParticles : MonoBehaviour
                 // Llego a la tela (o a la roca): ahi nace un caminante que pinta, y la mota se apaga
                 // Cada mota que juntas da una pincelada nueva, repartidas por toda la tela (donde falta pintar):
                 // la obra aparece pareja, de lo grueso a lo fino, y no como una mancha que crece desde la mano
-                if (e.caught[i] - dt <= settleTime * 0.7f) e.canvas.SpawnWhereMissing(1);
+                if (e.caught[i] - dt <= settleTime * 0.7f) e.canvas.SpawnWhereMissing(2);
                 gone = Mathf.Clamp01(1f - (e.caught[i] - settleTime * 0.7f) / 0.8f);
             }
             else if (e.caught[i] > settleTime * 0.7f && e.sheetGo != null && e.sheetGo.activeSelf)
@@ -1043,8 +1043,8 @@ public class GoyaParticles : MonoBehaviour
             {
                 // Ya juntaste el polvo: nacen caminantes donde falta pintar, hasta completar la obra
                 e.paintTime += dt;
-                e.canvas.SpawnWhereMissing(3);
-                painted = e.canvas.Coverage >= 0.95f || e.paintTime >= finishAfter;
+                e.canvas.SpawnWhereMissing(12);
+                painted = e.canvas.Coverage >= 0.9f || e.paintTime >= finishAfter;
                 if (painted) e.canvas.FinishFill();
             }
             else painted = false;
@@ -1171,7 +1171,7 @@ public class GoyaParticles : MonoBehaviour
         e.canvas.Sampler = a.sample;
         e.canvas.MaxWalkers = maxWalkers * 3;
         // Pinceladas cortas y rapidas: la figura no deja tanta estela y se mueve a su velocidad
-        if (e.state == EffectState.Living && e.canvas.Coverage >= 0.95f) e.canvas.SpawnIn(a.area, animWalkers, animBrush, 3f);
+        if (e.state == EffectState.Living && e.canvas.Coverage >= 0.9f) e.canvas.SpawnIn(a.area, animWalkers, animBrush, 3f);
     }
 
     bool OnSurface(Effect e)
@@ -1361,13 +1361,26 @@ public class GoyaParticles : MonoBehaviour
         bool cloth = canvas && !rock;
         float flowK = cloth ? 1.6f : 1f, springK = cloth ? 0.5f : 1f;
         Vector3 hangOff = cloth && e.canvas.hang != null ? e.canvas.hang.Offset() : Vector3.zero;
+        Vector3 hangStart = cloth ? new Vector3(e.canvas.TreeRoot.x, e.canvas.HangY, e.canvas.TreeRoot.z) : Vector3.zero;
         if (rock) { pushes = 0; System.Array.Copy(home, pos, pos.Length); }   // la roca no se mueve: solo cambia el color
         else
         for (int j = 0; j <= sy; j++)
             for (int i = 0; i <= sx; i++)
             {
                 int k = j * w + i;
-                if (cloth && j == sy) { pos[k] = home[k] + hangOff; vel[k] = Vector3.zero; continue; }   // la tela cuelga de la rama (y se mece con ella)
+                if (cloth && j == sy)
+                {
+                    // La tela esta agarrada a la rama: cada punto del borde de arriba va donde esta la rama ahora,
+                    // apenas adelante (la tela pasa por delante de la rama)
+                    Vector3 onBranch;
+                    var hg = e.canvas.hang;
+                    float sAlong = Vector3.Dot(home[k] - hangStart, e.canvas.HangDir) / Mathf.Max(0.1f, e.canvas.HangLength);
+                    if (hg != null && hg.PointAt(sAlong, out onBranch))
+                        pos[k] = onBranch + e.canvas.Front * (hg.Radius(sAlong) + 0.01f);
+                    else pos[k] = home[k] + hangOff;
+                    vel[k] = Vector3.zero;
+                    continue;
+                }
                 Vector3 x = pos[k], v = vel[k];
                 float loose = 1f - e.sEdge[k];
                 Vector3 a = (home[k] - x) * (spring * springK * (1f - 0.6f * loose)) - v * damping;
@@ -1425,19 +1438,19 @@ public class GoyaParticles : MonoBehaviour
             if (e.go.activeSelf) e.go.SetActive(false);
             dt = Mathf.Min(dt, 0.04f);
             Animate(e);
-            if (e.canvas.Coverage >= 0.95f)
+            if (e.canvas.Coverage >= 0.9f)
             {
                 // Ya pintada: caminantes chiquitos siguen afinando los detalles (la obra gana definicion mientras la miras)
                 e.canvas.SpawnIn(new Rect(0f, 0f, 1f, 1f), detailWalkers, 0.22f, 1f);
                 e.canvas.Step();
             }
-            if (e.canvas.Coverage < 0.95f)
+            if (e.canvas.Coverage < 0.9f)
             {
                 // Armada con el gesto (sin juntar polvo): los caminantes la pintan igual
                 e.paintTime += dt;
-                e.canvas.SpawnWhereMissing(4);
+                e.canvas.SpawnWhereMissing(14);
                 e.canvas.Step();
-                if (e.paintTime >= finishAfter) e.canvas.FinishFill();
+                if (e.paintTime >= finishAfter * 0.5f) e.canvas.FinishFill();
             }
             int hp = 0; Vector3 ha = Vector3.zero, hb = Vector3.zero;
             if (p.hovered) { ha = p.hitPoint; hp = 1; }

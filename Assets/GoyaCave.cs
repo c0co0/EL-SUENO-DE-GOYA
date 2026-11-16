@@ -83,7 +83,7 @@ public class GoyaCave : MonoBehaviour
     [Tooltip("Segundos entre que se cae un cuadro y el siguiente durante el temblor")]
     public float fallInterval = 0.45f;
     [Tooltip("A que distancia de un cuadro tirado hay que estar para levantarlo (metros)")]
-    public float pickDistance = 2.5f;
+    public float pickDistance = 3.5f;
     [Tooltip("A que distancia de su marca en la pared hay que estar para colgarlo (metros)")]
     public float hangDistance = 2.5f;
     [Tooltip("Segundos sosteniendo el gesto de los dedos para que cuente")]
@@ -748,7 +748,7 @@ public class GoyaCave : MonoBehaviour
                 quake = -1f;
                 flash = 0f;
                 if (game == null || !game.timer || game.Playing) gallery.Frozen = false;
-                Say("¡Se cayeron los cuadros!\nAgarralos con tres dedos de una mano\ny colgalos en su marca con una V en cada mano", 7f);
+                Say("¡Se cayeron los cuadros!\nAcercate a uno y mostrá la mano abierta para levantarlo.\nColgalo en su marca con una V en cada mano", 7f);
             }
         }
 
@@ -778,7 +778,8 @@ public class GoyaCave : MonoBehaviour
         UpdateCollecting(head, rig, dt);
     }
 
-    static bool Three(HandOSCReceiver.HandState h) { return h.visible && h.fingers == 3; }
+    // Tres dedos o mas (la mano abierta tambien): el tracker a veces cuenta 3 como 4, y con exactamente 3 no se podia levantar
+    static bool Three(HandOSCReceiver.HandState h) { return h.visible && h.fingers >= 3; }
 
     void StartQuake(Vector3 rig)
     {

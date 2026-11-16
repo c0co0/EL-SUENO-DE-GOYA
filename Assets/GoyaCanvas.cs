@@ -25,6 +25,7 @@ public class GoyaCanvas
     public float HangY;
     public Vector3 HangDir;
     public float HangLength;
+    public Vector3 Front;
     /// <summary>La rama ya plantada (para que la tela siga su vaiven).</summary>
     public GoyaFractalTrees.Hang hang;
     public Vector3 supportAt;        // donde estaba la obra cuando se armo el soporte
@@ -143,13 +144,13 @@ public class GoyaCanvas
         {
             // Una celda al azar entre las menos pintadas (unos intentos)
             int best = -1; float bestFill = 2f;
-            for (int t = 0; t < 6; t++)
+            for (int t = 0; t < 10; t++)
             {
                 int c = Random.Range(0, Cells * Cells);
                 float fill = cellPainted[c] / (float)Mathf.Max(1, cellPx);
                 if (fill < bestFill) { bestFill = fill; best = c; }
             }
-            if (best < 0 || bestFill > 0.9f) continue;
+            if (best < 0 || bestFill > 0.97f) continue;
             float u = ((best % Cells) + Random.value) / Cells, v = ((best / Cells) + Random.value) / Cells;
             Spawn(new Vector2(u, v));
         }
@@ -296,6 +297,7 @@ public class GoyaCanvas
             HangY = top + 0.04f;
             HangDir = -right;
             HangLength = trunkX + w * 0.5f + 0.3f;
+            Front = front;
         }
         else
         {

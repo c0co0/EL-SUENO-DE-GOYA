@@ -190,8 +190,12 @@ class Body:
             sides_swapped = (wr_l - wr_r) * (sh_l - sh_r) < 0
             chest = max(lm[11].y, lm[12].y) * h + ref * 1.2
             high = lm[15].y * h < chest and lm[16].y * h < chest
+            # Delante del pecho, no arriba de la cabeza: con los dos brazos levantados (armar una obra) las munecas
+            # tambien se juntan y a veces se cruzan, y eso reiniciaba todo sin querer
+            nose = lm[0].y * h if lm[0].visibility > 0.5 else min(lm[11].y, lm[12].y) * h - ref * 0.8
+            low_enough = lm[15].y * h > nose and lm[16].y * h > nose
             close = math.dist(px(15), px(16)) < ref * 1.2
-            crossed = sides_swapped and high and close
+            crossed = sides_swapped and high and low_enough and close
         self.cross_count = min(self.cross_count + 1, 4) if crossed else max(self.cross_count - 1, 0)
         if self.cross_count >= 3:
             self.cross = True

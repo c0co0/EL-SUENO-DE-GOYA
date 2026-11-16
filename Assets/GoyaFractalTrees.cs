@@ -232,7 +232,28 @@ public class GoyaFractalTrees : MonoBehaviour
     public class Hang
     {
         public Vector3 root; public float y, length; public Vector3 dir;
-        internal object tree; internal int node = -1; internal Vector3 plantedRoot;
+        internal object tree; internal int node = -1, first = -1; internal Vector3 plantedRoot;
+        /// <summary>Donde esta ahora la rama, a esa parte de su largo (0 = en el tronco, 1 = la punta). Mientras no
+        /// esta armada devuelve false.</summary>
+        public bool PointAt(float s, out Vector3 p)
+        {
+            p = Vector3.zero;
+            var t = tree as Tree;
+            if (t == null || first < 0) return false;
+            float x = Mathf.Clamp(s, 0f, 0.999f) * 4f;
+            int i = Mathf.FloorToInt(x);
+            var n = t.nodes[first + i];
+            if ((n.end - n.start).sqrMagnitude < 1e-6f) return false;   // todavia sin crecer
+            p = Vector3.Lerp(n.start, n.end, x - i);
+            return true;
+        }
+        public float Radius(float s)
+        {
+            var t = tree as Tree;
+            if (t == null || first < 0) return 0f;
+            var n = t.nodes[first + Mathf.Clamp(Mathf.FloorToInt(s * 4f), 0, 3)];
+            return Mathf.Lerp(n.r0, n.r1, Mathf.Repeat(s * 4f, 1f));
+        }
         public Vector3 Offset()
         {
             var t = tree as Tree;
@@ -262,6 +283,7 @@ public class GoyaFractalTrees : MonoBehaviour
         h.tree = t;
         h.plantedRoot = t.root;
         t.grow = t.style.depth + 1.5f;   // ya crecido: la tela no puede quedar colgando del aire
+        Shape(t, 0f, 1f);                // la rama ya en su lugar (se armo antes de saber que estaba crecido)
     }
 
     Tree Add(Kind kind, Vector3 root, float height, System.Random rnd, bool straight = false, Hang hang = null)
@@ -280,8 +302,9 @@ public class GoyaFractalTrees : MonoBehaviour
             // y bajan un poco. Es una rama mas del arbol: crece y se mece con el (cada tramo suma el vaiven del anterior)
             var trunkNode = t.nodes[0];
             int parent = 0;
+            hang.first = t.nodes.Count;
             float r = trunkNode.r1 * 0.75f, seg = hang.length / 4f;
-            float[] droop = { 4f, -2f, -6f, -3f };
+            float[] droop = { 0f, -2f, -3f, -2f };
             for (int i = 0; i < 4; i++)
             {
                 Vector3 d = Quaternion.AngleAxis(droop[i], Vector3.Cross(Vector3.up, hang.dir)) * hang.dir;
