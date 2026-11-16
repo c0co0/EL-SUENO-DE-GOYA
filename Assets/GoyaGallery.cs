@@ -61,6 +61,10 @@ public class GoyaGallery : MonoBehaviour
     public string[] onlyPaintings = { "02 La cometa", "12 El pelele", "18 Vuelo de brujas" };
     [Tooltip("Camino: en cada etapa de afuera (cartones, la corte, brujas) sale una obra al azar de esa etapa, distinta en cada recorrido (no se usa Only Paintings)")]
     public bool randomPaintings = true;
+    [Tooltip("Camino: cuanto mas grandes son las obras de afuera (multiplica Painting Max Size)")]
+    public float outsideScale = 1.7f;
+    [Tooltip("Camino: cuanto mas lejos del camino quedan las obras de afuera (metros)")]
+    public float outsideDistance = 1.6f;
     [Header("Bifurcacion al comienzo: tres caminos")]
     [Tooltip("Al comienzo el camino se abre en tres. El que elegis (por donde pasas) decide que obras te tocan; despues los tres se vuelven a juntar")]
     public bool forkAtStart = false;
@@ -469,11 +473,12 @@ public class GoyaGallery : MonoBehaviour
                     z = zone * zoneLength + 2f + t * (zoneLength - 3.5f);
                 }
                 float depth = (j / 2) % 2 == 0 ? 0f : 1.3f;     // una de cada dos parejas queda mas atras
-                float x = side * (corridorHalfWidth + 0.8f + depth);
-                Vector3 pos = center + new Vector3(x, 0.12f * ((j % 3) - 1), z);
+                bool outsideOne = keepZ[j] < 0f && (filter || randomPaintings);   // las de afuera: mas grandes y mas lejos
+                float x = side * (corridorHalfWidth + 0.8f + depth + (outsideOne ? outsideDistance : 0f));
+                Vector3 pos = center + new Vector3(x, outsideOne ? 0f : 0.12f * ((j % 3) - 1), z);
                 // Mira hacia el camino y un poco hacia quien viene caminando
                 var rot = Quaternion.LookRotation(new Vector3(side, 0f, 0.45f).normalized);
-                var p = CreatePaintingAt(sequence[idx], "Obra" + idx, pos, rot, 1f + 0.3f * depth);
+                var p = CreatePaintingAt(sequence[idx], "Obra" + idx, pos, rot, (1f + 0.3f * depth) * (outsideOne ? outsideScale : 1f));
                 if (p == null) continue;
                 if (keepZ[j] < 0f && (filter || randomPaintings)) routeSlots.Add(p);
                 p.darkIndex = p.originalIndex = idx;
