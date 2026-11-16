@@ -17,8 +17,9 @@ using UnityEngine;
 ///   6. Contagio: el miedo de un murcielago pasa a sus vecinos (un poco mas debil), asi el susto se propaga
 ///      como una ola por la bandada. El miedo se calma solo con el tiempo y entonces vuelven al nido.
 ///
-/// Lejos (Far Away, prendido): la bandada da vueltas en el cielo, lejos del camino, y acompaña al caminar; no tapa
-/// las obras. Apagado: anida delante de las obras ocultas, las tapa y hay que espantarla con la mano abierta
+/// Lejos (Far Away, prendido): la bandada da vueltas en el cielo, lejos del camino, y acompaña al caminar. Un grupo
+/// (Cover Bats) baja a tapar la obra sin pintar mas cercana; espantado con la mano abierta, vuelve al cielo y deja
+/// esa obra (Cover Nearest). Apagado: anida delante de las obras ocultas, las tapa y hay que espantarla con la mano abierta
 /// (en la PC, mantener E) para poder armarlas. Se agrega solo y funciona en modo camino.
 /// </summary>
 public class GoyaFlock : MonoBehaviour
@@ -73,6 +74,13 @@ public class GoyaFlock : MonoBehaviour
     public float farHeight = 9f;
     [Tooltip("Lejos: radio de la ronda que dan en el cielo (metros)")]
     public float farSize = 7f;
+    [Tooltip("Lejos: igual un grupo baja del cielo y tapa la obra sin pintar mas cercana; hay que espantarlo con la mano abierta "
+           + "(en la PC, mantener E) para poder pintarla. Espantado, vuelve al cielo y ya no vuelve a esa obra")]
+    public bool coverNearest = true;
+    [Tooltip("Cuantos murcielagos bajan a tapar la obra")]
+    public int coverBats = 40;
+    [Tooltip("Cuanto miedo promedio del grupo hace falta para que se vaya de la obra (0 a 1)")]
+    [Range(0.1f, 1f)] public float giveUpFear = 0.45f;
     [Tooltip("Cuantas obras ocultas tapa la bandada a la vez")]
     public int maxRoosts = 3;
     [Tooltip("Murcielagos tranquilos delante de la obra que alcanzan para taparla")]
@@ -95,6 +103,7 @@ public class GoyaFlock : MonoBehaviour
     readonly List<Vector4> scares = new List<Vector4>();   // xyz = lugar, w = radio; la fuerza va en scareForce
     readonly List<float> scareForce = new List<float>();
     float roostTimer;
+    readonly HashSet<GoyaGallery.Painting> scaredOff = new HashSet<GoyaGallery.Painting>();   // obras de donde ya los espantaste
     bool built;
 
     Mesh mesh;
@@ -253,13 +262,50 @@ public class GoyaFlock : MonoBehaviour
     }
 
     // Las obras ocultas cercanas (todavia sin armar) son los nidos. Los murcielagos se reparten entre ellos.
+    float lastRigZ;
     void UpdateRoosts()
     {
         Vector3 rig = gallery.RigPosition;
         if (farAway)
         {
-            // Dos rondas en el cielo, adelante y a los costados del camino: acompañan de lejos mientras caminas
-            if (roosts.Count != 2 || roosts[0].p != null) { roosts.Clear(); roosts.Add(new Roost()); roosts.Add(new Roost()); for (int i = 0; i < pos.Length; i++) roostOf[i] = i % 2; }
+            // Un grupo baja a tapar la obra sin pintar mas cercana (hasta que lo espantas)
+            GoyaGallery.Painting nest = null;
+            if (coverNearest)
+            {
+                // Volver a empezar (todas sin pintar de nuevo): pueden volver a todas
+                bool any = false;
+                foreach (var p in gallery.paintings) if (p.active && p.revealed && !p.locked) { any = true; break; }
+                if (!any && scaredOff.Count > 0 && gallery.RigPosition.z < lastRigZ - 3f) scaredOff.Clear();
+                float best = roostRange;
+                foreach (var p in gallery.paintings)
+                {
+                    if (!p.active || p.revealed || p.locked || p.root == null || scaredOff.Contains(p)) continue;
+                    if (p.root.position.z < rig.z - 1.5f) continue;
+                    float d = Vector3.Distance(p.root.position, rig);
+                    if (d < best) { best = d; nest = p; }
+                }
+            }
+            lastRigZ = rig.z;
+            int want = nest != null ? 3 : 2;
+            if (roosts.Count != want || roosts[0].p != null || (nest != null && roosts[2].p != nest))
+            {
+                roosts.Clear(); roosts.Add(new Roost()); roosts.Add(new Roost());
+                if (nest != null) roosts.Add(new Roost { p = nest });
+                for (int i = 0; i < pos.Length; i++) roostOf[i] = nest != null && i < coverBats ? 2 : i % 2;
+            }
+            if (nest != null)
+            {
+                var r = roosts[2];
+                Vector3 toRig = rig - nest.root.position; toRig.y = 0f;
+                r.center = nest.root.position;
+                r.normal = Vector3.Dot(nest.root.forward, toRig) >= 0f ? nest.root.forward : -nest.root.forward;
+                r.right = nest.root.right; r.up = nest.root.up;
+                r.members = Mathf.Min(coverBats, pos.Length);
+                // Los espantaste: se vuelven al cielo
+                float fear = 0f; int m = 0;
+                for (int i = 0; i < pos.Length; i++) if (roostOf[i] == 2) { fear += panic[i]; m++; }
+                if (m > 0 && fear / m >= giveUpFear) scaredOff.Add(nest);
+            }
             for (int k = 0; k < 2; k++)
             {
                 var r = roosts[k];
@@ -463,7 +509,7 @@ public class GoyaFlock : MonoBehaviour
             // Ni el piso ni muy alto
             float floor = gallery.RigPosition.y + 0.25f;
             if (p.y < floor + 0.3f) force += Vector3.up * (floor + 0.3f - p.y) * 12f;
-            if (p.y > gallery.RigPosition.y + 7f) force += Vector3.down * 3f;
+            if (p.y > gallery.RigPosition.y + (farAway ? farHeight + 4f : 7f)) force += Vector3.down * 3f;
             // Un poco de azar, para que no se vean como maquinas
             force += new Vector3(Mathf.PerlinNoise(i * 0.37f, time * 0.6f) - 0.5f,
                                  Mathf.PerlinNoise(i * 0.53f + 7f, time * 0.6f) - 0.5f,
@@ -472,6 +518,8 @@ public class GoyaFlock : MonoBehaviour
             force = Vector3.ClampMagnitude(force, maxForce * (1f + fear));
             Vector3 v = vel[i] + force * dt;
             float speed = v.magnitude, top = Mathf.Lerp(maxSpeed, panicSpeed, fear);
+            // Bajando del cielo hacia la obra que van a tapar: vuelan rapido
+            if (ro >= 0 && ro < roosts.Count && roosts[ro].p != null && (p - roosts[ro].center).sqrMagnitude > 9f) top = panicSpeed;
             if (speed > top) v *= top / speed;
             else if (speed < minSpeed) v = (speed > 1e-4f ? v / speed : Random.onUnitSphere) * minSpeed;
             vel[i] = v;

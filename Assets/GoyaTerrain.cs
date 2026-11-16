@@ -76,7 +76,8 @@ public class GoyaTerrain : MonoBehaviour
         float hills = Mathf.SmoothStep(0f, 1f, (ax - flatHalf) / 5f) * hillHeight * (0.55f + Mathf.PerlinNoise(z * 0.07f, x * 0.05f + 7f));
         float lake = Mathf.SmoothStep(0f, 1f, (ax - lakeStart) / 6f) * (lakeDepth + hillHeight);
         float bumps = (n * 0.6f + n2 * 0.25f) * Mathf.Clamp01((ax - 1.5f) / 4f);
-        return hills - lake + bumps;
+        // Nunca por debajo del lago antes de llegar a la orilla: si no, el lago plateado asoma en los pozos y parecen charcos
+        return Mathf.Max(hills + bumps, 0f) - lake;
     }
 
     void BuildGround(Shader shader)

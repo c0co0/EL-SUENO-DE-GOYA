@@ -29,19 +29,19 @@ Rama: `obras-oscuras` (sale de `cardboard-xr`).
 
 ## Sistema complejo: la bandada de murciélagos
 
-Los murciélagos y búhos de *El sueño de la razón produce monstruos* vuelan en bandada (`GoyaFlock`, se agrega solo), **lejos, en el cielo**: dan vueltas a unos 24 m al costado del camino y 9 m de alto, y te acompañan de lejos mientras caminás. No se cruzan en el camino ni tapan las obras.
+Los murciélagos y búhos de *El sueño de la razón produce monstruos* vuelan en bandada (`GoyaFlock`, se agrega solo), **lejos, en el cielo**: dan vueltas a unos 24 m al costado del camino y 9 m de alto, y te acompañan de lejos mientras caminás. Pero **un grupo de 40 baja del cielo y tapa la obra sin pintar más cercana**: mientras la tapan, el polvo no llega a la tela. Hay que **espantarlos con la mano abierta** sobre la obra (o agitando la palma cerca; en la PC, mantener **E** mirando la obra). El susto se contagia por el grupo y, cuando el miedo promedio pasa de 0,45, se vuelven al cielo y ya no vuelven a esa obra (sí a la siguiente). Al volver a empezar pueden volver a todas.
 
 Es una simulación de **flocking** (los *boids* de Craig Reynolds, 1987): no hay ninguna animación de la bandada; cada murciélago tiene posición, velocidad y miedo, mira solo a sus vecinos cercanos (0,8 m) y sigue reglas en cada cuadro:
 
 1. **Separación**: se aleja de los que están demasiado cerca.
 2. **Alineación**: copia la dirección promedio de sus vecinos.
 3. **Cohesión**: va hacia el centro de sus vecinos.
-4. **Ronda**: gira alrededor de un punto en el cielo (hay dos rondas que avanzan con vos).
+4. **Ronda**: gira alrededor de un punto en el cielo (hay dos rondas que avanzan con vos), o delante de la obra que tapa.
 5. **Miedo y contagio**: si algo los asusta, el miedo pasa a sus vecinos un poco más débil (82 %) y se propaga como una ola.
 
 Lo que se ve (remolinos, la bandada que se estira, se divide y se reagrupa) **emerge** de esas reglas. Sonido 3D: el aleteo sale del centro de la bandada.
 
-Se ajusta en **Goya Flock**: cantidad (160), `Far Distance`, `Far Height` y `Far Size` (dónde y qué tan grande es la ronda). Apagando `Far Away` vuelve el modo anterior, donde la bandada anidaba delante de las obras ocultas, las tapaba y había que espantarla con la mano abierta para poder armarlas.
+Se ajusta en **Goya Flock**: cantidad (160), `Far Distance`, `Far Height` y `Far Size` (dónde y qué tan grande es la ronda), `Cover Nearest` (que bajen a tapar), `Cover Bats` (cuántos bajan) y `Give Up Fear` (cuánto hay que asustarlos). Apagando `Far Away` vuelve el modo anterior, donde la bandada anidaba delante de las obras ocultas, las tapaba y había que espantarla con la mano abierta para poder armarlas.
 
 ## Gestos
 
