@@ -138,6 +138,19 @@ public class GoyaDiorama : MonoBehaviour
     [Tooltip("Relieve de las pinceladas del fondo, en proporcion a su lado mas corto")]
     public float backgroundRelief = 0.015f;
 
+    [Header("Mapas de normales y rugosidad")]
+    [Tooltip("Cada capa lleva un mapa de normales (el relieve fino de cada pincelada, que la luz marca aunque la forma no lo tenga) "
+           + "y uno de rugosidad (donde el oleo brilla y donde es mate). Se sacan de la misma pintura al empezar.")]
+    public bool detailMaps = true;
+    [Tooltip("Cuanto relieve dan las pinceladas (mapa de normales)")]
+    public float normalStrength = 1f;
+    [Tooltip("Cuanto marca la luz ese relieve (0 = nada)")]
+    public float detailLight = 0.9f;
+    [Tooltip("Cuanto brilla el oleo donde la pintura es lisa (mapa de rugosidad; 0 = todo mate)")]
+    public float shine = 0.35f;
+    [Tooltip("Lado mas largo de los mapas (pixeles). Mas = mas detalle, pero tarda mas al empezar")]
+    public int detailResolution = 1024;
+
     class Built
     {
         public SpriteRenderer renderer;
@@ -240,6 +253,14 @@ public class GoyaDiorama : MonoBehaviour
                         b.mesh.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
                         b.mesh.receiveShadows = false;
                         b.material = new Material(volumeShader) { mainTexture = sprite.texture };
+                        if (detailMaps)
+                        {
+                            b.material.SetTexture("_DetailMap", DetailMap(sprite.texture, detailResolution));
+                            b.material.SetFloat("_Bump", normalStrength);
+                            b.material.SetFloat("_DetailLight", detailLight);
+                            b.material.SetFloat("_Shine", shine);
+                        }
+                        else { b.material.SetFloat("_DetailLight", 0f); b.material.SetFloat("_Shine", 0f); }
                         b.mesh.sharedMaterial = b.material;
                         sr.forceRenderingOff = true;   // el plano sigue (tamaño, respirar), pero no se dibuja
                     }
@@ -436,8 +457,45 @@ public class GoyaDiorama : MonoBehaviour
         m.SetUVs(0, uvs);
         m.SetColors(cols);
         m.SetTriangles(tris, 0);
+        m.RecalculateNormals();   // para la luz de los mapas de normales y rugosidad
         m.RecalculateBounds();
         return m;
+    }
+
+    /// <summary>Mapa de normales y rugosidad de una pintura, en una sola textura:
+    /// rojo y verde = hacia donde se inclina la superficie en cada punto (el relieve de la pincelada: lo claro sale,
+    /// lo oscuro se hunde, como el oleo cargado); azul = hacia afuera; alfa = rugosidad (0 = lisa y brillante, 1 = mate).
+    /// Las pinceladas marcadas quedan asperas; las partes lisas y oscuras brillan un poco, como oleo humedo.</summary>
+    static Texture2D DetailMap(Texture2D tex, int maxSide)
+    {
+        float k = Mathf.Min(1f, maxSide / (float)Mathf.Max(tex.width, tex.height));
+        int w = Mathf.Max(8, Mathf.RoundToInt(tex.width * k)), h = Mathf.Max(8, Mathf.RoundToInt(tex.height * k));
+        var px = Read(tex, new Rect(0, 0, tex.width, tex.height), w, h);
+        var lum = new float[w, h];
+        for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++)
+            {
+                Color c = px[y * w + x];
+                lum[x, y] = 0.3f * c.r + 0.59f * c.g + 0.11f * c.b;
+            }
+        var hgt = Blur(lum, w, h);
+        var smooth = Blur(Blur(hgt, w, h), w, h);
+        var o = new Color[w * h];
+        float bump = 6f * Mathf.Max(w, h) / 1024f;   // misma inclinacion sea cual sea el tamaño del mapa
+        for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++)
+            {
+                float dx = (hgt[Mathf.Min(w - 1, x + 1), y] - hgt[Mathf.Max(0, x - 1), y]) * 0.5f * bump;
+                float dy = (hgt[x, Mathf.Min(h - 1, y + 1)] - hgt[x, Mathf.Max(0, y - 1)]) * 0.5f * bump;
+                Vector3 n = new Vector3(-dx, -dy, 1f).normalized;
+                float detail = Mathf.Abs(hgt[x, y] - smooth[x, y]) * 12f + Mathf.Sqrt(dx * dx + dy * dy) * 1.5f;
+                float rough = Mathf.Clamp01(0.4f + detail - (1f - lum[x, y]) * 0.2f);
+                o[y * w + x] = new Color(n.x * 0.5f + 0.5f, n.y * 0.5f + 0.5f, n.z, rough);
+            }
+        var map = new Texture2D(w, h, TextureFormat.RGBA32, true, true) { name = "Normales_" + tex.name, wrapMode = TextureWrapMode.Clamp };
+        map.SetPixels(o);
+        map.Apply(true, true);
+        return map;
     }
 
     // Suaviza (promedio con los vecinos)
