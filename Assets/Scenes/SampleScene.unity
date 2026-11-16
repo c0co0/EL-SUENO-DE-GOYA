@@ -696,11 +696,14 @@ MonoBehaviour:
   startLine: "Levant\xE1 una mano\npara empezar."
   startHoldTime: 0.5
   lines:
-  - "Bienvenido al sue\xF1o de Goya."
-  - "Soy el macho cabr\xEDo.\nTe voy a mostrar sus visiones."
-  - "Mir\xE1 una visi\xF3n, levant\xE1 los dos brazos\ncon las manos abiertas\ny se va a formar."
-  - "Cerr\xE1 los dos pu\xF1os\ny la visi\xF3n se desvanece."
-  - "Levant\xE1 un dedo para caminar.\nUn dedo en cada mano para volver."
+  - "Bienvenido al sue\xF1o de Goya.\nSoy el macho cabr\xEDo, y este es mi aquelarre."
+  - "El sue\xF1o de la raz\xF3n produce monstruos.\nVas a caminar hacia lo oscuro."
+  - "Levant\xE1 un dedo para caminar.\nCon una V en una mano, corr\xE9s."
+  - "El camino se abre en tres.\nEl que elijas decide qu\xE9 visiones te tocan."
+  - "Las visiones est\xE1n sin pintar.\nSe\xF1alalas con la mano y junt\xE1 el polvo de luz."
+  - "Si los murci\xE9lagos las tapan,\nespantalos primero."
+  - "En la cueva, agarr\xE1 la antorcha.\nLos cuadros se van a caer: salvalos."
+  - "Al final vas a entrar\nen mis Pinturas Negras."
   - "Cruz\xE1 los brazos\npara volver a empezar."
   - "Levant\xE1 un brazo con la mano abierta\npara entrar en el sue\xF1o."
   ruleDuration: 4.5

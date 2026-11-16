@@ -1,7 +1,10 @@
 fileFormatVersion: 2
 guid: 35ab10bb42b8a143401719702015159d
 TextureImporter:
-  internalIDToNameTable: []
+  internalIDToNameTable:
+  - first:
+      213: 9219635449677454380
+    second: vuelo_figura_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -136,7 +139,29 @@ TextureImporter:
     forceMaximumCompressionQuality_BC6H_BC7: 0
   spriteSheet:
     serializedVersion: 2
-    sprites: []
+    sprites:
+    - serializedVersion: 2
+      name: vuelo_figura_0
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 0
+        width: 996
+        height: 1211
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: c2c9f900899b2ff70800000000000000
+      internalID: 9219635449677454380
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
     outline: []
     customData: 
     physicsShape: []

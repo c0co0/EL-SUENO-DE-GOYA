@@ -60,6 +60,9 @@ Lo que se ve (remolinos sobre las obras, olas de pánico, la bandada que se divi
 | **Un dedo levantado** (cualquier mano) | Caminás hacia adelante, hacia donde mirás |
 | **Un dedo levantado en cada mano** | Caminás hacia atrás |
 | **Dos dedos levantados** (la V, en una mano) | Corrés hacia donde mirás (en la PC: Shift + ↑) |
+| **Tres dedos levantados en una mano** (en la cueva) | Levantás el cuadro tirado más cercano (en la PC: G) |
+| **Una V en cada mano** (en la cueva, llevando un cuadro) | Lo colgás en su marca de la pared, si estás cerca (en la PC: F) |
+| **Los dos puños cerrados** (en la cueva, junto a un cuadro que colgaste) | Se deshace en partículas que vienen hacia vos: lo coleccionás (en la PC: C) |
 | **Cruzar los brazos en X** delante del pecho (sostenerlo un segundo y medio) | Vuelve todo a empezar, desde el cabrío. Necesita el tracker con el cuerpo; en la ventana dice "BRAZOS CRUZADOS" |
 
 Los gestos de armar y desarmar hay que sostenerlos un momento (*Gesture Hold Time*) y soltarlos antes de repetirlos. "Levantado" quiere decir que la mano está en la parte de arriba de la imagen de la cámara (*Hand High Y*); si el tracker también ve el cuerpo, alcanza con que el brazo esté arriba del hombro.
@@ -232,6 +235,7 @@ Desde la mitad de la zona roja hasta Saturno el camino entra en una cueva (`Goya
 - Las Pinturas Negras (zona 4) no están al principio: aparecen de a poco en la pared cuando se las alumbra de cerca (`appearDistance`, `appearTime`).
 - Al salir de la cueva aparece un cartel: con el mismo gesto (o **E**) se suelta la antorcha, que cae al piso y se apaga de a poco. Ahí está Saturno.
 - La antorcha alumbra poco (unos 3 m), así que hay que acercarse a cada obra.
+- **Los cuadros se caen** (`fallingPaintings`): al encender la antorcha tiembla todo, no se puede caminar unos segundos, la cueva se ilumina un poco y los cuadros tiemblan y se caen al piso uno tras otro (`fallInterval`). En la pared queda un rectángulo más oscuro donde estaba cada uno. Con tres dedos de una mano (o **G**) se levanta el cuadro tirado más cercano (`pickDistance`) y se lleva delante de la vista, más chico (`carryScale`). Con una V en cada mano (o **F**) cerca de su marca (`hangDistance`) vuelve a colgarse; mientras se lleva un cuadro, su lugar en la pared brilla al acercarse. Las Pinturas Negras tiradas solo se ven, y se pueden levantar, cuando se las alumbra. Una vez colgado, con los dos puños cerrados (o **C**) el cuadro se deshace en partículas con sus colores, de arriba hacia abajo, que vuelan hacia la mano: queda coleccionado y la pared vacía (`collectParticles`, `collectTime`). Junto a un cuadro colgado, los dos puños no te hacen caminar hacia atrás. En el juego, las obras de la cueva cuentan como encontradas al coleccionarlas.
 - Se ajusta en el componente `GoyaCave`: dónde empieza (`startZone`, `startAt`), ancho y alto, tamaño de la boca (`mouthScale`, `flareLength`), alto y ancho de la montaña (`mountainHeight`, `mountainWidth`), alcance y color de la luz (`torchRange`, `torchColor`), y cuánta luz hay sin antorcha (`ambient`).
 
 ## Sonido

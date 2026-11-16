@@ -1,7 +1,10 @@
 fileFormatVersion: 2
 guid: d14a4909f514e476577dfc5099c81be5
 TextureImporter:
-  internalIDToNameTable: []
+  internalIDToNameTable:
+  - first:
+      213: 535160720335161701
+    second: vuelo_fondo_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -136,7 +139,29 @@ TextureImporter:
     forceMaximumCompressionQuality_BC6H_BC7: 0
   spriteSheet:
     serializedVersion: 2
-    sprites: []
+    sprites:
+    - serializedVersion: 2
+      name: vuelo_fondo_0
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 0
+        width: 1401
+        height: 2000
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 569c159f6d54d6700800000000000000
+      internalID: 535160720335161701
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
     outline: []
     customData: 
     physicsShape: []

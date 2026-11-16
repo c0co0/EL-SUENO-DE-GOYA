@@ -77,6 +77,56 @@ public class GoyaCave : MonoBehaviour
     [Tooltip("Si el reloj (GoyaGame) esta prendido, segundos que se pierden por golpe")]
     public float rockPenalty = 15f;
 
+    [Header("Cuadros que se caen")]
+    [Tooltip("Al entrar a la cueva tiembla todo y los cuadros se caen de las paredes: hay que levantarlos (tres dedos de una mano, o G) y colgarlos en su lugar (una V en cada mano, o F)")]
+    public bool fallingPaintings = true;
+    [Tooltip("Segundos entre que se cae un cuadro y el siguiente durante el temblor")]
+    public float fallInterval = 0.45f;
+    [Tooltip("A que distancia de un cuadro tirado hay que estar para levantarlo (metros)")]
+    public float pickDistance = 2.5f;
+    [Tooltip("A que distancia de su marca en la pared hay que estar para colgarlo (metros)")]
+    public float hangDistance = 2.5f;
+    [Tooltip("Segundos sosteniendo el gesto de los dedos para que cuente")]
+    public float fingerHold = 0.4f;
+    [Tooltip("Tamaño del cuadro mientras se lo lleva (1 = su tamaño)")]
+    public float carryScale = 0.4f;
+    [Tooltip("Particulas en que se deshace un cuadro al coleccionarlo (dos puños, o C)")]
+    public int collectParticles = 1500;
+    [Tooltip("Segundos que tardan las particulas en llegar a la persona")]
+    public float collectTime = 3f;
+
+    enum FallState { Shaking, Falling, Floor, Carried, Hanging, Hung, Collected }
+    class Fallen
+    {
+        public GoyaGallery.Painting p;
+        public FallState state;
+        public float t, delay;
+        public Vector3 home, floor, from, scale;
+        public Quaternion homeRot, floorRot, fromRot;
+        public SpriteRenderer mark;   // la marca que queda en la pared
+    }
+    readonly List<Fallen> fallen = new List<Fallen>();
+    Fallen carried;
+    float fistTimer;
+
+    // Un cuadro coleccionado: sus particulas salen de la pared y vienen hacia la persona
+    class Collect
+    {
+        public ParticleSystem ps;
+        public ParticleSystem.Particle[] parts;
+        public Vector3[] vel;
+        public float[] delay;
+        public float[] size;
+        public Vector3 away;
+        public float t;
+    }
+    readonly List<Collect> collecting = new List<Collect>();
+
+    /// <summary>Hay un cuadro colgado cerca para coleccionar: GoyaGallery no camina hacia atras con los dos puños.</summary>
+    public bool WantsFists { get; private set; }
+    bool quakeDone;
+    float quake = -1f, quakeLength, flash, pickTimer, hangTimer;
+
     class Rock
     {
         public Rigidbody body;
@@ -599,6 +649,7 @@ public class GoyaCave : MonoBehaviour
         colorTimer -= dt;
         if (colorTimer <= 0f) { colorTimer = 0.2f; UpdateOutsideColors(); }
         UpdateRocks(rig, dt);
+        UpdateFalling(rig, dt);
 
         if (!lit)
         {
@@ -625,6 +676,16 @@ public class GoyaCave : MonoBehaviour
             if (fireSound != null) fireSound.volume = 0.35f * dropFade;
             SetLight(fireAt.position, flicker * dropFade);
             FadeDropHint(false, dt);
+
+            // Volver a agarrarla en cualquier momento con el mismo gesto (o E en la PC)
+            if (gallery.FormGestures != lastGestures)
+            {
+                lastGestures = gallery.FormGestures;
+                dropped = false;
+                dropFade = 1f;
+                em.rateOverTime = 70f;
+                if (fireSound != null) fireSound.volume = 0.35f;
+            }
         }
         else
         {
@@ -660,13 +721,398 @@ public class GoyaCave : MonoBehaviour
 
             // Las Pinturas Negras aparecen de a poco donde se las alumbra
             foreach (var p in hidden)
-                if (p.visibility < 1f && Vector3.Distance(fireAt.position, p.root.position) < appearDistance)
+                if (!IsCollected(p) && p.visibility < 1f && Vector3.Distance(fireAt.position, p.root.position) < appearDistance)
                     p.visibility = Mathf.Min(1f, p.visibility + dt / Mathf.Max(0.1f, appearTime));
-            // Encontrada: alumbrada de cerca (y, si es negra, ya aparecida)
+            // Encontrada: alumbrada de cerca (y, si es negra, ya aparecida). Con cuadros que se caen, cuenta al colgarla
             foreach (var p in inside)
-                if (!found.Contains(p) && p.visibility >= 1f && Vector3.Distance(fireAt.position, p.root.position) < appearDistance)
+                if (!fallingPaintings && !found.Contains(p) && p.visibility >= 1f && Vector3.Distance(fireAt.position, p.root.position) < appearDistance)
                     found.Add(p);
         }
+    }
+
+    // ---------------------------------------------------------------- cuadros que se caen
+
+    void UpdateFalling(Vector3 rig, float dt)
+    {
+        if (!fallingPaintings || inside.Count == 0) return;
+        var game = GoyaGame.Instance;
+
+        // Al agarrar la antorcha: tiembla todo y los cuadros se caen
+        if (!quakeDone && lit && !dropped) StartQuake(rig);
+        if (quake >= 0f)
+        {
+            quake += dt;
+            flash = Mathf.Clamp01(Mathf.Min(quake / 0.6f, (quakeLength - quake) / 1.2f));
+            if (quake >= quakeLength)
+            {
+                quake = -1f;
+                flash = 0f;
+                if (game == null || !game.timer || game.Playing) gallery.Frozen = false;
+                Say("¡Se cayeron los cuadros!\nAgarralos con tres dedos de una mano\ny colgalos en su marca con una V en cada mano", 7f);
+            }
+        }
+
+        var head = gallery.Head;
+        foreach (var f in fallen) Animate(f, head, rig, dt);
+        if (quake >= 0f) return;   // durante el temblor no se agarra nada
+
+        // Gestos: tres dedos en una mano levanta, una V en cada mano cuelga (G y F en la PC)
+        var hands = gallery.hands;
+        bool three = hands != null && (Three(hands.Left) || Three(hands.Right));
+        bool vv = hands != null && HandOSCReceiver.IsTwoFingers(hands.Left) && HandOSCReceiver.IsTwoFingers(hands.Right);
+        pickTimer = three ? pickTimer + dt : 0f;
+        hangTimer = vv ? hangTimer + dt : 0f;
+        bool pc = !Application.isMobilePlatform;
+        bool pick = (pickTimer >= fingerHold && pickTimer - dt < fingerHold) || (pc && Input.GetKeyDown(KeyCode.G));
+        bool hang = (hangTimer >= fingerHold && hangTimer - dt < fingerHold) || (pc && Input.GetKeyDown(KeyCode.F));
+        if (pick && carried == null) PickNearest(rig);
+        else if (hang && carried != null) TryHang(rig);
+
+        // Dos puños cerrados (o C) con un cuadro ya colgado cerca: se deshace en particulas y se colecciona
+        var near = NearestHung(rig);
+        WantsFists = near != null;
+        bool fists = hands != null && HandOSCReceiver.IsFist(hands.Left) && HandOSCReceiver.IsFist(hands.Right);
+        fistTimer = fists ? fistTimer + dt : 0f;
+        bool collect = (fistTimer >= fingerHold && fistTimer - dt < fingerHold) || (pc && Input.GetKeyDown(KeyCode.C));
+        if (collect && near != null) CollectPainting(near);
+        UpdateCollecting(head, rig, dt);
+    }
+
+    static bool Three(HandOSCReceiver.HandState h) { return h.visible && h.fingers == 3; }
+
+    void StartQuake(Vector3 rig)
+    {
+        quakeDone = true;
+        LoadRockAssets();
+        var order = new List<GoyaGallery.Painting>(inside);
+        order.Sort((a, b) => Mathf.Abs(a.root.position.z - rig.z).CompareTo(Mathf.Abs(b.root.position.z - rig.z)));
+        float step = Mathf.Min(fallInterval, 4f / Mathf.Max(1, order.Count));
+        for (int i = 0; i < order.Count; i++)
+        {
+            var p = order[i];
+            var f = new Fallen { p = p, state = FallState.Shaking, delay = 0.9f + i * step };
+            f.home = p.root.position;
+            f.homeRot = p.root.rotation;
+            f.scale = p.root.localScale;
+            // Cae al piso, un poco separada de la pared, acostada y algo torcida
+            float side = f.home.x < cx ? -1f : 1f;
+            float fz = Mathf.Clamp(f.home.z + Random.Range(-0.3f, 0.3f), z0 + 0.5f, z1 - 0.5f);
+            float fx = f.home.x - side * (Mathf.Min(p.halfH, 1f) + 0.3f);
+            float hw = halfWidth * Flare(fz) - 0.3f;
+            f.floor = new Vector3(Mathf.Clamp(fx, cx - hw, cx + hw), floorY + 0.06f, fz);
+            f.floorRot = f.homeRot * Quaternion.Euler(84f, 0f, Random.Range(-25f, 25f));
+
+            // La marca en la pared: un rectangulo liso y oscuro del tamaño del cuadro (sin la obra)
+            var g = new GameObject("Cueva_Marca_" + p.name);
+            g.transform.SetParent(transform, false);
+            g.transform.position = f.home + (f.homeRot * Vector3.forward) * 0.02f;
+            g.transform.rotation = f.homeRot;
+            Vector3 ps = transform.lossyScale;
+            g.transform.localScale = new Vector3(p.halfW * 2f / ps.x, p.halfH * 2f / ps.y, 1f / ps.z);
+            f.mark = g.AddComponent<SpriteRenderer>();
+            f.mark.sprite = PlainSprite();
+            f.mark.sharedMaterial = p.renderer.sharedMaterial;
+            f.mark.sortingOrder = p.renderer.sortingOrder - 1;
+            f.mark.color = new Color(0f, 0f, 0f, 0f);
+            fallen.Add(f);
+        }
+        quake = 0f;
+        quakeLength = 0.9f + order.Count * step + 1.6f;
+        gallery.Frozen = true;
+        PlayAt(rumbleClips, rig + Vector3.up * 2f, 1f);
+        PlayAt(rumbleClips, rig + Vector3.up * 2f + Vector3.forward * 3f, 1f);
+    }
+
+    void Animate(Fallen f, Transform head, Vector3 rig, float dt)
+    {
+        var tr = f.p.root;
+        float markGlow = 0f;
+        switch (f.state)
+        {
+            case FallState.Shaking:
+                f.t += dt;
+                if (f.t < f.delay)
+                {
+                    float k = Mathf.Clamp01((f.t - (f.delay - 0.9f)) / 0.9f);   // tiembla cada vez mas antes de caerse
+                    tr.rotation = f.homeRot * Quaternion.Euler(0f, 0f, Mathf.Sin(f.t * 38f) * (0.5f + 6f * k));
+                }
+                else { f.state = FallState.Falling; f.t = 0f; f.from = tr.position; f.fromRot = tr.rotation; }
+                break;
+            case FallState.Falling:
+            {
+                f.t += dt;
+                float u = Mathf.Clamp01(f.t / 0.55f);
+                float e = u * u;   // cae cada vez mas rapido
+                tr.position = Vector3.Lerp(f.from, f.floor, e);
+                tr.rotation = Quaternion.Slerp(f.fromRot, f.floorRot, e);
+                if (u >= 1f)
+                {
+                    f.state = FallState.Floor;
+                    PlayAt(hitClips, f.floor, 0.7f);
+                    Dust(f.floor);
+                }
+                break;
+            }
+            case FallState.Carried:
+            {
+                // Delante de la vista, mas chico, mirando a la persona
+                Vector3 fw = head != null ? head.forward : Vector3.forward; fw.y = 0f;
+                fw = fw.sqrMagnitude > 0.001f ? fw.normalized : Vector3.forward;
+                Vector3 eye = head != null ? head.position : rig;
+                Vector3 target = eye + fw * 0.9f + Vector3.down * 0.22f;
+                float a = 1f - Mathf.Exp(-8f * dt);
+                tr.position = Vector3.Lerp(tr.position, target, a);
+                tr.rotation = Quaternion.Slerp(tr.rotation, Quaternion.LookRotation(target - eye), a);
+                tr.localScale = Vector3.Lerp(tr.localScale, f.scale * carryScale, a);
+                Vector3 d = f.home - rig; d.y = 0f;
+                if (d.magnitude < hangDistance) markGlow = 0.5f + 0.5f * Mathf.Sin(Time.time * 5f);   // aca va
+                break;
+            }
+            case FallState.Hanging:
+            {
+                f.t += dt;
+                float u = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(f.t / 0.9f));
+                tr.position = Vector3.Lerp(f.from, f.home, u);
+                tr.rotation = Quaternion.Slerp(f.fromRot, f.homeRot, u);
+                tr.localScale = Vector3.Lerp(f.scale * carryScale, f.scale, u);
+                if (u >= 1f)
+                {
+                    f.state = FallState.Hung;
+                    f.p.visibility = 1f;
+                    PlayAt(hitClips, f.home, 0.35f);
+                    Dust(f.home + Vector3.down * f.p.halfH);
+                }
+                break;
+            }
+        }
+
+        // La marca: un rectangulo mas oscuro donde estaba el cuadro; brilla cuando lo traes cerca, y se va al colgarlo
+        if (f.mark != null)
+        {
+            bool missing = f.state == FallState.Falling || f.state == FallState.Floor || f.state == FallState.Carried || f.state == FallState.Hanging;
+            Color dark = new Color(0.12f, 0.09f, 0.07f, missing ? 0.55f : 0f);
+            Color glow = new Color(1f, 0.85f, 0.55f, 0.45f);
+            Color want = Color.Lerp(dark, glow, markGlow);
+            f.mark.color = Color.Lerp(f.mark.color, want, 1f - Mathf.Exp(-6f * dt));
+        }
+    }
+
+    void PickNearest(Vector3 rig)
+    {
+        Fallen best = null;
+        float bestDist = pickDistance;
+        bool any = false;
+        foreach (var f in fallen)
+        {
+            if (f.state != FallState.Floor) continue;
+            any = true;
+            if (f.p.visibility < 0.5f) continue;   // las Pinturas Negras hay que alumbrarlas primero
+            Vector3 d = f.p.root.position - rig; d.y = 0f;
+            if (d.magnitude < bestDist) { bestDist = d.magnitude; best = f; }
+        }
+        if (best == null)
+        {
+            if (any) Say("Acercate a un cuadro tirado\n(las Pinturas Negras se ven con la antorcha)", 2.5f);
+            return;
+        }
+        carried = best;
+        best.state = FallState.Carried;
+        PlayAt(hitClips, best.p.root.position, 0.25f);
+    }
+
+    void TryHang(Vector3 rig)
+    {
+        var f = carried;
+        Vector3 d = f.home - rig; d.y = 0f;
+        if (d.magnitude > hangDistance)
+        {
+            Say(f.home.z > rig.z ? "Este cuadro va más adelante:\nbuscá su marca en la pared" : "Este cuadro va más atrás:\nbuscá su marca en la pared", 2.5f);
+            return;
+        }
+        carried = null;
+        f.state = FallState.Hanging;
+        f.t = 0f;
+        f.from = f.p.root.position;
+        f.fromRot = f.p.root.rotation;
+        Say("¡Bien! Ahora cerrá los dos puños\npara coleccionarlo", 3.5f);
+    }
+
+    Fallen NearestHung(Vector3 rig)
+    {
+        Fallen best = null;
+        float bestDist = hangDistance + 0.5f;
+        foreach (var f in fallen)
+        {
+            if (f.state != FallState.Hung) continue;
+            Vector3 d = f.home - rig; d.y = 0f;
+            if (d.magnitude < bestDist) { bestDist = d.magnitude; best = f; }
+        }
+        return best;
+    }
+
+    bool IsCollected(GoyaGallery.Painting p)
+    {
+        foreach (var f in fallen) if (f.p == p) return f.state == FallState.Collected;
+        return false;
+    }
+
+    // El cuadro se deshace en particulas con sus colores, desde arriba hacia abajo, y vienen hacia la persona
+    void CollectPainting(Fallen f)
+    {
+        var p = f.p;
+        f.state = FallState.Collected;
+        found.Add(p);
+        LoadRockAssets();
+
+        var go = new GameObject("Cueva_Coleccion_" + p.name);
+        go.transform.SetParent(transform, false);
+        var ps = go.AddComponent<ParticleSystem>();
+        ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+        int n = Mathf.Max(50, collectParticles);
+        var main = ps.main;
+        main.loop = false;
+        main.playOnAwake = false;
+        main.maxParticles = n;
+        main.startSpeed = 0f;
+        main.gravityModifier = 0f;
+        main.simulationSpace = ParticleSystemSimulationSpace.World;
+        var em = ps.emission; em.enabled = false;
+        var shp = ps.shape; shp.enabled = false;
+        go.GetComponent<ParticleSystemRenderer>().sharedMaterial = dustMat;
+        ps.Play();
+
+        var c = new Collect { ps = ps, parts = new ParticleSystem.Particle[n], vel = new Vector3[n], delay = new float[n], size = new float[n] };
+        c.away = -(f.homeRot * Vector3.forward);   // hacia el pasillo
+        var pixels = SmallCopy(p.renderer.sprite);
+        float w = p.halfW * 2f, h = p.halfH * 2f;
+        float sz = Mathf.Max(0.01f, Mathf.Sqrt(w * h / n) * 1.8f);
+        Vector3 center = p.root.position, right = p.root.right, up = p.root.up;
+        var ep = new ParticleSystem.EmitParams();
+        for (int i = 0; i < n; i++)
+        {
+            float fu = Random.value, fv = Random.value;
+            Color col = pixels != null ? pixels.GetPixelBilinear(fu, fv) : new Color(0.8f, 0.7f, 0.5f);
+            col = Color.Lerp(col, new Color(1f, 0.85f, 0.55f), 0.2f);   // un poco de brillo dorado
+            col.a = 1f;
+            ep.position = center + right * ((fu - 0.5f) * w) + up * ((fv - 0.5f) * h);
+            ep.velocity = Vector3.zero;
+            ep.startColor = col;
+            ep.startSize = sz;
+            ep.startLifetime = collectTime + 5f;
+            ps.Emit(ep, 1);
+            c.delay[i] = (1f - fv) * 0.9f + Random.value * 0.15f;   // se deshace de arriba hacia abajo
+            c.size[i] = sz;
+        }
+        collecting.Add(c);
+        p.visibility = 0f;   // el cuadro "real" ya no se ve: ahora son particulas
+
+        var whoosh = Resources.Load<AudioClip>("Sonidos/fuego_encendido");
+        if (whoosh != null) AudioSource.PlayClipAtPoint(whoosh, center, 0.6f);
+        PlayAt(hitClips, center, 0.3f);
+
+        int done = 0;
+        foreach (var x in fallen) if (x.state == FallState.Collected) done++;
+        Say(done >= fallen.Count ? "¡Coleccionaste todos los cuadros de la cueva!" : "Coleccionaste " + done + " de " + fallen.Count, 3f);
+    }
+
+    void UpdateCollecting(Transform head, Vector3 rig, float dt)
+    {
+        Vector3 goal;
+        if (!GoyaHands.Palm(out goal)) goal = (head != null ? head.position : rig) + Vector3.down * 0.35f;
+        for (int k = collecting.Count - 1; k >= 0; k--)
+        {
+            var c = collecting[k];
+            c.t += dt;
+            int got = c.ps.GetParticles(c.parts);
+            for (int i = 0; i < got; i++)
+            {
+                float local = c.t - c.delay[i];
+                if (local < 0f) continue;
+                Vector3 pos = c.parts[i].position;
+                if (local < 0.7f)
+                    c.vel[i] += (c.away * 0.9f + Vector3.up * 0.25f + Random.insideUnitSphere * 0.8f) * dt;   // se despega de la pared
+                else
+                    c.vel[i] += (goal - pos).normalized * 7f * dt;   // vuela hacia la persona
+                c.vel[i] *= 1f - Mathf.Min(1f, 1.4f * dt);
+                pos += c.vel[i] * dt;
+                c.parts[i].position = pos;
+                c.parts[i].velocity = Vector3.zero;
+                float close = Mathf.Clamp01(Vector3.Distance(pos, goal) / 0.5f);
+                c.parts[i].startSize = c.size[i] * Mathf.Lerp(0.2f, 1f, close);
+                Color32 col = c.parts[i].startColor;
+                col.a = (byte)(255f * Mathf.Clamp01(close * 1.5f) * Mathf.Clamp01((collectTime + 1f - c.t) / 1f));
+                c.parts[i].startColor = col;
+            }
+            c.ps.SetParticles(c.parts, got);
+            if (c.t > collectTime + 1.2f) { Destroy(c.ps.gameObject); collecting.RemoveAt(k); }
+        }
+    }
+
+    // Copia chica de la obra para leer sus colores (sin tener que tildar Read/Write)
+    static Texture2D SmallCopy(Sprite sprite)
+    {
+        if (sprite == null) return null;
+        Rect r = sprite.rect;
+        Texture2D src = sprite.texture;
+        float k = Mathf.Min(1f, 128f / Mathf.Max(r.width, r.height));
+        int w = Mathf.Max(1, Mathf.RoundToInt(r.width * k)), h = Mathf.Max(1, Mathf.RoundToInt(r.height * k));
+        var rt = RenderTexture.GetTemporary(w, h, 0, RenderTextureFormat.ARGB32, RenderTextureReadWrite.sRGB);
+        Graphics.Blit(src, rt, new Vector2(r.width / src.width, r.height / src.height), new Vector2(r.x / src.width, r.y / src.height));
+        var prev = RenderTexture.active;
+        RenderTexture.active = rt;
+        var copy = new Texture2D(w, h, TextureFormat.RGBA32, false, false);
+        copy.ReadPixels(new Rect(0, 0, w, h), 0, 0);
+        copy.Apply();
+        RenderTexture.active = prev;
+        RenderTexture.ReleaseTemporary(rt);
+        copy.wrapMode = TextureWrapMode.Clamp;
+        return copy;
+    }
+
+    void Say(string text, float seconds)
+    {
+        var game = GoyaGame.Instance;
+        if (game != null) { if (!game.timer || game.Playing) game.Note(text, seconds); }
+        else Debug.Log("[Cueva] " + text.Replace("\n", " "));
+    }
+
+    // Polvo que se levanta del piso
+    void Dust(Vector3 at)
+    {
+        var go = new GameObject("Cueva_Polvo");
+        go.transform.SetParent(transform, false);
+        go.transform.position = at;
+        var ps = go.AddComponent<ParticleSystem>();
+        ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+        var main = ps.main;
+        main.duration = 0.3f;
+        main.loop = false;
+        main.startLifetime = 1.4f;
+        main.startSpeed = new ParticleSystem.MinMaxCurve(0.3f, 0.9f);
+        main.startSize = new ParticleSystem.MinMaxCurve(0.05f, 0.18f);
+        main.startColor = new Color(0.75f, 0.62f, 0.45f, 0.6f);
+        main.gravityModifier = 0.05f;
+        main.simulationSpace = ParticleSystemSimulationSpace.World;
+        main.stopAction = ParticleSystemStopAction.Destroy;
+        var em = ps.emission;
+        em.rateOverTime = 0f;
+        em.SetBursts(new[] { new ParticleSystem.Burst(0f, 30) });
+        var shp = ps.shape; shp.shapeType = ParticleSystemShapeType.Hemisphere; shp.radius = 0.4f;
+        go.GetComponent<ParticleSystemRenderer>().sharedMaterial = dustMat;
+        ps.Play();
+    }
+
+    static Sprite plainSprite;
+    static Sprite PlainSprite()
+    {
+        if (plainSprite != null) return plainSprite;
+        var tex = new Texture2D(4, 4, TextureFormat.RGBA32, false);
+        var px = new Color[16];
+        for (int i = 0; i < px.Length; i++) px[i] = Color.white;
+        tex.SetPixels(px);
+        tex.Apply();
+        plainSprite = Sprite.Create(tex, new Rect(0f, 0f, 4f, 4f), new Vector2(0.5f, 0.5f), 4f);   // 1 x 1 metro
+        return plainSprite;
     }
 
     // ---------------------------------------------------------------- rocas que caen
@@ -718,7 +1164,7 @@ public class GoyaCave : MonoBehaviour
             }
         }
 
-        if (!fallingRocks || !lit || dropped || !Inside(rig)) return;
+        if (!fallingRocks || !lit || dropped || quake >= 0f || !Inside(rig)) return;
         var game = GoyaGame.Instance;
         if (game != null && game.timer && !game.Playing) return;
         rockTimer -= dt;
@@ -734,8 +1180,32 @@ public class GoyaCave : MonoBehaviour
         float hw = halfWidth * Flare(spot.z) - 0.5f;
         spot.x = Mathf.Clamp(spot.x, cx - hw, cx + hw);
         spot.z = Mathf.Clamp(spot.z, z0 + 1f, z1 - 1f);
+
+        // Nunca arriba de un cuadro tirado: se busca otro lugar cerca, y si no hay, esa vez no cae nada
+        for (int tries = 0; tries < 8 && OverPainting(spot); tries++)
+        {
+            spot.x = Random.Range(cx - hw, cx + hw);
+            spot.z = Mathf.Clamp(rig.z + f.z * ahead + Random.Range(-1.2f, 1.2f), z0 + 1f, z1 - 1f);
+        }
+        if (OverPainting(spot)) { rockTimer = 1f; return; }
         spot.y = floorY + wallHeight + vaultHeight * 0.55f;
         StartCrack(spot, Random.Range(rocksPerFall.x, rocksPerFall.y + 1));
+    }
+
+    // Si una roca caeria encima de un cuadro que esta (o va a quedar) en el piso
+    bool OverPainting(Vector3 at)
+    {
+        foreach (var fl in fallen)
+        {
+            Vector3 c;
+            if (fl.state == FallState.Shaking || fl.state == FallState.Falling) c = fl.floor;
+            else if (fl.state == FallState.Floor) c = fl.p.root.position;
+            else continue;
+            float r = Mathf.Max(fl.p.halfW, fl.p.halfH) + 0.5f;
+            Vector3 d = at - c; d.y = 0f;
+            if (d.magnitude < r) return true;
+        }
+        return false;
     }
 
     // Choques que importan, despues de cada paso de la fisica
@@ -1049,6 +1519,7 @@ public class GoyaCave : MonoBehaviour
         Shader.SetGlobalVector("_GoyaTorch", new Vector4(pos.x, pos.y, pos.z, intensity > 0f ? range : 0.0001f));
         Shader.SetGlobalColor("_GoyaTorchColor", torchColor * intensity);
         float appear = gallery != null ? gallery.appear : 1f;
-        Shader.SetGlobalColor("_GoyaCaveAmbient", ambient * appear);
+        // Durante el temblor la cueva se ilumina un poco para ver como se caen los cuadros
+        Shader.SetGlobalColor("_GoyaCaveAmbient", (ambient + new Color(0.32f, 0.26f, 0.2f) * flash) * appear);
     }
 }

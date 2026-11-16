@@ -432,6 +432,7 @@ public class GoyaGallery : MonoBehaviour
 
         // Solo algunas obras afuera: las demas no se crean (las que caen adentro de la cueva quedan)
         var caveC = GetComponent<GoyaCave>();
+        if (caveC == null) caveC = gameObject.AddComponent<GoyaCave>();   // tiene que existir antes, asi quedan las obras de adentro de la cueva
         float caveZ = caveC != null ? (caveC.startZone + caveC.startAt) * zoneLength : float.MaxValue;
         bool filter = onlyPaintings != null && System.Array.Exists(onlyPaintings, f => !string.IsNullOrEmpty(f));
         int start = 0;
@@ -775,7 +776,7 @@ public class GoyaGallery : MonoBehaviour
         Painting target = null;
         if (fistTimer >= fistHoldTime)
         {
-            if (both) wanted = -1f;
+            if (both) { if (cave == null || !cave.WantsFists) wanted = -1f; }   // en la cueva, dos puños junto a un cuadro colgado lo coleccionan
             else if (walkTarget != null) { wanted = 1f; target = walkTarget; }
         }
 
@@ -789,7 +790,8 @@ public class GoyaGallery : MonoBehaviour
             fingerTimer = (oneL || oneR || twoL || twoR) ? fingerTimer + dt : 0f;
             if (fingerTimer >= fistHoldTime)
             {
-                if (twoL || twoR) { wanted = 1f; run = true; }
+                if (twoL && twoR) { }   // una V en cada mano: colgar un cuadro en la cueva (GoyaCave), no se camina
+                else if (twoL || twoR) { wanted = 1f; run = true; }
                 else if (oneL && oneR) wanted = -1f;
                 else { wanted = 1f; target = PaintingInView(); }
             }

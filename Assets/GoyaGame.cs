@@ -35,6 +35,7 @@ public class GoyaGame : MonoBehaviour
     AudioClip tick;
     AudioSource tickSource;
     bool started, over;
+    int dioramasReached;   // a cuantas Pinturas Negras por dentro se llego (no baja al volver atras)
     float left, flash, noteTimer, lastTick;
     readonly HashSet<GoyaGallery.Painting> formed = new HashSet<GoyaGallery.Painting>();
 
@@ -60,7 +61,19 @@ public class GoyaGame : MonoBehaviour
     {
         if (gallery == null) gallery = GetComponent<GoyaGallery>();
         bool path = timer && gallery != null && gallery.pathMode && gallery.PathLength > 0f;
-        if (!path) { Show(false); return; }
+        if (!path)
+        {
+            // Sin reloj igual se muestran los avisos (por ejemplo, los de la cueva)
+            if (hud != null) hud.gameObject.SetActive(false);
+            if (note == null || gallery == null) return;
+            noteTimer -= Time.deltaTime;
+            var nc0 = hudColor;
+            nc0.a = Mathf.Clamp01(noteTimer) * gallery.appear;
+            note.color = nc0;
+            note.gameObject.SetActive(noteTimer > 0f);
+            if (noteTimer > 0f) Place();
+            return;
+        }
         if (hud == null) MakeHud();
         if (cave == null) cave = gallery.Cave;
         if (diorama == null) diorama = GetComponent<GoyaDiorama>();
@@ -69,7 +82,7 @@ public class GoyaGame : MonoBehaviour
         // Arranca cuando aparece la galeria; si todo vuelve a empezar (brazos cruzados), se reinicia
         if (gallery.appear < 0.01f)
         {
-            if (started) { started = over = false; formed.Clear(); gallery.Frozen = false; }
+            if (started) { started = over = false; formed.Clear(); dioramasReached = 0; gallery.Frozen = false; }
             Show(false);
             return;
         }
@@ -80,6 +93,7 @@ public class GoyaGame : MonoBehaviour
             over = false;
             left = duration;
             formed.Clear();
+            dioramasReached = 0;
             Note("Tenés " + Clock(duration) + " para encontrar\ntodas las obras que puedas", 6f);
         }
 
@@ -89,7 +103,12 @@ public class GoyaGame : MonoBehaviour
         foreach (var p in gallery.paintings) if (!p.locked) total++;
         int foundCount = formed.Count;
         if (cave != null) { total += cave.PaintingCount; foundCount += cave.FoundCount; }
-        if (diorama != null) { total += diorama.Count; foundCount += diorama.Reached(gallery); }
+        if (diorama != null)
+        {
+            total += diorama.Count;
+            dioramasReached = Mathf.Max(dioramasReached, diorama.Reached(gallery));   // la que ya entraste queda contada
+            foundCount += dioramasReached;
+        }
 
         if (!over)
         {
@@ -126,7 +145,7 @@ public class GoyaGame : MonoBehaviour
         Place();
     }
 
-    void Note(string text, float seconds)
+    public void Note(string text, float seconds)
     {
         if (note == null) MakeHud();
         note.text = text;

@@ -10,6 +10,9 @@ using UnityEngine;
 ///
 /// Las capas estan en Assets/Resources/Dioramas (fondo en .jpg, figuras en .png con transparencia),
 /// todas del mismo tamaño que la pintura original, asi coinciden.
+/// Con volume prendido, las figuras no son planas: cada una se infla como una escultura (gruesa en el medio,
+/// fina en los bordes, con frente y espalda) con la pintura encima, y el fondo es un muro curvo con relieve.
+/// Desde la entrada se sigue viendo igual que la pintura. Las formas se arman solas al empezar (shader Goya/Volumen).
 /// GoyaGallery lo agrega solo en modo camino.
 /// </summary>
 public class GoyaDiorama : MonoBehaviour
@@ -117,12 +120,32 @@ public class GoyaDiorama : MonoBehaviour
     [Tooltip("Al atravesar una capa (ej: la figura de Saturno) se desvanece a esta distancia, para poder pasar por dentro sin que te tape")]
     public float passFade = 2.5f;
 
+    [Header("Volumen")]
+    [Tooltip("Figuras con volumen (infladas como esculturas) y fondo curvo con relieve; apagado = capas planas como antes")]
+    public bool volume = true;
+    [Tooltip("Cuanto se inflan las figuras (1 = casi tan gruesas como anchas)")]
+    public float inflate = 0.6f;
+    [Tooltip("Relieve de las pinceladas en las figuras (lo claro sale, lo oscuro se hunde)")]
+    public float figureDetail = 1.5f;
+    [Tooltip("Cuanto de grosor tiene la espalda de las figuras, en proporcion al frente")]
+    [Range(0f, 1f)] public float backDepth = 0.6f;
+    [Tooltip("Puntos a lo largo de cada figura (mas = mas suave, pero mas pesado para el celu)")]
+    public int figureResolution = 110;
+    [Tooltip("Puntos a lo ancho del fondo")]
+    public int backgroundResolution = 80;
+    [Tooltip("Cuanto se curva el fondo hacia adelante en los costados (te envuelve)")]
+    public float backgroundBend = 0.25f;
+    [Tooltip("Relieve de las pinceladas del fondo, en proporcion a su lado mas corto")]
+    public float backgroundRelief = 0.015f;
+
     class Built
     {
         public SpriteRenderer renderer;
         public Vector3 baseScale;
         public float breathe, phase;
         public bool fadesWhenPassed;
+        public MeshRenderer mesh;     // el volumen (si hay)
+        public Material material;
     }
     readonly List<Built> built = new List<Built>();
     GoyaGallery gallery;
@@ -164,6 +187,8 @@ public class GoyaDiorama : MonoBehaviour
     {
         gallery = g;
         environment = GetComponent<GoyaEnvironment>();
+        var volumeShader = volume ? Resources.Load<Shader>("Shaders/GoyaVolumen") : null;
+        if (volume && volumeShader == null) Debug.LogWarning("[Diorama] Falta el shader Goya/Volumen: las capas quedan planas");
         Vector3 c = gallery.Center;
         float eyeY = gallery.RigPosition.y;
 
@@ -199,7 +224,27 @@ public class GoyaDiorama : MonoBehaviour
                 // Todas las capas se pueden atravesar, menos el fondo del ultimo diorama
                 bool isFarthest = l.distance >= maxDist - 0.001f;
                 bool last = k == dioramas.Length - 1;
-                built.Add(new Built { renderer = sr, baseScale = go.transform.localScale, breathe = l.breathe, phase = Random.value * 6f, fadesWhenPassed = !(isFarthest && last) });
+                var b = new Built { renderer = sr, baseScale = go.transform.localScale, breathe = l.breathe, phase = Random.value * 6f, fadesWhenPassed = !(isFarthest && last) };
+
+                // Volumen: la figura inflada (o el fondo curvo) reemplaza al dibujo plano
+                if (volumeShader != null)
+                {
+                    bool background = l.frame < 0.999f || l.image.EndsWith("_fondo");
+                    var mesh = background ? BackgroundMesh(sprite) : FigureMesh(sprite);
+                    if (mesh != null)
+                    {
+                        var vg = new GameObject("Volumen");
+                        vg.transform.SetParent(go.transform, false);
+                        vg.AddComponent<MeshFilter>().sharedMesh = mesh;
+                        b.mesh = vg.AddComponent<MeshRenderer>();
+                        b.mesh.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                        b.mesh.receiveShadows = false;
+                        b.material = new Material(volumeShader) { mainTexture = sprite.texture };
+                        b.mesh.sharedMaterial = b.material;
+                        sr.forceRenderingOff = true;   // el plano sigue (tamaño, respirar), pero no se dibuja
+                    }
+                }
+                built.Add(b);
             }
         }
     }
@@ -227,6 +272,208 @@ public class GoyaDiorama : MonoBehaviour
             }
             b.renderer.color = col;
             b.renderer.enabled = appear > 0.001f;
+            if (b.material != null)
+            {
+                b.material.color = col;
+                b.material.SetFloat("_ZWrite", col.a > 0.98f ? 1f : 0f);   // al desvanecerse no tapa lo de atras
+                b.mesh.enabled = col.a > 0.002f;
+            }
         }
+    }
+
+    // ---------------------------------------------------------------- volumen
+
+    // Una figura (imagen con transparencia) inflada como una escultura: lo mas grueso donde esta mas lejos del borde
+    Mesh FigureMesh(Sprite s)
+    {
+        var tex = s.texture;
+        Rect tr = s.textureRect;
+        Bounds bounds = s.bounds;
+
+        // Donde esta la figura dentro de la imagen (las capas tienen el tamaño de toda la pintura)
+        int sw = 256, sh = Mathf.Clamp(Mathf.RoundToInt(256f * tr.height / tr.width), 16, 1024);
+        var small = Read(tex, tr, sw, sh);
+        int x0 = sw, y0 = sh, x1 = -1, y1 = -1;
+        for (int y = 0; y < sh; y++)
+            for (int x = 0; x < sw; x++)
+                if (small[y * sw + x].a > 0.3f) { x0 = Mathf.Min(x0, x); x1 = Mathf.Max(x1, x); y0 = Mathf.Min(y0, y); y1 = Mathf.Max(y1, y); }
+        if (x1 < 0) return null;
+        x0 = Mathf.Max(0, x0 - 2); y0 = Mathf.Max(0, y0 - 2); x1 = Mathf.Min(sw - 1, x1 + 2); y1 = Mathf.Min(sh - 1, y1 + 2);
+        var sub = new Rect(tr.x + tr.width * x0 / sw, tr.y + tr.height * y0 / sh,
+                           tr.width * (x1 - x0 + 1) / sw, tr.height * (y1 - y0 + 1) / sh);
+
+        // Grilla sobre la figura
+        int res = Mathf.Clamp(figureResolution, 24, 256);
+        float aspect = sub.width / sub.height;
+        int gw = aspect >= 1f ? res : Mathf.Max(8, Mathf.RoundToInt(res * aspect));
+        int gh = aspect >= 1f ? Mathf.Max(8, Mathf.RoundToInt(res / aspect)) : res;
+        var px = Read(tex, sub, gw, gh);
+
+        var mask = new float[gw, gh];
+        for (int y = 0; y < gh; y++) for (int x = 0; x < gw; x++) mask[x, y] = px[y * gw + x].a > 0.5f ? 1f : 0f;
+        var dist = GoyaOrigins.Chamfer(mask, gw, gh);
+        float maxD = 1f;
+        for (int y = 0; y < gh; y++) for (int x = 0; x < gw; x++) maxD = Mathf.Max(maxD, dist[x, y]);
+
+        // Alto en celdas: crece con la distancia al borde (redondeado), mas el relieve de las pinceladas
+        var hgt = new float[gw, gh];
+        for (int y = 0; y < gh; y++)
+            for (int x = 0; x < gw; x++)
+            {
+                float d = dist[x, y];
+                if (d <= 0f) continue;
+                float h = inflate * Mathf.Sqrt(d * Mathf.Min(d * 3f, maxD));
+                h += figureDetail * (px[y * gw + x].grayscale - 0.5f) * Mathf.Clamp01(d / 3f);
+                hgt[x, y] = Mathf.Max(0f, h);
+            }
+        hgt = Blur(Blur(hgt, gw, gh), gw, gh);
+
+        // Celdas que se dibujan: la figura y un borde de una celda (el contorno exacto lo da la transparencia)
+        var cover = new bool[gw, gh];
+        for (int y = 0; y < gh; y++)
+            for (int x = 0; x < gw; x++)
+                for (int dy = -1; dy <= 1 && !cover[x, y]; dy++)
+                    for (int dx = -1; dx <= 1; dx++)
+                    {
+                        int xx = x + dx, yy = y + dy;
+                        if (xx >= 0 && yy >= 0 && xx < gw && yy < gh && mask[xx, yy] > 0f) { cover[x, y] = true; break; }
+                    }
+
+        // De pixeles de la imagen a unidades del sprite
+        float ux = bounds.size.x / tr.width, uy = bounds.size.y / tr.height;
+        float cw = sub.width / (gw - 1) * ux, ch = sub.height / (gh - 1) * uy;
+        float cell = (cw + ch) * 0.5f;
+        Vector3 light = new Vector3(-0.5f, 0.6f, -0.6f).normalized;   // de arriba a la izquierda, de adelante
+
+        var verts = new List<Vector3>();
+        var uvs = new List<Vector2>();
+        var cols = new List<Color>();
+        var tris = new List<int>();
+        int stride = gw * gh;
+        for (int pass = 0; pass < 2; pass++)   // 0 = frente (hacia la persona), 1 = espalda
+            for (int y = 0; y < gh; y++)
+                for (int x = 0; x < gw; x++)
+                {
+                    float pxX = sub.x + sub.width * x / (gw - 1), pxY = sub.y + sub.height * y / (gh - 1);
+                    float h = hgt[x, y] * cell;
+                    float lx = bounds.min.x + (pxX - tr.x) * ux, ly = bounds.min.y + (pxY - tr.y) * uy;
+                    verts.Add(new Vector3(lx, ly, pass == 0 ? -h : h * backDepth));
+                    uvs.Add(new Vector2(pxX / tex.width, pxY / tex.height));
+                    float hx = (hgt[Mathf.Min(gw - 1, x + 1), y] - hgt[Mathf.Max(0, x - 1), y]) * 0.5f;
+                    float hy = (hgt[x, Mathf.Min(gh - 1, y + 1)] - hgt[x, Mathf.Max(0, y - 1)]) * 0.5f;
+                    Vector3 n = pass == 0 ? new Vector3(-hx, -hy, -1f).normalized : new Vector3(-hx, -hy, 1f).normalized;
+                    float shade = Mathf.Clamp(0.45f + Vector3.Dot(n, light), 0.5f, 1.2f);
+                    if (pass == 1) shade *= 0.65f;   // la espalda, en sombra
+                    cols.Add(new Color(shade, shade, shade, 1f));
+                }
+        for (int pass = 0; pass < 2; pass++)
+            for (int y = 0; y < gh - 1; y++)
+                for (int x = 0; x < gw - 1; x++)
+                {
+                    int n = (cover[x, y] ? 1 : 0) + (cover[x + 1, y] ? 1 : 0) + (cover[x, y + 1] ? 1 : 0) + (cover[x + 1, y + 1] ? 1 : 0);
+                    if (n < 3) continue;
+                    int i0 = pass * stride + y * gw + x, i1 = i0 + 1, i2 = i0 + gw, i3 = i2 + 1;
+                    if (pass == 0) tris.AddRange(new[] { i0, i2, i1, i1, i2, i3 });
+                    else tris.AddRange(new[] { i0, i1, i2, i1, i3, i2 });
+                }
+        return MakeMesh("Volumen_" + s.name, verts, uvs, cols, tris);
+    }
+
+    // El fondo: un muro que se curva hacia adelante en los costados, con el relieve de sus pinceladas
+    Mesh BackgroundMesh(Sprite s)
+    {
+        var tex = s.texture;
+        Rect tr = s.textureRect;
+        Bounds bounds = s.bounds;
+        int gw = Mathf.Clamp(backgroundResolution, 16, 200);
+        int gh = Mathf.Clamp(Mathf.RoundToInt(gw * tr.height / tr.width), 8, 256);
+        var px = Read(tex, tr, gw, gh);
+        var lum = new float[gw, gh];
+        for (int y = 0; y < gh; y++) for (int x = 0; x < gw; x++) lum[x, y] = px[y * gw + x].grayscale;
+        lum = Blur(Blur(lum, gw, gh), gw, gh);
+
+        float minSide = Mathf.Min(bounds.size.x, bounds.size.y);
+        var z = new float[gw, gh];
+        for (int y = 0; y < gh; y++)
+            for (int x = 0; x < gw; x++)
+            {
+                float u = (float)x / (gw - 1) - 0.5f;
+                z[x, y] = -backgroundBend * bounds.size.x * u * u - backgroundRelief * minSide * (lum[x, y] - 0.5f) * 2f;
+            }
+
+        float cw = bounds.size.x / (gw - 1), ch = bounds.size.y / (gh - 1);
+        Vector3 light = new Vector3(-0.5f, 0.6f, -0.6f).normalized;
+        var verts = new List<Vector3>();
+        var uvs = new List<Vector2>();
+        var cols = new List<Color>();
+        var tris = new List<int>();
+        for (int y = 0; y < gh; y++)
+            for (int x = 0; x < gw; x++)
+            {
+                float u = (float)x / (gw - 1), v = (float)y / (gh - 1);
+                verts.Add(new Vector3(bounds.min.x + u * bounds.size.x, bounds.min.y + v * bounds.size.y, z[x, y]));
+                uvs.Add(new Vector2((tr.x + u * tr.width) / tex.width, (tr.y + v * tr.height) / tex.height));
+                float hx = (z[Mathf.Min(gw - 1, x + 1), y] - z[Mathf.Max(0, x - 1), y]) / (2f * cw);
+                float hy = (z[x, Mathf.Min(gh - 1, y + 1)] - z[x, Mathf.Max(0, y - 1)]) / (2f * ch);
+                Vector3 n = new Vector3(hx, hy, -1f).normalized;
+                float shade = Mathf.Clamp(0.55f + 0.6f * Vector3.Dot(n, light), 0.7f, 1.1f);
+                cols.Add(new Color(shade, shade, shade, 1f));
+            }
+        for (int y = 0; y < gh - 1; y++)
+            for (int x = 0; x < gw - 1; x++)
+            {
+                int i0 = y * gw + x, i1 = i0 + 1, i2 = i0 + gw, i3 = i2 + 1;
+                tris.AddRange(new[] { i0, i2, i1, i1, i2, i3 });
+            }
+        return MakeMesh("Fondo_" + s.name, verts, uvs, cols, tris);
+    }
+
+    static Mesh MakeMesh(string name, List<Vector3> verts, List<Vector2> uvs, List<Color> cols, List<int> tris)
+    {
+        if (tris.Count == 0) return null;
+        var m = new Mesh { indexFormat = UnityEngine.Rendering.IndexFormat.UInt32, name = name };
+        m.SetVertices(verts);
+        m.SetUVs(0, uvs);
+        m.SetColors(cols);
+        m.SetTriangles(tris, 0);
+        m.RecalculateBounds();
+        return m;
+    }
+
+    // Suaviza (promedio con los vecinos)
+    static float[,] Blur(float[,] a, int w, int h)
+    {
+        var o = new float[w, h];
+        for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++)
+            {
+                float sum = 0f; int n = 0;
+                for (int dy = -1; dy <= 1; dy++)
+                    for (int dx = -1; dx <= 1; dx++)
+                    {
+                        int xx = x + dx, yy = y + dy;
+                        if (xx < 0 || yy < 0 || xx >= w || yy >= h) continue;
+                        sum += a[xx, yy]; n++;
+                    }
+                o[x, y] = sum / n;
+            }
+        return o;
+    }
+
+    // Copia chica de una parte de la imagen, para leer sus colores (sin tener que tildar Read/Write)
+    static Color[] Read(Texture2D tex, Rect r, int w, int h)
+    {
+        var rt = RenderTexture.GetTemporary(w, h, 0, RenderTextureFormat.ARGB32);
+        Graphics.Blit(tex, rt, new Vector2(r.width / tex.width, r.height / tex.height), new Vector2(r.x / tex.width, r.y / tex.height));
+        var prev = RenderTexture.active;
+        RenderTexture.active = rt;
+        var small = new Texture2D(w, h, TextureFormat.RGBA32, false);
+        small.ReadPixels(new Rect(0, 0, w, h), 0, 0);
+        small.Apply();
+        RenderTexture.active = prev;
+        RenderTexture.ReleaseTemporary(rt);
+        var px = small.GetPixels();
+        Destroy(small);
+        return px;
     }
 }

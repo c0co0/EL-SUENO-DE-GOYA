@@ -99,11 +99,14 @@ public class GoyaIntro : MonoBehaviour
     [TextArea(2, 4)]
     public string[] lines =
     {
-        "Bienvenido al sueño de Goya.",
-        "Soy el macho cabrío.\nTe voy a mostrar sus visiones.",
-        "Mirá una visión, levantá los dos brazos\ncon las manos abiertas\ny se va a formar.",
-        "Cerrá los dos puños\ny la visión se desvanece.",
-        "Levantá un dedo para caminar.\nUn dedo en cada mano para volver.",
+        "Bienvenido al sueño de Goya.\nSoy el macho cabrío, y este es mi aquelarre.",
+        "El sueño de la razón produce monstruos.\nVas a caminar hacia lo oscuro.",
+        "Levantá un dedo para caminar.\nCon una V en una mano, corrés.",
+        "El camino se abre en tres.\nEl que elijas decide qué visiones te tocan.",
+        "Las visiones están sin pintar.\nSeñalalas con la mano y juntá el polvo de luz.",
+        "Si los murciélagos las tapan,\nespantalos primero.",
+        "En la cueva, agarrá la antorcha.\nLos cuadros se van a caer: salvalos.",
+        "Al final vas a entrar\nen mis Pinturas Negras.",
         "Cruzá los brazos\npara volver a empezar.",
         "Levantá un brazo con la mano abierta\npara entrar en el sueño."
     };
