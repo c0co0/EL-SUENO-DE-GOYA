@@ -59,9 +59,11 @@ public class GoyaGallery : MonoBehaviour
     public int[] epochSizes = { 6, 7, 5, 4, 5 };
     [Tooltip("Camino: solo estas obras quedan afuera, cada una en su epoca (el comienzo del nombre). Vacio = todas. Las de la cueva siguen igual")]
     public string[] onlyPaintings = { "02 La cometa", "12 El pelele", "18 Vuelo de brujas" };
+    [Tooltip("Camino: afuera de la cueva sale una obra al azar de cada epoca, distinta en cada recorrido (no se usa Only Paintings)")]
+    public bool randomPaintings = true;
     [Header("Bifurcacion al comienzo: tres caminos")]
     [Tooltip("Al comienzo el camino se abre en tres. El que elegis (por donde pasas) decide que obras te tocan; despues los tres se vuelven a juntar")]
-    public bool forkAtStart = true;
+    public bool forkAtStart = false;
     [Tooltip("Camino de la izquierda: sus obras, una por epoca, en el mismo orden que Only Paintings")]
     public string[] routeLeft = { "01 La gallina ciega", "10 La familia de Carlos IV", "17 El aquelarre" };
     [Tooltip("Camino del medio: Only Paintings")]
@@ -442,11 +444,15 @@ public class GoyaGallery : MonoBehaviour
             var keep = new List<int>();
             var keepZ = new List<float>();
             int listedCount = 0;
+            // Al azar: una obra de esta epoca, si la zona entera queda afuera de la cueva
+            bool outside = caveC == null || zone < caveC.startZone;
+            int pick = randomPaintings && outside ? Random.Range(0, full) : -1;
             for (int j = 0; j < full; j++)
             {
                 int idx = start + j;
                 float zz = zone * zoneLength + 2f + (full == 1 ? 0.5f : (float)j / (full - 1)) * (zoneLength - 3.5f);
-                bool listed = !filter || System.Array.Exists(onlyPaintings, f => !string.IsNullOrEmpty(f) && sequence[idx].name.StartsWith(f));
+                bool listed = randomPaintings ? j == pick
+                            : !filter || System.Array.Exists(onlyPaintings, f => !string.IsNullOrEmpty(f) && sequence[idx].name.StartsWith(f));
                 if (listed || zz >= caveZ + 0.8f) { keep.Add(idx); keepZ.Add(listed ? -1f : zz); if (listed) listedCount++; }
             }
             int count = keep.Count, li = 0;
@@ -469,7 +475,7 @@ public class GoyaGallery : MonoBehaviour
                 var rot = Quaternion.LookRotation(new Vector3(side, 0f, 0.45f).normalized);
                 var p = CreatePaintingAt(sequence[idx], "Obra" + idx, pos, rot, 1f + 0.3f * depth);
                 if (p == null) continue;
-                if (keepZ[j] < 0f && filter) routeSlots.Add(p);
+                if (keepZ[j] < 0f && (filter || randomPaintings)) routeSlots.Add(p);
                 p.darkIndex = p.originalIndex = idx;
                 p.zone = zone;
             }

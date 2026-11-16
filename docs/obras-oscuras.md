@@ -6,7 +6,7 @@ Rama: `obras-oscuras` (sale de `cardboard-xr`).
 
 - **Bienvenida:** el macho cabrío flota adelante con la frase "Levantá una mano para empezar" (*Start Line*), así nadie se pierde las reglas mientras se pone el visor. Al levantar una mano, arriba de él aparecen, una por una, frases cortas con las reglas (campo *Lines* de **Goya Intro**, se pueden editar en el Inspector). Hasta que no termina de explicar no se lo puede deshacer (*Wait For Rules*). Se le puede poner voz a cada frase en *Narration*.
 - **El cabrío arde:** con un brazo levantado y la mano abierta, se prende fuego, se carboniza y se dispersa en brasas.
-- **Un camino para recorrer** (*Path Mode* en **Goya Gallery**): al comienzo se abre en tres y el que elegís decide qué obras te tocan (ver "Tres caminos al comienzo"). Afuera hay una obra por época, colgada de un árbol al costado del camino. El camino tiene cinco zonas, una por época y en orden: cartones para tapices, la corte, brujas y disparates, la guerra y las Pinturas Negras (*Zone Length*, 16 m cada una). Caminar hacia adelante es adentrarse en lo oscuro.
+- **Un camino para recorrer** (*Path Mode* en **Goya Gallery**): afuera hay una obra por época, elegida al azar en cada recorrido, colgada de un árbol al costado del camino. El camino tiene cinco zonas, una por época y en orden: cartones para tapices, la corte, brujas y disparates, la guerra y las Pinturas Negras (*Zone Length*, 16 m cada una). Caminar hacia adelante es adentrarse en lo oscuro.
 - **Un paisaje como el fondo de La gallina ciega** (**Goya Environment**, se agrega solo): cielo azul con nubes doradas, montañas azuladas a lo lejos, cerros, un lago plateado alrededor y tierra ocre con pasto oscuro por donde va el camino. Todo se genera al empezar, sin imágenes. Zona por zona el paisaje se tiñe (*Zones → Tint*): dorado en la corte, noche azul en las brujas, rojizo en la guerra y casi negro en las Pinturas Negras. Al pasar de una zona a otra cambia de a poco, y lo lejano se pierde en la niebla. Las paredes hechas con pinturas de la versión anterior se pueden volver a prender con *Walls* y *Ground*.
 - **Las obras empiezan invisibles** (no hay polvo ni partículas flotando en el aire; para volver a verlo, subir Air Alpha y prender Dust en Goya Ambience). Mirando hacia donde está una obra, con los dos brazos levantados y las manos abiertas se arma. Con los dos puños cerrados se desarma en un remolino de brasas y vuelve a ser polvo, para armarla otra vez si se quiere.
 - **Todo se apaga al avanzar:** cuanto más adentro del camino, más oscuros se tiñen los cuadros, las auras pasan de dorado a rojo y el sonido ambiente se pone más grave.
@@ -123,19 +123,12 @@ Inspirado en *Dust* de Robert Hodgin (motas de polvo iluminadas que se arremolin
 
 ## Las obras se pintan sobre telas colgadas de los árboles (caminantes)
 
-### Tres caminos al comienzo
+### Obras al azar
 
-Al empezar, el camino se abre en tres (se ve en la tierra del piso) y se vuelve a juntar unos metros más adelante. Al comienzo de cada uno hay un cartel de madera con sus tres obras en chiquito. **Por el que pasás decide qué obras te tocan** (se elige al llegar a la mitad de la bifurcación; si pasás por el medio sin decidir, te toca el del medio). Hasta que elegís, las obras no aparecen.
+Afuera de la cueva hay **una obra por época, elegida al azar** cada vez que empieza el recorrido (`Random Paintings` en **Goya Gallery**). Así cada recorrido es distinto. Si sale *El pelele* o *Vuelo de brujas*, se pintan animadas. Las de la cueva y las Pinturas Negras siguen siendo siempre las mismas.
 
-| Camino | Obras |
-|---|---|
-| Izquierda (`Route Left`) | La gallina ciega, La familia de Carlos IV, El aquelarre |
-| Medio (`Only Paintings`) | La cometa, El pelele, Vuelo de brujas |
-| Derecha (`Route Right`) | La nevada, Majas en el balcón, El entierro de la sardina |
+Para elegir obras fijas, apagá `Random Paintings` y escribilas en `Only Paintings`. La bifurcación en tres caminos quedó apagada (`Fork At Start`). La caminata es más rápida (`Path Move Speed` 1,6).
 
-Todo en **Goya Gallery**: `Fork At Start` (apagado: un solo camino), `Fork Width` (cuánto se separan) y `Fork Length` (largo de la bifurcación). Cada lista va en orden de época, una obra por época. La caminata ahora es más rápida (`Path Move Speed` 1,6, antes 1,1).
-
-Afuera hay **solo tres obras**, una por época: *La cometa*, *El pelele* y *Vuelo de brujas* (`Only Paintings` en Goya Gallery; vacío = todas). Las de la cueva y las pinturas negras siguen igual.
 
 Cada obra es una **tela colgada de la rama baja de un árbol** fractal que crece al costado, atada con dos sogas, más o menos a la altura de la vista. La tela empieza en blanco (lino viejo con los bordes gastados) y tiene un borde sin pintar alrededor de la obra.
 
