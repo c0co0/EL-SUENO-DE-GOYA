@@ -151,6 +151,8 @@ public class GoyaParticles : MonoBehaviour
     public float walkerShrink = 0.035f;
     [Tooltip("Pasos de cada caminante por cuadro (mas = pinta mas rapido)")]
     public int walkerSteps = 5;
+    [Tooltip("Como caminan los caminantes y por eso como se arma la obra: siguiendo contornos, a puntos, en remolinos, en rayas, en espirales, una mezcla, o Azar (cada obra elige uno distinto cada vez que empieza).")]
+    public GoyaCanvas.Style walkerStyle = GoyaCanvas.Style.Azar;
     [Tooltip("Cuando ya juntaste el polvo, los segundos maximos hasta que la obra termina de pintarse sola")]
     public float finishAfter = 8f;
     [Tooltip("Algunas obras en rocas en vez de telas (una y una)")]
@@ -179,6 +181,8 @@ public class GoyaParticles : MonoBehaviour
     public float handPush = 6f;
     [Tooltip("Radio de la mano que aparta (metros)")]
     public float handRadius = 0.45f;
+    [Tooltip("Si esta prendido, la mano empuja la tela donde se pinta la obra y la infla como un globo. Apagado: la tela solo se mece con el viento.")]
+    public bool handBulgesCloth = false;
     [Tooltip("Las obras vivas mas lejanas que esto (metros) no se simulan ni se dibujan")]
     public float livingDistance = 14f;
     [Tooltip("Puntos a lo alto de la tela de particulas que lleva la imagen (mas = mas suave, mas pesado)")]
@@ -1223,6 +1227,7 @@ public class GoyaParticles : MonoBehaviour
         e.canvas.Size = walkerSize;
         e.canvas.Shrink = walkerShrink;
         e.canvas.StepsPerFrame = walkerSteps;
+        e.canvas.WalkStyle = walkerStyle;
         return true;
     }
 
@@ -1362,6 +1367,7 @@ public class GoyaParticles : MonoBehaviour
         float flowK = cloth ? 1.6f : 1f, springK = cloth ? 0.5f : 1f;
         Vector3 hangOff = cloth && e.canvas.hang != null ? e.canvas.hang.Offset() : Vector3.zero;
         Vector3 hangStart = cloth ? new Vector3(e.canvas.TreeRoot.x, e.canvas.HangY, e.canvas.TreeRoot.z) : Vector3.zero;
+        if (e.canvas != null && !handBulgesCloth) pushes = 0;   // la mano pinta la tela pero no la infla
         if (rock) { pushes = 0; System.Array.Copy(home, pos, pos.Length); }   // la roca no se mueve: solo cambia el color
         else
         for (int j = 0; j <= sy; j++)

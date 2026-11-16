@@ -49,6 +49,26 @@ public class GoyaCanvas
     // Caminantes
     readonly List<float> wx = new List<float>(), wy = new List<float>(), vx = new List<float>(), vy = new List<float>(), ws = new List<float>(), wk = new List<float>();
     readonly List<Color32> wc = new List<Color32>();
+    readonly List<int> wt = new List<int>();      // tipo de caminante (ver Style)
+    readonly List<float> wp = new List<float>();  // dato propio del tipo (el giro de la espiral)
+
+    /// <summary>Como caminan los caminantes, y por eso como se arma la obra (como en el video de la chica de la perla,
+    /// donde la misma pintura aparece de formas distintas):
+    /// Contorno = pinceladas que siguen los bordes de la figura; Puntos = saltitos que dejan puntos (puntillismo);
+    /// Remolino = siguen un viento que da vueltas (trazos curvos que fluyen); Rayado = trazos rectos en una sola
+    /// direccion (como un grabado); Espiral = cada uno da vueltas en circulo; Mezcla = de todos los tipos a la vez;
+    /// Azar = cada vez que la obra empieza de nuevo elige uno de los anteriores.</summary>
+    public enum Style { Contorno, Puntos, Remolino, Rayado, Espiral, Mezcla, Azar }
+    Style style = Style.Azar;
+    public Style WalkStyle
+    {
+        get { return style; }
+        set { if (value != style) { style = value; Current = PickStyle(); } }
+    }
+    Style PickStyle() { return style == Style.Azar ? (Style)Random.Range(0, (int)Style.Azar) : style; }
+    /// <summary>El tipo que le toco esta vez (si style es Azar).</summary>
+    public Style Current { get; private set; }
+    float hatchAngle, flowSeed;
 
     public int MaxWalkers = 260;
     public float Size = 6f;          // radio inicial de la pincelada (pixeles)
@@ -103,7 +123,10 @@ public class GoyaCanvas
         System.Array.Copy(basePx, px, px.Length);
         System.Array.Clear(cellPainted, 0, cellPainted.Length);
         painted = 0;
-        wx.Clear(); wy.Clear(); vx.Clear(); vy.Clear(); ws.Clear(); wc.Clear(); wk.Clear();
+        wx.Clear(); wy.Clear(); vx.Clear(); vy.Clear(); ws.Clear(); wc.Clear(); wk.Clear(); wt.Clear(); wp.Clear();
+        Current = PickStyle();
+        hatchAngle = Random.Range(0.3f, 1.2f) * (Random.value < 0.5f ? 1f : -1f);
+        flowSeed = Random.Range(0f, 100f);
         tex.SetPixels32(px);
         tex.Apply(false);
     }
@@ -117,9 +140,15 @@ public class GoyaCanvas
         vx.Add(Mathf.Cos(a) * Speed * Px * 0.5f); vy.Add(Mathf.Sin(a) * Speed * Px * 0.5f);
         // De lo grueso a lo fino: al principio pinceladas grandes, a medida que se cubre la tela, mas chicas (mas detalle)
         float fine = Mathf.Lerp(1f, 0.4f, Coverage);
-        ws.Add(Size * Px * sizeK * fine * Random.Range(0.6f, 1.2f));
+        int type = Current == Style.Mezcla ? Random.Range(0, (int)Style.Mezcla) : (int)Current;
+        float size = Size * Px * sizeK * fine * Random.Range(0.6f, 1.2f);
+        if (type == (int)Style.Puntos) size *= 0.75f;
+        if (type == (int)Style.Rayado) size *= 0.55f;    // rayas finas
+        ws.Add(size);
         wk.Add(fast);
         wc.Add(new Color32(0, 0, 0, 0));
+        wt.Add(type);
+        wp.Add(Random.Range(0.07f, 0.2f) * (Random.value < 0.5f ? 1f : -1f));
     }
 
     /// <summary>Caminantes nuevos dentro de una parte de la obra (u, v de 0 a 1): donde se mueve una obra animada.</summary>
@@ -165,26 +194,66 @@ public class GoyaCanvas
                 float fast = wk[i], max = Speed * Px * fast;
                 float ax = Random.Range(-0.35f, 0.35f) * Px * fast, ay = Random.Range(-0.35f, 0.35f) * Px * fast;
                 bool stroke = fast <= 1.01f;
+                int type = wt[i];
                 if (stroke)
                 {
-                    // Pincelada: sigue los contornos de la pintura (va a lo largo de los bordes, no los cruza),
-                    // con un poco de azar. Asi deja trazos largos, como un pincel, y no manchas redondas.
-                    float u0 = (wx[i] - ix0) / (iw - 1), v0 = (wy[i] - iy0) / (ih - 1), e = 2.5f / iw, f = 2.5f / ih;
-                    float gx = Lum(Sample(u0 + e, v0)) - Lum(Sample(u0 - e, v0));
-                    float gy = Lum(Sample(u0, v0 + f)) - Lum(Sample(u0, v0 - f));
-                    float g = Mathf.Sqrt(gx * gx + gy * gy);
-                    if (g > 0.015f)
+                    switch ((Style)type)
                     {
-                        float tx = -gy / g, ty = gx / g;
-                        if (tx * vx[i] + ty * vy[i] < 0f) { tx = -tx; ty = -ty; }   // sigue para el mismo lado
-                        ax = (tx * max - vx[i]) * 0.25f + ax * 0.5f;
-                        ay = (ty * max - vy[i]) * 0.25f + ay * 0.5f;
+                        case Style.Puntos:
+                            // Saltitos al azar: cada paso deja un punto separado del anterior
+                            float ja = Random.value * Mathf.PI * 2f, jump = ws[i] * 1.6f;
+                            ax = Mathf.Cos(ja) * jump - vx[i]; ay = Mathf.Sin(ja) * jump - vy[i];
+                            break;
+                        case Style.Remolino:
+                        {
+                            // Un viento que da vueltas por la tela (ruido de Perlin): trazos curvos que fluyen
+                            float fa = Mathf.PerlinNoise((wx[i] - ix0) * 0.006f / Px + flowSeed, (wy[i] - iy0) * 0.006f / Px) * Mathf.PI * 4f;
+                            ax = (Mathf.Cos(fa) * max - vx[i]) * 0.3f + ax * 0.2f;
+                            ay = (Mathf.Sin(fa) * max - vy[i]) * 0.3f + ay * 0.2f;
+                            break;
+                        }
+                        case Style.Rayado:
+                        {
+                            // Todos en la misma direccion (ida o vuelta), casi sin desviarse: rayas como de grabado
+                            float hx = Mathf.Cos(hatchAngle), hy = Mathf.Sin(hatchAngle);
+                            if (hx * vx[i] + hy * vy[i] < 0f) { hx = -hx; hy = -hy; }
+                            ax = (hx * max - vx[i]) * 0.5f + ax * 0.1f;
+                            ay = (hy * max - vy[i]) * 0.5f + ay * 0.1f;
+                            break;
+                        }
+                        case Style.Espiral:
+                        {
+                            // Gira siempre para el mismo lado: dibuja rulos
+                            float t = wp[i], cs = Mathf.Cos(t), sn = Mathf.Sin(t);
+                            float rx = vx[i] * cs - vy[i] * sn, ry = vx[i] * sn + vy[i] * cs;
+                            float rl = Mathf.Max(0.001f, Mathf.Sqrt(rx * rx + ry * ry));
+                            ax = rx / rl * max - vx[i]; ay = ry / rl * max - vy[i];
+                            break;
+                        }
+                        default:
+                        {
+                            // Pincelada: sigue los contornos de la pintura (va a lo largo de los bordes, no los cruza),
+                            // con un poco de azar. Asi deja trazos largos, como un pincel, y no manchas redondas.
+                            float u0 = (wx[i] - ix0) / (iw - 1), v0 = (wy[i] - iy0) / (ih - 1), e = 2.5f / iw, f = 2.5f / ih;
+                            float gx = Lum(Sample(u0 + e, v0)) - Lum(Sample(u0 - e, v0));
+                            float gy = Lum(Sample(u0, v0 + f)) - Lum(Sample(u0, v0 - f));
+                            float g = Mathf.Sqrt(gx * gx + gy * gy);
+                            if (g > 0.015f)
+                            {
+                                float tx = -gy / g, ty = gx / g;
+                                if (tx * vx[i] + ty * vy[i] < 0f) { tx = -tx; ty = -ty; }   // sigue para el mismo lado
+                                ax = (tx * max - vx[i]) * 0.25f + ax * 0.5f;
+                                ay = (ty * max - vy[i]) * 0.25f + ay * 0.5f;
+                            }
+                            else { ax *= 0.4f; ay *= 0.4f; }   // zona pareja: sigue derecho
+                            break;
+                        }
                     }
-                    else { ax *= 0.4f; ay *= 0.4f; }   // zona pareja: sigue derecho
                 }
                 float nvx = vx[i] + ax, nvy = vy[i] + ay;
                 float sp = Mathf.Sqrt(nvx * nvx + nvy * nvy);
-                if (sp > max) { nvx *= max / sp; nvy *= max / sp; }
+                float cap = type == (int)Style.Puntos && stroke ? ws[i] * 1.6f : max;
+                if (sp > cap) { nvx *= cap / sp; nvy *= cap / sp; }
                 float x = wx[i] + nvx, y = wy[i] + nvy;
                 if (x < ix0 || x > ix0 + iw - 1) { nvx = -nvx; x = Mathf.Clamp(x, ix0, ix0 + iw - 1); }
                 if (y < iy0 || y > iy0 + ih - 1) { nvy = -nvy; y = Mathf.Clamp(y, iy0, iy0 + ih - 1); }
@@ -194,7 +263,7 @@ public class GoyaCanvas
                 // si cruza a un color muy distinto (un borde de la figura), el trazo termina ahi
                 Color c = Sample((x - ix0) / (iw - 1), (y - iy0) / (ih - 1));
                 bool cut = false;
-                if (stroke)
+                if (stroke && type != (int)Style.Puntos)
                 {
                     Color32 carried = wc[i];
                     if (carried.a == 0) carried = new Color32((byte)(c.r * 255f), (byte)(c.g * 255f), (byte)(c.b * 255f), 255);
@@ -205,15 +274,16 @@ public class GoyaCanvas
                     wc[i] = cc;
                     c = cc;
                 }
-                float j = 1f + Random.Range(-0.03f, 0.03f);
+                float j = 1f + (type == (int)Style.Puntos ? Random.Range(-0.08f, 0.08f) : Random.Range(-0.03f, 0.03f));
                 if (!cut) Stamp(x, y, ws[i], new Color(c.r * j, c.g * j, c.b * j, 1f));
 
-                ws[i] -= Shrink * Px * fast * (stroke ? 0.6f : 1f);
+                float life = !stroke ? 1f : type == (int)Style.Puntos ? 2.5f : type == (int)Style.Rayado ? 0.25f : 0.6f;
+                ws[i] -= Shrink * Px * fast * life;
                 if (ws[i] < 0.6f || cut)
                 {
                     int last = wx.Count - 1;
-                    wx[i] = wx[last]; wy[i] = wy[last]; vx[i] = vx[last]; vy[i] = vy[last]; ws[i] = ws[last]; wc[i] = wc[last]; wk[i] = wk[last];
-                    wx.RemoveAt(last); wy.RemoveAt(last); vx.RemoveAt(last); vy.RemoveAt(last); ws.RemoveAt(last); wc.RemoveAt(last); wk.RemoveAt(last);
+                    wx[i] = wx[last]; wy[i] = wy[last]; vx[i] = vx[last]; vy[i] = vy[last]; ws[i] = ws[last]; wc[i] = wc[last]; wk[i] = wk[last]; wt[i] = wt[last]; wp[i] = wp[last];
+                    wx.RemoveAt(last); wy.RemoveAt(last); vx.RemoveAt(last); vy.RemoveAt(last); ws.RemoveAt(last); wc.RemoveAt(last); wk.RemoveAt(last); wt.RemoveAt(last); wp.RemoveAt(last);
                 }
             }
         if (dirty)
