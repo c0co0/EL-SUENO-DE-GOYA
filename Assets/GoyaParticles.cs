@@ -152,7 +152,7 @@ public class GoyaParticles : MonoBehaviour
     [Tooltip("Pasos de cada caminante por cuadro (mas = pinta mas rapido)")]
     public int walkerSteps = 5;
     [Tooltip("Como caminan los caminantes y por eso como se arma la obra: siguiendo contornos, a puntos, en remolinos, en rayas, en espirales, una mezcla, o Azar (cada obra elige uno distinto cada vez que empieza).")]
-    public GoyaCanvas.Style walkerStyle = GoyaCanvas.Style.Azar;
+    public GoyaCanvas.Style walkerStyle = GoyaCanvas.Style.Contorno;
     [Tooltip("Cuando ya juntaste el polvo, los segundos maximos hasta que la obra termina de pintarse sola")]
     public float finishAfter = 8f;
     [Tooltip("Algunas obras en rocas en vez de telas (una y una)")]

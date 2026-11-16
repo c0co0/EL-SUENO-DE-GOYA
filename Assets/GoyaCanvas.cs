@@ -59,7 +59,7 @@ public class GoyaCanvas
     /// direccion (como un grabado); Espiral = cada uno da vueltas en circulo; Mezcla = de todos los tipos a la vez;
     /// Azar = cada vez que la obra empieza de nuevo elige uno de los anteriores.</summary>
     public enum Style { Contorno, Puntos, Remolino, Rayado, Espiral, Mezcla, Azar }
-    Style style = Style.Azar;
+    Style style = Style.Contorno;
     public Style WalkStyle
     {
         get { return style; }
