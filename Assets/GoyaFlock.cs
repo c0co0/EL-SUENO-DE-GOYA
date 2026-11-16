@@ -17,10 +17,9 @@ using UnityEngine;
 ///   6. Contagio: el miedo de un murcielago pasa a sus vecinos (un poco mas debil), asi el susto se propaga
 ///      como una ola por la bandada. El miedo se calma solo con el tiempo y entonces vuelven al nido.
 ///
-/// Juego: mientras una obra esta tapada por la bandada no se puede armar. Hay que espantarlos con la mano abierta
-/// (barriendo la obra) y armarla (dos brazos arriba) antes de que vuelvan. Si se hace el gesto de armar con la obra
-/// tapada, los murcielagos se asustan pero la obra no se arma.
-/// En la PC: mantener E sobre la obra los espanta. Se agrega solo y funciona en modo camino.
+/// Lejos (Far Away, prendido): la bandada da vueltas en el cielo, lejos del camino, y acompaña al caminar; no tapa
+/// las obras. Apagado: anida delante de las obras ocultas, las tapa y hay que espantarla con la mano abierta
+/// (en la PC, mantener E) para poder armarlas. Se agrega solo y funciona en modo camino.
 /// </summary>
 public class GoyaFlock : MonoBehaviour
 {

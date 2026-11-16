@@ -146,7 +146,7 @@ public class GoyaParticles : MonoBehaviour
     [Tooltip("Caminantes pintando a la vez en cada obra (mas = se pinta mas rapido, mas pesado)")]
     public int maxWalkers = 260;
     [Tooltip("Radio de la pincelada al nacer (pixeles de una tela de 256 de alto)")]
-    public float walkerSize = 6f;
+    public float walkerSize = 4f;
     [Tooltip("Cuanto se achica la pincelada en cada paso (mas = trazos mas cortos)")]
     public float walkerShrink = 0.035f;
     [Tooltip("Pasos de cada caminante por cuadro (mas = pinta mas rapido)")]
@@ -1004,7 +1004,9 @@ public class GoyaParticles : MonoBehaviour
             if (surface && e.caught[i] > settleTime * 0.7f)
             {
                 // Llego a la tela (o a la roca): ahi nace un caminante que pinta, y la mota se apaga
-                if (e.caught[i] - dt <= settleTime * 0.7f) e.canvas.Spawn(e.uv[i]);
+                // Cada mota que juntas da una pincelada nueva, repartidas por toda la tela (donde falta pintar):
+                // la obra aparece pareja, de lo grueso a lo fino, y no como una mancha que crece desde la mano
+                if (e.caught[i] - dt <= settleTime * 0.7f) e.canvas.SpawnWhereMissing(1);
                 gone = Mathf.Clamp01(1f - (e.caught[i] - settleTime * 0.7f) / 0.8f);
             }
             else if (e.caught[i] > settleTime * 0.7f && e.sheetGo != null && e.sheetGo.activeSelf)

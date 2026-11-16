@@ -123,6 +123,8 @@ public class GoyaCanvas
             Spawn(new Vector2(Mathf.Clamp01(area.x + Random.value * area.width), Mathf.Clamp01(area.y + Random.value * area.height)), sizeK, fast);
     }
 
+    static float Lum(Color c) { return 0.3f * c.r + 0.59f * c.g + 0.11f * c.b; }
+
     Color Sample(float u, float v)
     {
         return Sampler != null ? Sampler(u, v) : source.GetPixelBilinear(u, v);
@@ -154,9 +156,26 @@ public class GoyaCanvas
         for (int s = 0; s < StepsPerFrame; s++)
             for (int i = wx.Count - 1; i >= 0; i--)
             {
-                // Aceleracion al azar, velocidad limitada (camina sin rumbo fijo)
                 float fast = wk[i], max = Speed * Px * fast;
                 float ax = Random.Range(-0.35f, 0.35f) * Px * fast, ay = Random.Range(-0.35f, 0.35f) * Px * fast;
+                bool stroke = fast <= 1.01f;
+                if (stroke)
+                {
+                    // Pincelada: sigue los contornos de la pintura (va a lo largo de los bordes, no los cruza),
+                    // con un poco de azar. Asi deja trazos largos, como un pincel, y no manchas redondas.
+                    float u0 = (wx[i] - ix0) / (iw - 1), v0 = (wy[i] - iy0) / (ih - 1), e = 2.5f / iw, f = 2.5f / ih;
+                    float gx = Lum(Sample(u0 + e, v0)) - Lum(Sample(u0 - e, v0));
+                    float gy = Lum(Sample(u0, v0 + f)) - Lum(Sample(u0, v0 - f));
+                    float g = Mathf.Sqrt(gx * gx + gy * gy);
+                    if (g > 0.015f)
+                    {
+                        float tx = -gy / g, ty = gx / g;
+                        if (tx * vx[i] + ty * vy[i] < 0f) { tx = -tx; ty = -ty; }   // sigue para el mismo lado
+                        ax = (tx * max - vx[i]) * 0.25f + ax * 0.5f;
+                        ay = (ty * max - vy[i]) * 0.25f + ay * 0.5f;
+                    }
+                    else { ax *= 0.4f; ay *= 0.4f; }   // zona pareja: sigue derecho
+                }
                 float nvx = vx[i] + ax, nvy = vy[i] + ay;
                 float sp = Mathf.Sqrt(nvx * nvx + nvy * nvy);
                 if (sp > max) { nvx *= max / sp; nvy *= max / sp; }
@@ -165,13 +184,26 @@ public class GoyaCanvas
                 if (y < iy0 || y > iy0 + ih - 1) { nvy = -nvy; y = Mathf.Clamp(y, iy0, iy0 + ih - 1); }
                 wx[i] = x; wy[i] = y; vx[i] = nvx; vy[i] = nvy;
 
-                // El color de la pintura donde esta parado (con un poco de variacion, como pincel)
+                // El color de la pintura donde esta parado. La pincelada lleva su pintura y la va mezclando de a poco;
+                // si cruza a un color muy distinto (un borde de la figura), el trazo termina ahi
                 Color c = Sample((x - ix0) / (iw - 1), (y - iy0) / (ih - 1));
+                bool cut = false;
+                if (stroke)
+                {
+                    Color32 carried = wc[i];
+                    if (carried.a == 0) carried = new Color32((byte)(c.r * 255f), (byte)(c.g * 255f), (byte)(c.b * 255f), 255);
+                    Color cc = carried;
+                    float diff = Mathf.Abs(cc.r - c.r) + Mathf.Abs(cc.g - c.g) + Mathf.Abs(cc.b - c.b);
+                    cut = diff > 0.5f;
+                    cc = Color.Lerp(cc, c, 0.5f);
+                    wc[i] = cc;
+                    c = cc;
+                }
                 float j = 1f + Random.Range(-0.03f, 0.03f);
-                Stamp(x, y, ws[i], new Color(c.r * j, c.g * j, c.b * j, 1f));
+                if (!cut) Stamp(x, y, ws[i], new Color(c.r * j, c.g * j, c.b * j, 1f));
 
-                ws[i] -= Shrink * Px * fast;
-                if (ws[i] < 0.6f)
+                ws[i] -= Shrink * Px * fast * (stroke ? 0.6f : 1f);
+                if (ws[i] < 0.6f || cut)
                 {
                     int last = wx.Count - 1;
                     wx[i] = wx[last]; wy[i] = wy[last]; vx[i] = vx[last]; vy[i] = vy[last]; ws[i] = ws[last]; wc[i] = wc[last]; wk[i] = wk[last];

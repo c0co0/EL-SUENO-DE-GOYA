@@ -6,7 +6,7 @@ Rama: `obras-oscuras` (sale de `cardboard-xr`).
 
 - **Bienvenida:** el macho cabrío flota adelante con la frase "Levantá una mano para empezar" (*Start Line*), así nadie se pierde las reglas mientras se pone el visor. Al levantar una mano, arriba de él aparecen, una por una, frases cortas con las reglas (campo *Lines* de **Goya Intro**, se pueden editar en el Inspector). Hasta que no termina de explicar no se lo puede deshacer (*Wait For Rules*). Se le puede poner voz a cada frase en *Narration*.
 - **El cabrío arde:** con un brazo levantado y la mano abierta, se prende fuego, se carboniza y se dispersa en brasas.
-- **Un camino para recorrer** (*Path Mode* en **Goya Gallery**): las obras están a los costados de un camino, alternando izquierda y derecha, algunas más cerca y otras más atrás. El camino tiene cinco zonas, una por época y en orden: cartones para tapices, la corte, brujas y disparates, la guerra y las Pinturas Negras (*Zone Length*, 9 m cada una). Caminar hacia adelante es adentrarse en lo oscuro.
+- **Un camino para recorrer** (*Path Mode* en **Goya Gallery**): al comienzo se abre en tres y el que elegís decide qué obras te tocan (ver "Tres caminos al comienzo"). Afuera hay una obra por época, colgada de un árbol al costado del camino. El camino tiene cinco zonas, una por época y en orden: cartones para tapices, la corte, brujas y disparates, la guerra y las Pinturas Negras (*Zone Length*, 16 m cada una). Caminar hacia adelante es adentrarse en lo oscuro.
 - **Un paisaje como el fondo de La gallina ciega** (**Goya Environment**, se agrega solo): cielo azul con nubes doradas, montañas azuladas a lo lejos, cerros, un lago plateado alrededor y tierra ocre con pasto oscuro por donde va el camino. Todo se genera al empezar, sin imágenes. Zona por zona el paisaje se tiñe (*Zones → Tint*): dorado en la corte, noche azul en las brujas, rojizo en la guerra y casi negro en las Pinturas Negras. Al pasar de una zona a otra cambia de a poco, y lo lejano se pierde en la niebla. Las paredes hechas con pinturas de la versión anterior se pueden volver a prender con *Walls* y *Ground*.
 - **Las obras empiezan invisibles** (no hay polvo ni partículas flotando en el aire; para volver a verlo, subir Air Alpha y prender Dust en Goya Ambience). Mirando hacia donde está una obra, con los dos brazos levantados y las manos abiertas se arma. Con los dos puños cerrados se desarma en un remolino de brasas y vuelve a ser polvo, para armarla otra vez si se quiere.
 - **Todo se apaga al avanzar:** cuanto más adentro del camino, más oscuros se tiñen los cuadros, las auras pasan de dorado a rojo y el sonido ambiente se pone más grave.
@@ -29,25 +29,19 @@ Rama: `obras-oscuras` (sale de `cardboard-xr`).
 
 ## Sistema complejo: la bandada de murciélagos
 
-**Ahora vuela lejos** (`Far Away`, prendido): dos rondas en el cielo, a unos 24 m al costado del camino y 9 m de alto, que acompañan de lejos mientras caminás. No se cruza en el camino ni tapa las obras. Se ajusta con `Far Distance`, `Far Height` y `Far Size`. Apagando `Far Away` vuelve lo de abajo (anida en las obras y hay que espantarla).
+Los murciélagos y búhos de *El sueño de la razón produce monstruos* vuelan en bandada (`GoyaFlock`, se agrega solo), **lejos, en el cielo**: dan vueltas a unos 24 m al costado del camino y 9 m de alto, y te acompañan de lejos mientras caminás. No se cruzan en el camino ni tapan las obras.
 
-Los murciélagos y búhos de *El sueño de la razón produce monstruos* vuelan en bandada (`GoyaFlock`, se agrega solo). Es una simulación de **flocking** (los *boids* de Craig Reynolds, 1987): no hay ninguna animación de la bandada; cada murciélago tiene posición, velocidad y miedo, mira solo a sus vecinos cercanos (0,8 m) y sigue seis reglas en cada cuadro:
+Es una simulación de **flocking** (los *boids* de Craig Reynolds, 1987): no hay ninguna animación de la bandada; cada murciélago tiene posición, velocidad y miedo, mira solo a sus vecinos cercanos (0,8 m) y sigue reglas en cada cuadro:
 
 1. **Separación**: se aleja de los que están demasiado cerca.
 2. **Alineación**: copia la dirección promedio de sus vecinos.
 3. **Cohesión**: va hacia el centro de sus vecinos.
-4. **Nido**: gira delante de una obra todavía oculta. Las 3 obras ocultas más cercanas son nidos, y los murciélagos se reparten entre ellas según cuántos hay en cada una.
-5. **Miedo**: huye de la mano abierta que barre la obra (más fuerte cuanto más rápido se mueve), de las palmas y del fuego de la antorcha en la cueva.
-6. **Contagio**: el miedo de un murciélago pasa a sus vecinos, un poco más débil (82 %). Por eso el susto se propaga como una ola por la bandada, y se va calmando solo; cuando se calman, vuelven al nido.
+4. **Ronda**: gira alrededor de un punto en el cielo (hay dos rondas que avanzan con vos).
+5. **Miedo y contagio**: si algo los asusta, el miedo pasa a sus vecinos un poco más débil (82 %) y se propaga como una ola.
 
-Lo que se ve (remolinos sobre las obras, olas de pánico, la bandada que se divide entre obras y se reagrupa) **emerge** de esas reglas. Es la parte central del juego:
+Lo que se ve (remolinos, la bandada que se estira, se divide y se reagrupa) **emerge** de esas reglas. Sonido 3D: el aleteo sale del centro de la bandada.
 
-- Mientras una obra está tapada (8 murciélagos tranquilos o más delante de ella), **no se puede armar**. Si hacés el gesto de armar igual, se asustan pero la obra no aparece.
-- Para destaparla: pasá la **mano abierta** sobre la obra para espantarlos, y **armala** (dos brazos arriba) antes de que vuelvan.
-- Cuando una obra se arma deja de ser nido, y la bandada se va a tapar la siguiente obra oculta del camino. Por eso la bandada también marca dónde hay una obra escondida.
-- Sonido 3D: el aleteo sale del centro de la bandada y sube de volumen y de tono con el miedo; el primero que se asusta mucho chilla (`bandada_aleteo`, `murcielago_chillido_1..3`, de `tools/sonidos/generar.py`).
-- En la PC: mirá la obra y **mantené E** para espantarlos; soltá y volvé a apretar E para armarla.
-- Se ajusta en **Goya Flock**: cantidad (160; si el celular anda lento, bajarla), los pesos de cada regla, el radio y la fuerza del miedo, el contagio, la calma y cuántos murciélagos tapan una obra.
+Se ajusta en **Goya Flock**: cantidad (160), `Far Distance`, `Far Height` y `Far Size` (dónde y qué tan grande es la ronda). Apagando `Far Away` vuelve el modo anterior, donde la bandada anidaba delante de las obras ocultas, las tapaba y había que espantarla con la mano abierta para poder armarlas.
 
 ## Gestos
 
@@ -122,9 +116,8 @@ Inspirado en *Dust* de Robert Hodgin (motas de polvo iluminadas que se arremolin
 - Cada mota es una partícula con velocidad. Sueltas, las mecen corrientes suaves y vuelven despacio a su lugar en la nube. Titilan, y algunas son grandes y borrosas, como fuera de foco.
 - **La mano mueve el aire**: señalando la nube (o con E en la PC), el polvo cercano se arremolina y va hacia la mano. Cuanto más rápido movés la mano, más aire.
 - Las motas que quedan muy cerca de la mano **se atrapan**: un resorte las lleva a su lugar en la obra y de a poco toman el color de la pintura. Así vas acomodando el polvo y la obra aparece por partes, donde pasaste la mano.
-- Cuando una mota llega a su lugar, se apaga y en ese punto **aparece la pintura** (la tela de la obra viva). No hay un cambio de una forma a otra: la obra que queda es la misma que fuiste revelando.
+- Cada mota que llega a la tela se apaga y da **una pincelada nueva** (un caminante, ver abajo). Las pinceladas se reparten por toda la tela, donde falta pintar, así la obra aparece pareja y no como una mancha que crece desde la mano.
 - Cuando juntaste el 70 % (*Form At*), el resto se junta solo y la obra queda formada (y viva, ver abajo).
-- Si los murciélagos la tapan, la mano los espanta pero no junta polvo: primero hay que sacarlos.
 - El gesto de los dos brazos arriba sigue armándola de golpe.
 - Se ajusta en **Goya Particles**, sección *Polvo que se junta*: color y brillo de las motas, tamaño de la nube, fuerza y alcance del aire de la mano, distancia a la que se atrapan, el resorte y cuánto hay que juntar.
 
@@ -146,7 +139,7 @@ Afuera hay **solo tres obras**, una por época: *La cometa*, *El pelele* y *Vuel
 
 Cada obra es una **tela colgada de la rama baja de un árbol** fractal que crece al costado, atada con dos sogas, más o menos a la altura de la vista. La tela empieza en blanco (lino viejo con los bordes gastados) y tiene un borde sin pintar alrededor de la obra.
 
-Cuando juntás el polvo con la mano, cada mota que llega a la tela se apaga y en ese punto **nace un caminante**, como en el video de Processing: una partícula con posición, velocidad y aceleración al azar que toma el color de la pintura donde está, deja una pincelada y se achica hasta morir.
+Cuando juntás el polvo con la mano, cada mota que llega a la tela se apaga y **nace un caminante** en una parte de la tela que todavía falta pintar, como en el video de Processing: una partícula con posición, velocidad y aceleración que toma el color de la pintura, deja una pincelada y se achica hasta morir. Los caminantes **siguen los contornos** de la pintura (van a lo largo de los bordes de las figuras, no los cruzan) y llevan su pintura, que mezclan de a poco con la del lugar; si cruzan a un color muy distinto, el trazo termina. Por eso dejan pinceladas largas que siguen las formas, como un pincel, y no manchas redondas.
 
 **Definición:** la tela tiene 512 píxeles de alto y los caminantes leen la pintura en alta resolución. Pintan de lo grueso a lo fino: las primeras pinceladas son grandes y, a medida que la tela se cubre, nacen más chicas. Al terminar, lo pintado se afina hacia la pintura (se ven las pinceladas pero con definición) y después siguen naciendo caminantes chiquitos que afinan los detalles mientras la mirás (`Detail Walkers`).
 
@@ -266,7 +259,7 @@ Desde la mitad de la zona roja hasta Saturno el camino entra en una cueva (`Goya
 | **Clic derecho + mover el mouse** | Mirar alrededor |
 | **W / S** o **flechas ↑ / ↓** | Caminar hacia adelante (hacia donde mirás) / hacia atrás |
 | **Flechas ← / →** | Girar |
-| **E** o **T** | Armar la obra que estás mirando, o desarmarla si ya está armada. Mantener E espanta a los murciélagos que la tapan |
+| **E** o **T** | Armar la obra que estás mirando, o desarmarla si ya está armada |
 | **O** | Sumar oscuridad (+25 %) |
 | **V** | Cambiar entre pantalla partida (visor) y una sola cámara |
 | **R** | Recentrar la vista |
