@@ -41,7 +41,7 @@ public class GoyaAnimated : MonoBehaviour
     static void Auto()
     {
         var g = FindFirstObjectByType<GoyaGallery>();
-        if (g != null && g.GetComponent<GoyaAnimated>() == null) g.gameObject.AddComponent<GoyaAnimated>();
+        if (g != null && g.animatePaintings && g.GetComponent<GoyaAnimated>() == null) g.gameObject.AddComponent<GoyaAnimated>();
     }
 
     void Update()

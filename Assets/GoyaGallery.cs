@@ -61,6 +61,8 @@ public class GoyaGallery : MonoBehaviour
     public string[] onlyPaintings = { "02 La cometa", "12 El pelele", "18 Vuelo de brujas" };
     [Tooltip("Camino: en cada etapa de afuera (cartones, la corte, brujas) sale una obra al azar de esa etapa, distinta en cada recorrido (no se usa Only Paintings)")]
     public bool randomPaintings = true;
+    [Tooltip("El pelele salta y las brujas vuelan (se pintan animados). Apagado: son pinturas quietas como las demas.")]
+    public bool animatePaintings = false;
     [Tooltip("Camino: cuanto mas grandes son las obras de afuera (multiplica Painting Max Size)")]
     public float outsideScale = 1.7f;
     [Tooltip("Camino: cuanto mas lejos del camino quedan las obras de afuera (metros)")]

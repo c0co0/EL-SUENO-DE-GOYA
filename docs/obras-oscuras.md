@@ -125,7 +125,7 @@ Inspirado en *Dust* de Robert Hodgin (motas de polvo iluminadas que se arremolin
 
 ### Obras al azar
 
-Afuera de la cueva hay una obra en cada etapa (1 cartones para tapices, 2 la corte, 3 brujas y disparates), **elegida al azar entre las de esa etapa** cada vez que empieza el recorrido (`Random Paintings` en **Goya Gallery**). Así cada recorrido es distinto. Si sale *El pelele* o *Vuelo de brujas*, se pintan animadas. Las de la cueva y las Pinturas Negras siguen siendo siempre las mismas.
+Afuera de la cueva hay una obra en cada etapa (1 cartones para tapices, 2 la corte, 3 brujas y disparates), **elegida al azar entre las de esa etapa** cada vez que empieza el recorrido (`Random Paintings` en **Goya Gallery**). Así cada recorrido es distinto. *El pelele* y *Vuelo de brujas* se pintan quietas, como las demás. Las de la cueva y las Pinturas Negras siguen siendo siempre las mismas.
 
 Para elegir obras fijas, apagá `Random Paintings` y escribilas en `Only Paintings`. La bifurcación en tres caminos quedó apagada (`Fork At Start`). La caminata es más rápida (`Path Move Speed` 1,6).
 
@@ -195,6 +195,8 @@ Copian la paleta y el porte de los árboles que ya teníamos:
 - Para volver a los árboles recortados: destildar *Fractal Trees* en **Goya Fractal Trees**.
 
 ## Pinturas animadas: El pelele y Vuelo de brujas
+
+**Apagadas por ahora**: son pinturas quietas. Se vuelven a prender con `Animate Paintings` en **Goya Gallery**.
 
 - Cuando *El pelele* está armado, las mujeres lo tiran con la manta: sale por arriba del cuadro dando vueltas, cae y la manta se hunde (`GoyaAnimated`). Capas generadas con `tools/paisaje/pelele.py`.
 - Cuando *Vuelo de brujas* está armado, el grupo de brujas que lleva al hombre flota en el cielo: sube y baja despacio, se mece y gira (`GoyaVuelo`). Capas generadas con `tools/paisaje/vuelo.py` a partir del recorte de `Cortes`.

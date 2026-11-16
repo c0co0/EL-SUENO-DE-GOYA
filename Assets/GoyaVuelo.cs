@@ -35,7 +35,7 @@ public class GoyaVuelo : MonoBehaviour
     static void Auto()
     {
         var g = FindFirstObjectByType<GoyaGallery>();
-        if (g != null && g.GetComponent<GoyaVuelo>() == null) g.gameObject.AddComponent<GoyaVuelo>();
+        if (g != null && g.animatePaintings && g.GetComponent<GoyaVuelo>() == null) g.gameObject.AddComponent<GoyaVuelo>();
     }
 
     void Update()
