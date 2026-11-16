@@ -21,7 +21,12 @@ public class GoyaCanvas
     public GameObject support;
     /// <summary>Donde crece el arbol del que cuelga la tela, y su alto.</summary>
     public Vector3 TreeRoot;
-    public float TreeHeight = 6f;
+    /// <summary>La rama del arbol de la que cuelga la tela: alto (mundo), hacia donde va y su largo.</summary>
+    public float HangY;
+    public Vector3 HangDir;
+    public float HangLength;
+    /// <summary>La rama ya plantada (para que la tela siga su vaiven).</summary>
+    public GoyaFractalTrees.Hang hang;
     public Vector3 supportAt;        // donde estaba la obra cuando se armo el soporte
     Mesh supportMesh;
     Color[] supportBase, supportTinted;
@@ -283,37 +288,14 @@ public class GoyaCanvas
         float top = center.y + h * 0.5f;
         if (kind == Kind.Cloth)
         {
-            // Cuelga de la rama baja de un arbol que crece al costado: la rama sale del tronco, pasa por arriba
-            // de la tela y se va afinando; dos sogas la atan
-            Color bark = new Color(0.33f, 0.25f, 0.18f);
-            float trunkX = w * 0.5f + 0.45f, branchY = top + 0.32f;
-            Vector3 c0 = new Vector3(center.x, 0f, center.z) - front * 0.12f;
+            // Cuelga de la rama baja de un arbol que crece al costado. La rama es parte del arbol (GoyaFractalTrees):
+            // sale del tronco, pasa justo detras del borde de arriba de la tela y se mece con el arbol; la tela la sigue
+            float trunkX = w * 0.5f + 0.4f;
+            Vector3 c0 = new Vector3(center.x, 0f, center.z) - front * 0.07f;
             TreeRoot = new Vector3(c0.x, floorY, c0.z) + right * trunkX;
-            TreeHeight = Mathf.Max(5.5f, (branchY - floorY) * 2.3f);
-            const int segs = 10;
-            Vector3 prev = Vector3.zero;
-            for (int k = 0; k <= segs; k++)
-            {
-                float t = (float)k / segs;
-                float x = Mathf.Lerp(trunkX, -w * 0.5f - 0.35f, t);
-                float y = branchY + 0.18f * (1f - t) * (1f - t) - 0.12f * Mathf.Sin(t * Mathf.PI) + 0.05f * Mathf.Sin(t * 9f);
-                Vector3 pt = new Vector3(c0.x, y, c0.z) + right * x;
-                if (k > 0)
-                {
-                    Vector3 mid = (prev + pt) * 0.5f, dir = pt - prev;
-                    float r = Mathf.Lerp(0.09f, 0.025f, t);
-                    Box(verts, cols, uvs, tris, mid, dir.normalized, Vector3.Cross(front, dir).normalized, front, new Vector3(dir.magnitude + r, r * 2f, r * 2f), bark * (0.85f + 0.15f * t));
-                }
-                prev = pt;
-            }
-            // Sogas: de la rama a las puntas de arriba de la tela
-            for (int s = -1; s <= 1; s += 2)
-            {
-                float x = s * (w * 0.5f - 0.04f), t = Mathf.InverseLerp(trunkX, -w * 0.5f - 0.35f, x);
-                float y = branchY + 0.18f * (1f - t) * (1f - t) - 0.12f * Mathf.Sin(t * Mathf.PI) + 0.05f * Mathf.Sin(t * 9f);
-                Vector3 a = new Vector3(c0.x, y, c0.z) + right * x, b = new Vector3(center.x, top, center.z) + right * x;
-                Box(verts, cols, uvs, tris, (a + b) * 0.5f, right, Vector3.up, front, new Vector3(0.015f, Mathf.Max(0.02f, a.y - b.y), 0.015f), new Color(0.55f, 0.47f, 0.35f));
-            }
+            HangY = top + 0.04f;
+            HangDir = -right;
+            HangLength = trunkX + w * 0.5f + 0.3f;
         }
         else
         {

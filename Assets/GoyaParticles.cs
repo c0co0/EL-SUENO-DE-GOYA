@@ -1216,7 +1216,7 @@ public class GoyaParticles : MonoBehaviour
             if (kind == GoyaCanvas.Kind.Cloth)
             {
                 var forest = gallery.GetComponent<GoyaFractalTrees>();
-                if (forest != null) forest.Plant(e.canvas.TreeRoot, e.canvas.TreeHeight);
+                if (forest != null) e.canvas.hang = forest.Plant(e.canvas.TreeRoot, e.canvas.HangY, e.canvas.HangDir, e.canvas.HangLength);
             }
         }
         e.canvas.MaxWalkers = anims.ContainsKey(p) ? maxWalkers * 3 : maxWalkers;
@@ -1360,13 +1360,14 @@ public class GoyaParticles : MonoBehaviour
         bool rock = canvas && e.canvas.kind == GoyaCanvas.Kind.Rock;
         bool cloth = canvas && !rock;
         float flowK = cloth ? 1.6f : 1f, springK = cloth ? 0.5f : 1f;
+        Vector3 hangOff = cloth && e.canvas.hang != null ? e.canvas.hang.Offset() : Vector3.zero;
         if (rock) { pushes = 0; System.Array.Copy(home, pos, pos.Length); }   // la roca no se mueve: solo cambia el color
         else
         for (int j = 0; j <= sy; j++)
             for (int i = 0; i <= sx; i++)
             {
                 int k = j * w + i;
-                if (cloth && j == sy) { pos[k] = home[k]; vel[k] = Vector3.zero; continue; }   // la tela cuelga del travesaño
+                if (cloth && j == sy) { pos[k] = home[k] + hangOff; vel[k] = Vector3.zero; continue; }   // la tela cuelga de la rama (y se mece con ella)
                 Vector3 x = pos[k], v = vel[k];
                 float loose = 1f - e.sEdge[k];
                 Vector3 a = (home[k] - x) * (spring * springK * (1f - 0.6f * loose)) - v * damping;

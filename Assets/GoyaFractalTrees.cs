@@ -224,34 +224,80 @@ public class GoyaFractalTrees : MonoBehaviour
                 Add(k, new Vector3(c.x + side, floorY, z), 4f + (float)rnd.NextDouble() * 2.5f, rnd);
             }
         built = true;
-        foreach (var pl in pending) Add(Kind.Gallina, pl.root, pl.height, rnd, true);
+        foreach (var h in pending) AddHanging(h, rnd);
         pending.Clear();
     }
 
-    struct Pending { public Vector3 root; public float height; }
-    readonly List<Pending> pending = new List<Pending>();
+    /// <summary>Un arbol con una rama baja de la que cuelga una tela. Offset: cuanto se movio la rama (viento y suelo).</summary>
+    public class Hang
+    {
+        public Vector3 root; public float y, length; public Vector3 dir;
+        internal object tree; internal int node = -1; internal Vector3 plantedRoot;
+        public Vector3 Offset()
+        {
+            var t = tree as Tree;
+            if (t == null || node < 0 || node >= t.nodes.Count) return Vector3.zero;
+            return t.nodes[node].swayOff + (t.root - plantedRoot);
+        }
+    }
+    readonly List<Hang> pending = new List<Hang>();
     readonly System.Random plantRnd = new System.Random(311);
 
-    /// <summary>Un arbol de tronco derecho en ese lugar (del que cuelga la tela de una obra). root.y = el piso.</summary>
-    public void Plant(Vector3 root, float height)
+    /// <summary>Planta un arbol de tronco derecho en root (root.y = el piso). El tronco llega justo a la altura y,
+    /// y de ahi sale una rama casi horizontal hacia dir, de ese largo: de ella cuelga la tela de una obra.</summary>
+    public Hang Plant(Vector3 root, float y, Vector3 dir, float length)
     {
-        if (!built) { pending.Add(new Pending { root = root, height = height }); return; }
-        Add(Kind.Gallina, root, height, plantRnd, true);
+        var h = new Hang { root = root, y = y, dir = dir, length = length };
+        if (!built) pending.Add(h); else AddHanging(h, plantRnd);
+        return h;
     }
 
-    void Add(Kind kind, Vector3 root, float height, System.Random rnd, bool straight = false)
+    void AddHanging(Hang h, System.Random rnd)
+    {
+        var style = Get(Kind.Gallina);
+        float trunk = Mathf.Max(1f, h.y - h.root.y);
+        float height = trunk / (0.7f * style.trunk);   // asi el tronco termina justo a la altura de la rama
+        var t = Add(Kind.Gallina, h.root, height, rnd, true, h);
+        if (t == null) return;
+        h.tree = t;
+        h.plantedRoot = t.root;
+        t.grow = t.style.depth + 1.5f;   // ya crecido: la tela no puede quedar colgando del aire
+    }
+
+    Tree Add(Kind kind, Vector3 root, float height, System.Random rnd, bool straight = false, Hang hang = null)
     {
         var cave = gallery.Cave;
-        if (cave != null && cave.Footprint(root.x, root.z)) return;
+        if (cave != null && cave.Footprint(root.x, root.z)) return null;
         var t = new Tree { kind = kind, style = Get(kind), root = root, height = height };
         // El viento de La nevada sopla siempre hacia el mismo lado; los demas, hacia el camino o hacia afuera
         float side = Mathf.Sign(root.x - gallery.Center.x);
         Vector3 leanDir = kind == Kind.Nevada ? new Vector3(1f, 0f, 0.3f).normalized : new Vector3(-side * ((float)rnd.NextDouble() - 0.3f), 0f, (float)rnd.NextDouble() - 0.5f).normalized;
         float h = height * 0.7f;   // la suma de las ramas hace al arbol mas alto que el tronco solo
         Grow(t, -1, root, (Vector3.up + leanDir * (straight ? 0f : t.style.lean * 0.6f)).normalized, h * t.style.trunk, height * t.style.radius, 0, leanDir, rnd);
+        if (hang != null)
+        {
+            // La rama de la tela: sale de donde termina el tronco, casi horizontal, en 4 tramos que se van afinando
+            // y bajan un poco. Es una rama mas del arbol: crece y se mece con el (cada tramo suma el vaiven del anterior)
+            var trunkNode = t.nodes[0];
+            int parent = 0;
+            float r = trunkNode.r1 * 0.75f, seg = hang.length / 4f;
+            float[] droop = { 4f, -2f, -6f, -3f };
+            for (int i = 0; i < 4; i++)
+            {
+                Vector3 d = Quaternion.AngleAxis(droop[i], Vector3.Cross(Vector3.up, hang.dir)) * hang.dir;
+                var n = new Node { parent = parent, gen = 1, dir = d.normalized, length = seg, r0 = r, r1 = r * 0.72f, phase = (float)rnd.NextDouble() * 6.28f };
+                n.u = Vector3.Cross(n.dir, Vector3.up).normalized;
+                n.v = Vector3.Cross(n.dir, n.u).normalized;
+                parent = t.nodes.Count;
+                t.nodes.Add(n);
+                r = n.r1;
+                if (i == 2) hang.node = parent;   // el punto que sigue la tela: cerca del medio de la tela
+            }
+        }
         BuildMesh(t);
         if (t.style.leaves) BuildLeaves(t, rnd);
         trees.Add(t);
+        return t;
     }
 
     // La recursion: una rama y, al final, sus hijas mas cortas y mas finas
